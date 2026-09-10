@@ -304,7 +304,7 @@ app.get('/spiele/:slug', asyncRoute(async (req, res) => {
 }));
 
 // Alle übrigen Adminbereich-/App-Routen liefern die SPA-Shell aus.
-app.get(['/admin', '/admin/splat*', '/spiele'], (_req, res) => {
+app.get(['/admin', '/admin/*splat', '/spiele'], (_req, res) => {
   res.type('html').send(INDEX_HTML);
 });
 app.get('/', (_req, res) => res.type('html').send(INDEX_HTML));
