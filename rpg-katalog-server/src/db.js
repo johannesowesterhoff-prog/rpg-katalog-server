@@ -11,8 +11,12 @@ if (!process.env.DATABASE_URL) {
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // Neon verlangt TLS; bei den meisten verwalteten Neon-Connection-Strings
-  // ist sslmode=require bereits Teil der URL, das reicht üblicherweise aus.
+  // Setzt das Schema bereits beim Verbindungsaufbau (nicht erst per
+  // nachträglichem "SET search_path"-Query, das durch einen Timing-Fehler
+  // eine Race Condition verursachen konnte -- Abfragen liefen dann teils
+  // gegen den falschen search_path und schlugen mit "relation ... does not
+  // exist" fehl).
+  options: '-c search_path=katalog,public',
 });
 
 // Wichtiger Fix aus der Sicherheitsprüfung: Ohne diesen Handler wirft eine
@@ -24,12 +28,11 @@ pool.on('error', (err) => {
   console.error('[db] Unerwarteter Fehler auf einer Leerlaufverbindung:', err);
 });
 
-// Setzt den search_path für jede neue Verbindung im Pool auf das
-// katalog-Schema, damit unqualifizierte Tabellennamen funktionieren und
-// Objekte aus anderen Schemas (z.B. public.unaccent) nicht versehentlich
-// Vorrang bekommen.
+// Setzt den search_path zusätzlich für jede neue Verbindung im Pool (doppelt
+// hält besser) -- die eigentliche, race-freie Absicherung ist aber die
+// "options"-Startparameter oben in der Pool-Konfiguration.
 pool.on('connect', (client) => {
-  client.query('SET search_path TO katalog, public');
+  client.query('SET search_path TO katalog, public').catch(() => {});
 });
 
 export async function query(text, params) {
