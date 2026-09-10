@@ -1,7 +1,7 @@
-// Zugriff auf das Express-Backend. In der Vorschau wird port/8140 durch
-// den Proxy-Pfad ersetzt; lokal wird direkt der Server angesprochen.
-const RAW = 'port/8140';
-export const API = RAW.startsWith('__') ? '' : (RAW.startsWith('http') ? RAW : new URL(RAW, location.href).href.replace(/\/$/, ''));
+// Zugriff auf das Express-Backend.
+// Frontend und Server laufen auf derselben Origin (z.B. bei Render), daher
+// reicht ein relativer Pfad.
+export const API = '';
 
 // Das Anmelde-Token wird nur im Arbeitsspeicher gehalten; zusätzlich setzt der
 // Server ein HttpOnly-Cookie, das außerhalb der eingebetteten Vorschau greift.
