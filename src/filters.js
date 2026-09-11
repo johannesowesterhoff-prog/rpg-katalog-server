@@ -18,7 +18,7 @@ export const SORTS = {
 
 const DEFAULTS = {
   q: '', language: [], publisher: [], systemFamily: [], genre: [], genreMode: 'OR',
-  focus: [], campaign: [], hasProducts: false,
+  focus: [], campaign: [], tone: [], hasProducts: false,
   crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5,
   sort: 'title', page: 1, status: null,
 };
@@ -31,7 +31,7 @@ function splitCsv(v) {
 export function parseFilters(query, isAdmin) {
   const f = { ...DEFAULTS };
   f.q = (query.q || '').trim();
-  for (const key of ['language', 'publisher', 'systemFamily', 'genre', 'focus', 'campaign']) {
+  for (const key of ['language', 'publisher', 'systemFamily', 'genre', 'focus', 'campaign', 'tone']) {
     f[key] = splitCsv(query[key]);
   }
   if (query.genreMode === 'AND') f.genreMode = 'AND';
@@ -85,6 +85,7 @@ export function buildWhere(f, isAdmin, opts = {}) {
   }
   if (f.focus.length) conds.push(`gd.play_focus && ${p(f.focus)}::text[]`);
   if (f.campaign.length) conds.push(`gd.campaign_type && ${p(f.campaign)}::text[]`);
+  if (f.tone.length) conds.push(`gd.tone_theme && ${p(f.tone)}::text[]`);
   if (f.hasProducts) conds.push(`gd.product_count > 0`);
 
   if (!opts.excludeScales) {
@@ -134,6 +135,11 @@ export function gameDetailCte(isAdmin) {
           FROM katalog.game_tags gt JOIN katalog.tags t ON t.id = gt.tag_id
           WHERE gt.game_id = g.id AND t.kind = 'campaign_type'::katalog.tag_kind
         ) AS campaign_type,
+        (
+          SELECT array_agg(t.name ORDER BY t.sort_order, t.name)
+          FROM katalog.game_tags gt JOIN katalog.tags t ON t.id = gt.tag_id
+          WHERE gt.game_id = g.id AND t.kind = 'tone_theme'::katalog.tag_kind
+        ) AS tone_theme,
         (SELECT count(*) FROM katalog.products pr WHERE pr.game_id = g.id)::int AS product_count
       FROM katalog.games g
       JOIN katalog.languages l ON l.id = g.language_id
@@ -143,5 +149,5 @@ export function gameDetailCte(isAdmin) {
 
 export const CARD_COLUMNS = `
   slug, title, language_code, system_family, short_description,
-  genre_setting, play_focus, campaign_type, crunch, narrative, fluff,
+  genre_setting, play_focus, campaign_type, tone_theme, crunch, narrative, fluff,
   primary_publisher, product_count, status`;

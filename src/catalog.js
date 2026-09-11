@@ -203,6 +203,7 @@ export async function getFacets(query, isAdmin) {
     ['genres', 'genre_setting', true],
     ['focus', 'play_focus', true],
     ['campaigns', 'campaign_type', true],
+    ['toneThemes', 'tone_theme', true],
   ];
   const out = {};
   for (const [key, column] of dims) {
@@ -215,6 +216,7 @@ export async function getFacets(query, isAdmin) {
     if (column === 'genre_setting') fCopy.genre = [];
     if (column === 'play_focus') fCopy.focus = [];
     if (column === 'campaign_type') fCopy.campaign = [];
+    if (column === 'tone_theme') fCopy.tone = [];
     const { whereSql, params } = buildWhere(fCopy, isAdmin, { excludeScales: false });
     const rows = await facetCounts(cte, whereSql, params, { column, isArray: dims.find((d) => d[1] === column)[2] });
     out[key] = rows.map((r) => ({ value: r.value, label: r.value, count: r.count }));
@@ -361,6 +363,7 @@ async function upsertRelations(client, gameId, payload) {
     ['genre_setting', payload.genre_setting],
     ['play_focus', payload.play_focus],
     ['campaign_type', payload.campaign_type],
+    ['tone_theme', payload.tone_theme],
   ];
   for (const [kind, names] of tagGroups) {
     for (const name of names || []) {

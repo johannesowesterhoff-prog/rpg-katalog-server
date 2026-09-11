@@ -220,6 +220,7 @@ app.get('/api/admin/export.json', requireAdmin, asyncRoute(async (_req, res) => 
       genre_setting: tags.rows.filter((t) => t.kind === 'genre_setting').map((t) => t.name),
       play_focus: tags.rows.filter((t) => t.kind === 'play_focus').map((t) => t.name),
       campaign_type: tags.rows.filter((t) => t.kind === 'campaign_type').map((t) => t.name),
+      tone_theme: tags.rows.filter((t) => t.kind === 'tone_theme').map((t) => t.name),
       products: products.rows,
     });
   }
@@ -235,7 +236,7 @@ app.get('/api/admin/export.csv', requireAdmin, asyncRoute(async (_req, res) => {
     ORDER BY g.title`);
   const header = ['title', 'original_title', 'language', 'system_family', 'edition', 'release_year',
     'short_description', 'long_description', 'crunch', 'narrative', 'fluff', 'status',
-    'publishers', 'genre_setting', 'play_focus', 'campaign_type'];
+    'publishers', 'genre_setting', 'play_focus', 'campaign_type', 'tone_theme'];
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const lines = [header.join(';')];
   for (const g of games.rows) {
@@ -250,6 +251,7 @@ app.get('/api/admin/export.csv', requireAdmin, asyncRoute(async (_req, res) => {
       tags.rows.filter((t) => t.kind === 'genre_setting').map((t) => t.name).join('|'),
       tags.rows.filter((t) => t.kind === 'play_focus').map((t) => t.name).join('|'),
       tags.rows.filter((t) => t.kind === 'campaign_type').map((t) => t.name).join('|'),
+      tags.rows.filter((t) => t.kind === 'tone_theme').map((t) => t.name).join('|'),
     ];
     lines.push(row.map(esc).join(';'));
   }

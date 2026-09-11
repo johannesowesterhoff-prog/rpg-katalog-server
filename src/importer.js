@@ -17,7 +17,7 @@ import { slugify, validateGamePayload, findDuplicates, logAudit, httpError } fro
 export const CSV_COLUMNS = [
   'title', 'original_title', 'language', 'system_family', 'edition', 'release_year',
   'short_description', 'long_description', 'crunch', 'narrative', 'fluff', 'status',
-  'publishers', 'genre_setting', 'play_focus', 'campaign_type',
+  'publishers', 'genre_setting', 'play_focus', 'campaign_type', 'tone_theme',
 ];
 
 function parseCsv(content) {
@@ -58,6 +58,7 @@ function normalizeRow(raw, format) {
       status: raw.status || 'draft', editorial_note: raw.editorial_note,
       publishers: (raw.publishers || []).map((p) => (typeof p === 'string' ? p : p.name)),
       genre_setting: raw.genre_setting || [], play_focus: raw.play_focus || [], campaign_type: raw.campaign_type || [],
+      tone_theme: raw.tone_theme || [],
       products: (raw.products || []).map((p) => ({
         title: p.title, product_type: p.product_type, binding: p.binding, edition: p.edition,
         language: p.language, isbn: p.isbn,
@@ -73,6 +74,7 @@ function normalizeRow(raw, format) {
     status: raw.status || 'draft',
     publishers: splitMulti(raw.publishers), genre_setting: splitMulti(raw.genre_setting),
     play_focus: splitMulti(raw.play_focus), campaign_type: splitMulti(raw.campaign_type),
+    tone_theme: splitMulti(raw.tone_theme),
     products: [],
   };
 }
@@ -99,7 +101,7 @@ function rowIssues(payload, rowNumber) {
     const y = Number(payload.release_year);
     if (!Number.isInteger(y) || y < 1970 || y > 2100) add('warning', 'invalid_numeric', 'release_year', payload.release_year, 'Erscheinungsjahr wirkt unplausibel.');
   }
-  for (const list of [payload.publishers, payload.genre_setting, payload.play_focus, payload.campaign_type]) {
+  for (const list of [payload.publishers, payload.genre_setting, payload.play_focus, payload.campaign_type, payload.tone_theme]) {
     const seen = new Set();
     for (const v of list || []) {
       const key = v.toLowerCase();
