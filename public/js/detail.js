@@ -92,6 +92,7 @@ export async function renderDetail(root, slug, ctx) {
           <dt>Genre / Setting</dt><dd class="tag-row">${(g.genre_setting || []).map((t) => `<a class="tag" href="#/?genre=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
           <dt>Spielfokus</dt><dd class="tag-row">${(g.play_focus || []).map((t) => `<a class="tag" href="#/?focus=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
           <dt>Kampagnenart</dt><dd class="tag-row">${(g.campaign_type || []).map((t) => `<a class="tag" href="#/?campaign=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
+          <dt>Tone &amp; Themen</dt><dd class="tag-row">${(g.tone_theme || []).map((t) => `<a class="tag" href="#/?tone=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
         </dl>
       </div>
     </aside>

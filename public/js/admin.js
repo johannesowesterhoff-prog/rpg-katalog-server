@@ -293,7 +293,7 @@ export async function renderEditor(root, id) {
   let game = {
     title: '', original_title: '', language: 'de', system_family: '', edition: '', release_year: '',
     short_description: '', long_description: '', crunch: null, narrative: null, fluff: null,
-    status: 'draft', editorial_note: '', publishers: [], genre_setting: [], play_focus: [], campaign_type: [], products: [],
+    status: 'draft', editorial_note: '', publishers: [], genre_setting: [], play_focus: [], campaign_type: [], tone_theme: [], products: [],
   };
   if (id) {
     const r = await api('/api/admin/games/' + id);
@@ -344,6 +344,8 @@ export async function renderEditor(root, id) {
   slot2.appendChild(fieldWrap('Spielfokus', focusMs.wrap));
   const campMs = multiSelect({ values: state.campaign_type, options: tagsOf('campaign_type'), placeholder: 'Kampagnenart' });
   slot2.appendChild(fieldWrap('Kampagnenart', campMs.wrap));
+  const toneMs = multiSelect({ values: state.tone_theme, options: tagsOf('tone_theme'), placeholder: 'Tone & Themen' });
+  slot2.appendChild(fieldWrap('Tone & Themen', toneMs.wrap));
 
   // ---- 3. Skalen
   const scaleSelect = (key, label) => `<div class="field"><label for="f-${key}">${label}</label>
@@ -429,7 +431,7 @@ export async function renderEditor(root, id) {
       long_description: val('#f-long').trim() || null,
       system_family: sysAc.value,
       publishers: pubMs.values,
-      genre_setting: genreMs.values, play_focus: focusMs.values, campaign_type: campMs.values,
+      genre_setting: genreMs.values, play_focus: focusMs.values, campaign_type: campMs.values, tone_theme: toneMs.values,
       crunch: val('#f-crunch') || null,
       narrative: val('#f-narrative') || null,
       fluff: val('#f-fluff') || null,
@@ -453,7 +455,7 @@ export async function renderEditor(root, id) {
       slug: state.slug || '', title: d.title || 'Ohne Titel', language_code: d.language,
       system_family: d.system_family || 'Systemfamilie offen',
       short_description: d.short_description || 'Noch keine Kurzbeschreibung.',
-      genre_setting: d.genre_setting, play_focus: d.play_focus, campaign_type: d.campaign_type,
+      genre_setting: d.genre_setting, play_focus: d.play_focus, campaign_type: d.campaign_type, tone_theme: d.tone_theme,
       crunch: d.crunch ? Number(d.crunch) : null, narrative: d.narrative ? Number(d.narrative) : null,
       fluff: d.fluff ? Number(d.fluff) : null, primary_publisher: d.publishers[0] || null,
       product_count: d.products.length, status: d.status,
@@ -678,6 +680,7 @@ export async function renderMasterData(root) {
     ['tags', 'Genre / Setting', md.tags.filter((t) => t.kind === 'genre_setting'), 'genre_setting'],
     ['tags', 'Spielfokus', md.tags.filter((t) => t.kind === 'play_focus'), 'play_focus'],
     ['tags', 'Kampagnenart', md.tags.filter((t) => t.kind === 'campaign_type'), 'campaign_type'],
+    ['tags', 'Tone & Themen', md.tags.filter((t) => t.kind === 'tone_theme'), 'tone_theme'],
   ];
   for (const [kind, label, items, tagKind] of groups) {
     const sec = el(`<section class="section"><h2>${esc(label)} (${items.length})</h2>

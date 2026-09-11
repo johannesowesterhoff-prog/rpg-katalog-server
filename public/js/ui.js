@@ -61,6 +61,7 @@ export function gameCard(g, { onTag, showStatus = false } = {}) {
     <div class="gc-meta">
       <div><span>Spielfokus</span><span>${esc((g.play_focus || []).join(' · ') || '–')}</span></div>
       <div><span>Kampagnenart</span><span>${esc((g.campaign_type || []).join(' · ') || '–')}</span></div>
+      <div><span>Tone &amp; Themen</span><span>${esc((g.tone_theme || []).join(' · ') || '–')}</span></div>
       <div><span>Verlag</span><span>${esc(g.primary_publisher || '–')}</span></div>
     </div>
     <div class="gc-foot">
