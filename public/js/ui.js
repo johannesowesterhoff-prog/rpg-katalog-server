@@ -60,7 +60,8 @@ export function gameCard(g, { onTag, showStatus = false } = {}) {
     ${scaleBadges(g)}
     <div class="gc-meta">
       <div><span>Sub Genre</span><span>${esc((g.genre_setting || []).join(' · ') || '–')}</span></div>
-      <div><span>Tone / Themen</span><span>${esc((g.tone_theme || []).join(' · ') || '–')}</span></div>
+      <div><span>Top Tone</span><span>${esc((g.tone_theme_top || []).join(' · ') || '–')}</span></div>
+      <div><span>Sub Tone</span><span>${esc((g.tone_theme || []).join(' · ') || '–')}</span></div>
       <div><span>Spielfokus</span><span>${esc((g.play_focus || []).join(' · ') || '–')}</span></div>
       <div><span>Kampagnenart</span><span>${esc((g.campaign_type || []).join(' · ') || '–')}</span></div>
       <div><span>Verlag</span><span>${esc(g.primary_publisher || '–')}</span></div>

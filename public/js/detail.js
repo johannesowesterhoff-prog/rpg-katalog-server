@@ -91,7 +91,8 @@ export async function renderDetail(root, slug, ctx) {
           ${g.release_year ? `<dt>Jahr</dt><dd>${g.release_year}</dd>` : ''}
           <dt>Top Genre / Setting</dt><dd class="tag-row">${(g.genre_setting_top || []).map((t) => `<a class="tag" href="#/?genreTop=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
           <dt>Sub Genre / Setting</dt><dd class="tag-row">${(g.genre_setting || []).map((t) => `<a class="tag" href="#/?genre=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
-          <dt>Tone / Themen</dt><dd class="tag-row">${(g.tone_theme || []).map((t) => `<a class="tag" href="#/?tone=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
+          <dt>Top Tone / Themen</dt><dd class="tag-row">${(g.tone_theme_top || []).map((t) => `<a class="tag" href="#/?toneTop=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
+          <dt>Sub Tone / Themen</dt><dd class="tag-row">${(g.tone_theme || []).map((t) => `<a class="tag" href="#/?tone=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
           <dt>Spielfokus</dt><dd class="tag-row">${(g.play_focus || []).map((t) => `<a class="tag" href="#/?focus=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
           <dt>Kampagnenart</dt><dd class="tag-row">${(g.campaign_type || []).map((t) => `<a class="tag" href="#/?campaign=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
         </dl>
