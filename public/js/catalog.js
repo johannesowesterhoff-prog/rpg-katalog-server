@@ -169,6 +169,7 @@ export function renderCatalog(root, ctx) {
       const grid = el('<div class="card-grid"></div>');
       data.games.forEach((g) => grid.appendChild(gameCard(g, {
         onTag: (t) => push((st) => { st.genreTop = st.genreTop.includes(t) ? st.genreTop.filter((x) => x !== t) : [...st.genreTop, t]; }),
+        onToneTag: (t) => push((st) => { st.toneTop = st.toneTop.includes(t) ? st.toneTop.filter((x) => x !== t) : [...st.toneTop, t]; }),
       })));
       results.appendChild(grid);
       if (data.pages > 1) results.appendChild(pagination(data, push));
