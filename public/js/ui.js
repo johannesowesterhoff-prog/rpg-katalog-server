@@ -44,8 +44,9 @@ export function scaleBadges(g) {
 export const STATUS_LABEL = { published: 'Veröffentlicht', draft: 'Entwurf', archived: 'Archiviert' };
 
 /** Öffentliche Katalogkarte – Reihenfolge exakt wie im Auftrag. */
-export function gameCard(g, { onTag, showStatus = false } = {}) {
+export function gameCard(g, { onTag, onToneTag, showStatus = false } = {}) {
   const tags = (g.genre_setting_top || []).map((t) => `<button class="tag" data-tag="${esc(t)}" type="button">${esc(t)}</button>`).join('');
+  const toneTags = (g.tone_theme_top || []).map((t) => `<button class="tag tag-tone" data-tone="${esc(t)}" type="button">${esc(t)}</button>`).join('');
   const card = el(`<article class="card game-card">
     <div>
       <div class="gc-title">
@@ -57,10 +58,10 @@ export function gameCard(g, { onTag, showStatus = false } = {}) {
     </div>
     <p class="gc-desc">${esc(g.short_description)}</p>
     <div class="tag-row">${tags}</div>
+    ${toneTags ? `<div class="tag-row tag-row-tone">${toneTags}</div>` : ''}
     ${scaleBadges(g)}
     <div class="gc-meta">
       <div><span>Sub Genre</span><span>${esc((g.genre_setting || []).join(' · ') || '–')}</span></div>
-      <div><span>Top Tone</span><span>${esc((g.tone_theme_top || []).join(' · ') || '–')}</span></div>
       <div><span>Sub Tone</span><span>${esc((g.tone_theme || []).join(' · ') || '–')}</span></div>
       <div><span>Spielfokus</span><span>${esc((g.play_focus || []).join(' · ') || '–')}</span></div>
       <div><span>Kampagnenart</span><span>${esc((g.campaign_type || []).join(' · ') || '–')}</span></div>
@@ -72,6 +73,7 @@ export function gameCard(g, { onTag, showStatus = false } = {}) {
     </div>
   </article>`);
   if (onTag) card.querySelectorAll('[data-tag]').forEach((b) => b.addEventListener('click', () => onTag(b.dataset.tag)));
+  if (onToneTag) card.querySelectorAll('[data-tone]').forEach((b) => b.addEventListener('click', () => onToneTag(b.dataset.tone)));
   return card;
 }
 
