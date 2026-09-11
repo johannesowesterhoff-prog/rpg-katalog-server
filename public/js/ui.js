@@ -116,7 +116,7 @@ export function autocomplete({ value = '', options = [], placeholder = '', onCha
 export function multiSelect({ values = [], options = [], placeholder = '', onChange }) {
   const wrap = el('<div><div class="chosen"></div></div>');
   const chosen = wrap.querySelector('.chosen');
-  const list = [...values];
+  const list = [...(values || [])];
   const render = () => {
     chosen.innerHTML = '';
     if (!list.length) chosen.appendChild(el('<span class="faint" style="font-size:var(--text-xs)">Noch nichts ausgewählt</span>'));
