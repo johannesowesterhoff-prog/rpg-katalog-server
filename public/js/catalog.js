@@ -2,8 +2,8 @@
 import { api } from './api.js';
 import { el, esc, gameCard, skeletonGrid, emptyState, toast, SCALE_HELP } from './ui.js';
 
-const DEFAULTS = { q: '', language: [], publisher: [], systemFamily: [], genre: [], genreMode: 'OR', focus: [], campaign: [], tone: [], hasProducts: false, crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5, sort: 'title', page: 1 };
-const MULTI = ['language', 'publisher', 'systemFamily', 'genre', 'focus', 'campaign', 'tone'];
+const DEFAULTS = { q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [], genreMode: 'OR', focus: [], campaign: [], tone: [], hasProducts: false, crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5, sort: 'title', page: 1 };
+const MULTI = ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'campaign', 'tone'];
 const SCALES = [['crunch', 'Crunch'], ['narrative', 'Narrativ'], ['fluff', 'Fluff']];
 
 export function stateFromQuery(params) {
@@ -40,7 +40,7 @@ export function queryFromState(s) {
 function activeChips(s) {
   const chips = [];
   if (s.q) chips.push({ label: `Suche: „${s.q}“`, clear: (st) => { st.q = ''; } });
-  const names = { language: 'Sprache', publisher: 'Verlag', systemFamily: 'System', genre: 'Genre', focus: 'Fokus', campaign: 'Kampagne', tone: 'Tone & Themen' };
+  const names = { language: 'Sprache', publisher: 'Verlag', systemFamily: 'System', genreTop: 'Top Genre', genre: 'Sub Genre', focus: 'Fokus', campaign: 'Kampagne', tone: 'Tone / Themen' };
   for (const k of MULTI) s[k].forEach((v) => chips.push({ label: `${names[k]}: ${v}`, clear: (st) => { st[k] = st[k].filter((x) => x !== v); } }));
   for (const [key, label] of SCALES) {
     if (s[key + 'Min'] > 1 || s[key + 'Max'] < 5) {
@@ -152,7 +152,7 @@ export function renderCatalog(root, ctx) {
       }
       const grid = el('<div class="card-grid"></div>');
       data.games.forEach((g) => grid.appendChild(gameCard(g, {
-        onTag: (t) => push((st) => { st.genre = st.genre.includes(t) ? st.genre.filter((x) => x !== t) : [...st.genre, t]; }),
+        onTag: (t) => push((st) => { st.genreTop = st.genreTop.includes(t) ? st.genreTop.filter((x) => x !== t) : [...st.genreTop, t]; }),
       })));
       results.appendChild(grid);
       if (data.pages > 1) results.appendChild(pagination(data, push));
@@ -250,19 +250,21 @@ function renderFilters(container, s, facets, push) {
   scaleGroup.appendChild(el('<p class="faint" style="font-size:var(--text-xs);margin:0">Einträge ohne Wert werden ausgeblendet, sobald ein Bereich eingeschränkt wird.</p>'));
   container.appendChild(scaleGroup);
 
+  container.appendChild(facetGroup('Top Genre / Setting', 'genreTop', facets.genresTop, s.genreTop, push));
+
   const modeHtml = `<div class="mode-switch" role="group" aria-label="Genre-Verknüpfung">
     <button type="button" data-mode="OR" class="${s.genreMode === 'OR' ? 'on' : ''}">ODER</button>
     <button type="button" data-mode="AND" class="${s.genreMode === 'AND' ? 'on' : ''}">UND</button>
   </div>`;
-  const genreGroup = facetGroup('Genre / Setting', 'genre', facets.genres, s.genre, push, modeHtml);
+  const genreGroup = facetGroup('Sub Genre / Setting', 'genre', facets.genres, s.genre, push, modeHtml);
   genreGroup.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => push((st) => { st.genreMode = b.dataset.mode; })));
   container.appendChild(genreGroup);
 
+  container.appendChild(facetGroup('Tone / Themen', 'tone', facets.toneThemes, s.tone, push));
   container.appendChild(facetGroup('Sprache', 'language', facets.languages, s.language, push));
   container.appendChild(facetGroup('Systemfamilie', 'systemFamily', facets.systemFamilies, s.systemFamily, push));
   container.appendChild(facetGroup('Spielfokus', 'focus', facets.focus, s.focus, push));
   container.appendChild(facetGroup('Kampagnenart', 'campaign', facets.campaigns, s.campaign, push));
-  container.appendChild(facetGroup('Tone & Themen', 'tone', facets.toneThemes, s.tone, push));
   container.appendChild(facetGroup('Verlag', 'publisher', facets.publishers, s.publisher, push));
 
   const prod = el(`<div class="filter-group"><h3>Bestand</h3>

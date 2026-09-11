@@ -45,7 +45,7 @@ export const STATUS_LABEL = { published: 'Veröffentlicht', draft: 'Entwurf', ar
 
 /** Öffentliche Katalogkarte – Reihenfolge exakt wie im Auftrag. */
 export function gameCard(g, { onTag, showStatus = false } = {}) {
-  const tags = (g.genre_setting || []).map((t) => `<button class="tag" data-tag="${esc(t)}" type="button">${esc(t)}</button>`).join('');
+  const tags = (g.genre_setting_top || []).map((t) => `<button class="tag" data-tag="${esc(t)}" type="button">${esc(t)}</button>`).join('');
   const card = el(`<article class="card game-card">
     <div>
       <div class="gc-title">
@@ -59,9 +59,10 @@ export function gameCard(g, { onTag, showStatus = false } = {}) {
     <div class="tag-row">${tags}</div>
     ${scaleBadges(g)}
     <div class="gc-meta">
+      <div><span>Sub Genre</span><span>${esc((g.genre_setting || []).join(' · ') || '–')}</span></div>
+      <div><span>Tone / Themen</span><span>${esc((g.tone_theme || []).join(' · ') || '–')}</span></div>
       <div><span>Spielfokus</span><span>${esc((g.play_focus || []).join(' · ') || '–')}</span></div>
       <div><span>Kampagnenart</span><span>${esc((g.campaign_type || []).join(' · ') || '–')}</span></div>
-      <div><span>Tone &amp; Themen</span><span>${esc((g.tone_theme || []).join(' · ') || '–')}</span></div>
       <div><span>Verlag</span><span>${esc(g.primary_publisher || '–')}</span></div>
     </div>
     <div class="gc-foot">
