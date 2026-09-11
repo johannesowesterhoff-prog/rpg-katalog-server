@@ -200,6 +200,7 @@ export async function getFacets(query, isAdmin) {
     ['languages', 'language_code', false],
     ['publishers', 'primary_publisher', false],
     ['systemFamilies', 'system_family', false],
+    ['genresTop', 'genre_setting_top', true],
     ['genres', 'genre_setting', true],
     ['focus', 'play_focus', true],
     ['campaigns', 'campaign_type', true],
@@ -213,6 +214,7 @@ export async function getFacets(query, isAdmin) {
     if (column === 'language_code') fCopy.language = [];
     if (column === 'primary_publisher') fCopy.publisher = [];
     if (column === 'system_family') fCopy.systemFamily = [];
+    if (column === 'genre_setting_top') fCopy.genreTop = [];
     if (column === 'genre_setting') fCopy.genre = [];
     if (column === 'play_focus') fCopy.focus = [];
     if (column === 'campaign_type') fCopy.campaign = [];
@@ -360,6 +362,7 @@ async function upsertRelations(client, gameId, payload) {
 
   await client.query('DELETE FROM katalog.game_tags WHERE game_id = $1', [gameId]);
   const tagGroups = [
+    ['genre_setting_top', payload.genre_setting_top],
     ['genre_setting', payload.genre_setting],
     ['play_focus', payload.play_focus],
     ['campaign_type', payload.campaign_type],

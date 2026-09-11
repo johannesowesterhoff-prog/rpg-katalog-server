@@ -17,7 +17,7 @@ export const SORTS = {
 };
 
 const DEFAULTS = {
-  q: '', language: [], publisher: [], systemFamily: [], genre: [], genreMode: 'OR',
+  q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [], genreMode: 'OR',
   focus: [], campaign: [], tone: [], hasProducts: false,
   crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5,
   sort: 'title', page: 1, status: null,
@@ -31,7 +31,7 @@ function splitCsv(v) {
 export function parseFilters(query, isAdmin) {
   const f = { ...DEFAULTS };
   f.q = (query.q || '').trim();
-  for (const key of ['language', 'publisher', 'systemFamily', 'genre', 'focus', 'campaign', 'tone']) {
+  for (const key of ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'campaign', 'tone']) {
     f[key] = splitCsv(query[key]);
   }
   if (query.genreMode === 'AND') f.genreMode = 'AND';
@@ -78,6 +78,7 @@ export function buildWhere(f, isAdmin, opts = {}) {
   if (f.language.length) conds.push(`gd.language_code = ANY(${p(f.language)}::text[])`);
   if (f.publisher.length) conds.push(`gd.primary_publisher = ANY(${p(f.publisher)}::text[])`);
   if (f.systemFamily.length) conds.push(`gd.system_family = ANY(${p(f.systemFamily)}::text[])`);
+  if (f.genreTop.length) conds.push(`gd.genre_setting_top && ${p(f.genreTop)}::text[]`);
   if (f.genre.length) {
     conds.push(f.genreMode === 'AND'
       ? `gd.genre_setting @> ${p(f.genre)}::text[]`
@@ -123,6 +124,11 @@ export function gameDetailCte(isAdmin) {
         (
           SELECT array_agg(t.name ORDER BY t.sort_order, t.name)
           FROM katalog.game_tags gt JOIN katalog.tags t ON t.id = gt.tag_id
+          WHERE gt.game_id = g.id AND t.kind = 'genre_setting_top'::katalog.tag_kind
+        ) AS genre_setting_top,
+        (
+          SELECT array_agg(t.name ORDER BY t.sort_order, t.name)
+          FROM katalog.game_tags gt JOIN katalog.tags t ON t.id = gt.tag_id
           WHERE gt.game_id = g.id AND t.kind = 'genre_setting'::katalog.tag_kind
         ) AS genre_setting,
         (
@@ -149,5 +155,5 @@ export function gameDetailCte(isAdmin) {
 
 export const CARD_COLUMNS = `
   id, slug, title, language_code, system_family, short_description,
-  genre_setting, play_focus, campaign_type, tone_theme, crunch, narrative, fluff,
+  genre_setting_top, genre_setting, play_focus, campaign_type, tone_theme, crunch, narrative, fluff,
   primary_publisher, product_count, status`;
