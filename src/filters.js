@@ -148,6 +148,6 @@ export function gameDetailCte(isAdmin) {
 }
 
 export const CARD_COLUMNS = `
-  slug, title, language_code, system_family, short_description,
+  id, slug, title, language_code, system_family, short_description,
   genre_setting, play_focus, campaign_type, tone_theme, crunch, narrative, fluff,
   primary_publisher, product_count, status`;
