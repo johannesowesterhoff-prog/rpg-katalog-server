@@ -12,7 +12,7 @@ import {
   loginRateLimit, csrfGuard,
 } from './src/auth.js';
 import {
-  listGames, getFacets, getGameBySlug, getGameById, getMasterData,
+  listGames, getFacets, getGameBySlug, getGameById, getMasterData, getWahlomatData,
   getDashboard, getFluffQueue, setFluff, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
   deleteMasterEntry, getAuditLog,
@@ -94,6 +94,10 @@ app.get('/api/games/:slug', attachAdminFlag, asyncRoute(async (req, res) => {
   const data = await getGameBySlug(req.params.slug, req.isAdmin);
   if (!data) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
   res.json(data);
+}));
+
+app.get('/api/wahlomat.json', asyncRoute(async (_req, res) => {
+  res.json(await getWahlomatData());
 }));
 
 app.get('/api/master-data', asyncRoute(async (_req, res) => {

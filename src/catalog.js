@@ -157,6 +157,22 @@ export async function getAuditLog(limit = 120) {
   return r.rows;
 }
 
+// --------------------------------------------------------- Wahlomat
+// Liefert alle veröffentlichten Spiele mit genau den Feldern, die der
+// RPG-Wahlomat für sein automatisches Profil (Genre/Ton/Fokus-Tags,
+// Crunch/Narrativ/Fluff) braucht -- ohne Paginierung, da der Wahlomat immer
+// mit der vollständigen Sammlung rechnet.
+export async function getWahlomatData() {
+  const cte = gameDetailCte(false);
+  const sql = `WITH ${cte}
+    SELECT slug, title, language_code AS language, system_family,
+      genre_setting_top, genre_setting, play_focus, tone_theme_top, tone_theme,
+      crunch, narrative, fluff
+    FROM gd WHERE status = 'published' ORDER BY title`;
+  const r = await pool.query(sql);
+  return { games: r.rows };
+}
+
 // --------------------------------------------------------- Öffentliche API
 export async function listGames(query, isAdmin) {
   const f = parseFilters(query, isAdmin);
