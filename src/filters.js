@@ -16,11 +16,17 @@ export const SORTS = {
   fluff: 'gd.fluff DESC NULLS LAST, gd.title',
 };
 
+// Array-Facetten, bei denen ein Spiel mehrere Werte gleichzeitig tragen kann --
+// dort ist ODER/UND-Verknüpfung sinnvoll (im Gegensatz zu Sprache/Verlag/
+// Systemfamilie, die pro Spiel einwertig sind).
+export const MODE_DIMS = ['genreTop', 'genre', 'toneTop', 'tone', 'focus', 'campaign'];
+
 const DEFAULTS = {
-  q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [], genreMode: 'OR',
+  q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [],
   focus: [], campaign: [], toneTop: [], tone: [], hasProducts: false,
   crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5,
   sort: 'title', page: 1, status: null,
+  ...Object.fromEntries(MODE_DIMS.map((k) => [k + 'Mode', 'OR'])),
 };
 
 function splitCsv(v) {
@@ -34,7 +40,9 @@ export function parseFilters(query, isAdmin) {
   for (const key of ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'campaign', 'toneTop', 'tone']) {
     f[key] = splitCsv(query[key]);
   }
-  if (query.genreMode === 'AND') f.genreMode = 'AND';
+  for (const key of MODE_DIMS) {
+    if (query[key + 'Mode'] === 'AND') f[key + 'Mode'] = 'AND';
+  }
   f.hasProducts = query.hasProducts === '1';
   for (const key of ['crunch', 'narrative', 'fluff']) {
     const mn = Number(query[key + 'Min']);
@@ -78,16 +86,20 @@ export function buildWhere(f, isAdmin, opts = {}) {
   if (f.language.length) conds.push(`gd.language_code = ANY(${p(f.language)}::text[])`);
   if (f.publisher.length) conds.push(`gd.primary_publisher = ANY(${p(f.publisher)}::text[])`);
   if (f.systemFamily.length) conds.push(`gd.system_family = ANY(${p(f.systemFamily)}::text[])`);
-  if (f.genreTop.length) conds.push(`gd.genre_setting_top && ${p(f.genreTop)}::text[]`);
-  if (f.genre.length) {
-    conds.push(f.genreMode === 'AND'
-      ? `gd.genre_setting @> ${p(f.genre)}::text[]`
-      : `gd.genre_setting && ${p(f.genre)}::text[]`);
+
+  // Array-Facetten: ODER (&&, mind. eine Überschneidung) oder UND (@>, alle
+  // gewählten Werte müssen vorhanden sein), je nach f.<dim>Mode.
+  const arrayCol = {
+    genreTop: 'genre_setting_top', genre: 'genre_setting',
+    toneTop: 'tone_theme_top', tone: 'tone_theme',
+    focus: 'play_focus', campaign: 'campaign_type',
+  };
+  for (const [dim, col] of Object.entries(arrayCol)) {
+    if (!f[dim].length) continue;
+    conds.push(f[dim + 'Mode'] === 'AND'
+      ? `gd.${col} @> ${p(f[dim])}::text[]`
+      : `gd.${col} && ${p(f[dim])}::text[]`);
   }
-  if (f.focus.length) conds.push(`gd.play_focus && ${p(f.focus)}::text[]`);
-  if (f.campaign.length) conds.push(`gd.campaign_type && ${p(f.campaign)}::text[]`);
-  if (f.toneTop.length) conds.push(`gd.tone_theme_top && ${p(f.toneTop)}::text[]`);
-  if (f.tone.length) conds.push(`gd.tone_theme && ${p(f.tone)}::text[]`);
   if (f.hasProducts) conds.push(`gd.product_count > 0`);
 
   if (!opts.excludeScales) {
