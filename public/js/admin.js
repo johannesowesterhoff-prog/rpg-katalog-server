@@ -340,12 +340,12 @@ export async function renderEditor(root, id) {
   slot2.appendChild(fieldWrap('Verlage * (erster Eintrag = Hauptverlag)', pubMs.wrap));
   const genreMs = multiSelect({ values: state.genre_setting, options: tagsOf('genre_setting'), placeholder: 'Genre / Setting' });
   slot2.appendChild(fieldWrap('Genre / Setting *', genreMs.wrap));
+  const toneMs = multiSelect({ values: state.tone_theme, options: tagsOf('tone_theme'), placeholder: 'Tone & Themen' });
+  slot2.appendChild(fieldWrap('Tone & Themen', toneMs.wrap));
   const focusMs = multiSelect({ values: state.play_focus, options: tagsOf('play_focus'), placeholder: 'Spielfokus' });
   slot2.appendChild(fieldWrap('Spielfokus', focusMs.wrap));
   const campMs = multiSelect({ values: state.campaign_type, options: tagsOf('campaign_type'), placeholder: 'Kampagnenart' });
   slot2.appendChild(fieldWrap('Kampagnenart', campMs.wrap));
-  const toneMs = multiSelect({ values: state.tone_theme, options: tagsOf('tone_theme'), placeholder: 'Tone & Themen' });
-  slot2.appendChild(fieldWrap('Tone & Themen', toneMs.wrap));
 
   // ---- 3. Skalen
   const scaleSelect = (key, label) => `<div class="field"><label for="f-${key}">${label}</label>
@@ -678,9 +678,9 @@ export async function renderMasterData(root) {
     ['system-families', 'Systemfamilien', md.systemFamilies, null],
     ['product-types', 'Produkttypen', md.productTypes, null],
     ['tags', 'Genre / Setting', md.tags.filter((t) => t.kind === 'genre_setting'), 'genre_setting'],
+    ['tags', 'Tone & Themen', md.tags.filter((t) => t.kind === 'tone_theme'), 'tone_theme'],
     ['tags', 'Spielfokus', md.tags.filter((t) => t.kind === 'play_focus'), 'play_focus'],
     ['tags', 'Kampagnenart', md.tags.filter((t) => t.kind === 'campaign_type'), 'campaign_type'],
-    ['tags', 'Tone & Themen', md.tags.filter((t) => t.kind === 'tone_theme'), 'tone_theme'],
   ];
   for (const [kind, label, items, tagKind] of groups) {
     const sec = el(`<section class="section"><h2>${esc(label)} (${items.length})</h2>

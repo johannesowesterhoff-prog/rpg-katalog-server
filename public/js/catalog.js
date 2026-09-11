@@ -260,9 +260,9 @@ function renderFilters(container, s, facets, push) {
 
   container.appendChild(facetGroup('Sprache', 'language', facets.languages, s.language, push));
   container.appendChild(facetGroup('Systemfamilie', 'systemFamily', facets.systemFamilies, s.systemFamily, push));
+  container.appendChild(facetGroup('Tone & Themen', 'tone', facets.toneThemes, s.tone, push));
   container.appendChild(facetGroup('Spielfokus', 'focus', facets.focus, s.focus, push));
   container.appendChild(facetGroup('Kampagnenart', 'campaign', facets.campaigns, s.campaign, push));
-  container.appendChild(facetGroup('Tone & Themen', 'tone', facets.toneThemes, s.tone, push));
   container.appendChild(facetGroup('Verlag', 'publisher', facets.publishers, s.publisher, push));
 
   const prod = el(`<div class="filter-group"><h3>Bestand</h3>
