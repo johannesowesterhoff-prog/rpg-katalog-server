@@ -53,6 +53,16 @@ function activeChips(s) {
 
 export function renderCatalog(root, ctx) {
   const s = stateFromQuery(ctx.params);
+
+  // Die Suche re-rendert den kompletten Katalog bei jeder Änderung (via
+  // Hash-Routing) -- ohne diese Rettung verliert das #suche-Feld dabei den
+  // Fokus (neues DOM-Element), was auf dem Handy und bei schnellem Tippen
+  // dazu führt, dass man quasi jeden Buchstaben einzeln eintippen muss.
+  const prevInput = document.getElementById('suche');
+  const hadFocus = !!prevInput && document.activeElement === prevInput;
+  const selStart = hadFocus ? prevInput.selectionStart : null;
+  const selEnd = hadFocus ? prevInput.selectionEnd : null;
+
   root.innerHTML = '';
 
   const head = el(`<section class="catalog-head">
@@ -78,6 +88,12 @@ export function renderCatalog(root, ctx) {
   </section>`);
   head.querySelector('#sortierung').value = s.sort;
   root.appendChild(head);
+
+  if (hadFocus) {
+    const newInput = head.querySelector('#suche');
+    newInput.focus();
+    newInput.setSelectionRange(selStart, selEnd);
+  }
 
   const layout = el(`<div class="catalog-layout">
     <aside class="sidebar" id="filter-sidebar" aria-label="Filter">
