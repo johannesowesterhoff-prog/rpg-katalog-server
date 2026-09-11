@@ -2,6 +2,7 @@
 import { api, hasToken } from './api.js';
 import { renderCatalog } from './catalog.js';
 import { renderDetail } from './detail.js';
+import { renderWahlomat } from './wahlomat.js';
 import { renderLogin, renderDashboard, renderFluffQueue, renderList, renderEditor, renderImport, renderMasterData, renderAudit } from './admin.js';
 import { toast, emptyState } from './ui.js';
 
@@ -50,6 +51,7 @@ async function route() {
   document.title = 'RPG-Katalog – Sammlung von Rollenspielen';
   try {
     if (parts[0] === 'spiele' && parts[1]) { markNav('katalog'); await renderDetail(root, decodeURIComponent(parts[1]), ctx); return; }
+    if (parts[0] === 'wahlomat') { markNav('wahlomat'); await renderWahlomat(root); return; }
     if (parts[0] === 'admin') {
       markNav('admin');
       const sub = parts[1];
