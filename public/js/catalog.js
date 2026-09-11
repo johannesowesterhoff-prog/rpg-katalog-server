@@ -2,7 +2,11 @@
 import { api } from './api.js';
 import { el, esc, gameCard, skeletonGrid, emptyState, toast, SCALE_HELP } from './ui.js';
 
-const DEFAULTS = { q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [], genreMode: 'OR', focus: [], campaign: [], toneTop: [], tone: [], hasProducts: false, crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5, sort: 'title', page: 1 };
+// Array-Facetten, bei denen ein Spiel mehrere Werte gleichzeitig tragen kann --
+// dort ist ein ODER/UND-Umschalter sinnvoll (im Gegensatz zu Sprache/Verlag/
+// Systemfamilie, die pro Spiel einwertig sind).
+const MODE_DIMS = ['genreTop', 'genre', 'toneTop', 'tone', 'focus', 'campaign'];
+const DEFAULTS = { q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [], focus: [], campaign: [], toneTop: [], tone: [], hasProducts: false, crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5, sort: 'title', page: 1, ...Object.fromEntries(MODE_DIMS.map((k) => [k + 'Mode', 'OR'])) };
 const MULTI = ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'campaign', 'toneTop', 'tone'];
 const SCALES = [['crunch', 'Crunch'], ['narrative', 'Narrativ'], ['fluff', 'Fluff']];
 
@@ -10,7 +14,7 @@ export function stateFromQuery(params) {
   const s = structuredClone(DEFAULTS);
   for (const k of MULTI) { const v = params.get(k); if (v) s[k] = v.split(',').filter(Boolean); }
   if (params.get('q')) s.q = params.get('q');
-  if (params.get('genreMode') === 'AND') s.genreMode = 'AND';
+  for (const k of MODE_DIMS) if (params.get(k + 'Mode') === 'AND') s[k + 'Mode'] = 'AND';
   if (params.get('hasProducts') === '1') s.hasProducts = true;
   for (const [key] of SCALES) {
     const mn = params.get(key + 'Min'), mx = params.get(key + 'Max');
@@ -26,7 +30,7 @@ export function queryFromState(s) {
   const p = new URLSearchParams();
   if (s.q) p.set('q', s.q);
   for (const k of MULTI) if (s[k].length) p.set(k, s[k].join(','));
-  if (s.genre.length > 1 && s.genreMode === 'AND') p.set('genreMode', 'AND');
+  for (const k of MODE_DIMS) if (s[k].length > 1 && s[k + 'Mode'] === 'AND') p.set(k + 'Mode', 'AND');
   if (s.hasProducts) p.set('hasProducts', '1');
   for (const [key] of SCALES) {
     if (s[key + 'Min'] > 1) p.set(key + 'Min', String(s[key + 'Min']));
@@ -198,8 +202,21 @@ function pagination(data, push) {
   return box;
 }
 
-function facetGroup(title, dim, items, selected, push, extraHtml = '') {
+function modeSwitchHtml(dim, s, label) {
+  return `<div class="mode-switch" role="group" aria-label="${esc(label)}-Verknüpfung">
+    <button type="button" data-mode="OR" class="${s[dim + 'Mode'] === 'OR' ? 'on' : ''}">ODER</button>
+    <button type="button" data-mode="AND" class="${s[dim + 'Mode'] === 'AND' ? 'on' : ''}">UND</button>
+  </div>`;
+}
+
+/** Facettengruppe mit optionalem ODER/UND-Umschalter (wenn dim in MODE_DIMS ist). */
+function facetGroup(title, dim, items, s, push) {
+  const selected = s[dim];
+  const extraHtml = MODE_DIMS.includes(dim) ? modeSwitchHtml(dim, s, title) : '';
   const group = el(`<div class="filter-group"><h3>${esc(title)}</h3>${extraHtml}<div class="facet-list"></div></div>`);
+  if (MODE_DIMS.includes(dim)) {
+    group.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => push((st) => { st[dim + 'Mode'] = b.dataset.mode; })));
+  }
   const list = group.querySelector('.facet-list');
   const known = new Set(items.map((i) => i.value));
   const all = [...items, ...selected.filter((v) => !known.has(v)).map((v) => ({ value: v, label: v, count: 0 }))];
@@ -267,23 +284,15 @@ function renderFilters(container, s, facets, push) {
   scaleGroup.appendChild(el('<p class="faint" style="font-size:var(--text-xs);margin:0">Einträge ohne Wert werden ausgeblendet, sobald ein Bereich eingeschränkt wird.</p>'));
   container.appendChild(scaleGroup);
 
-  container.appendChild(facetGroup('Top Genre / Setting', 'genreTop', facets.genresTop, s.genreTop, push));
-
-  const modeHtml = `<div class="mode-switch" role="group" aria-label="Genre-Verknüpfung">
-    <button type="button" data-mode="OR" class="${s.genreMode === 'OR' ? 'on' : ''}">ODER</button>
-    <button type="button" data-mode="AND" class="${s.genreMode === 'AND' ? 'on' : ''}">UND</button>
-  </div>`;
-  const genreGroup = facetGroup('Sub Genre / Setting', 'genre', facets.genres, s.genre, push, modeHtml);
-  genreGroup.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => push((st) => { st.genreMode = b.dataset.mode; })));
-  container.appendChild(genreGroup);
-
-  container.appendChild(facetGroup('Top Tone / Themen', 'toneTop', facets.toneThemesTop, s.toneTop, push));
-  container.appendChild(facetGroup('Sub Tone / Themen', 'tone', facets.toneThemes, s.tone, push));
-  container.appendChild(facetGroup('Sprache', 'language', facets.languages, s.language, push));
-  container.appendChild(facetGroup('Systemfamilie', 'systemFamily', facets.systemFamilies, s.systemFamily, push));
-  container.appendChild(facetGroup('Spielfokus', 'focus', facets.focus, s.focus, push));
-  container.appendChild(facetGroup('Kampagnenart', 'campaign', facets.campaigns, s.campaign, push));
-  container.appendChild(facetGroup('Verlag', 'publisher', facets.publishers, s.publisher, push));
+  container.appendChild(facetGroup('Top Genre / Setting', 'genreTop', facets.genresTop, s, push));
+  container.appendChild(facetGroup('Sub Genre / Setting', 'genre', facets.genres, s, push));
+  container.appendChild(facetGroup('Top Tone / Themen', 'toneTop', facets.toneThemesTop, s, push));
+  container.appendChild(facetGroup('Sub Tone / Themen', 'tone', facets.toneThemes, s, push));
+  container.appendChild(facetGroup('Sprache', 'language', facets.languages, s, push));
+  container.appendChild(facetGroup('Systemfamilie', 'systemFamily', facets.systemFamilies, s, push));
+  container.appendChild(facetGroup('Spielfokus', 'focus', facets.focus, s, push));
+  container.appendChild(facetGroup('Kampagnenart', 'campaign', facets.campaigns, s, push));
+  container.appendChild(facetGroup('Verlag', 'publisher', facets.publishers, s, push));
 
   const prod = el(`<div class="filter-group"><h3>Bestand</h3>
     <label class="check"><input type="checkbox" ${s.hasProducts ? 'checked' : ''}>
