@@ -1,5 +1,5 @@
-// Adminbereich: Dashboard, Fluff-Schnellerfassung, Editor, Import/Export,
-// Stammdaten und Änderungsprotokoll.
+// Adminbereich: Dashboard, Editor, Import/Export, Stammdaten und
+// Änderungsprotokoll.
 import { api, setToken } from './api.js';
 import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, SCALE_HELP, SCALE_LABELS, STATUS_LABEL } from './ui.js';
 
@@ -50,7 +50,7 @@ function openPasswordDialog() {
 }
 
 function tabs(active) {
-  const items = [['#/admin', 'Übersicht', 'dashboard'], ['#/admin/fluff', 'Fluff-Schnellerfassung', 'fluff'],
+  const items = [['#/admin', 'Übersicht', 'dashboard'],
     ['#/admin/liste', 'Einträge', 'liste'], ['#/admin/editor', 'Neuer Eintrag', 'editor'],
     ['#/admin/import', 'Import & Export', 'import'], ['#/admin/stammdaten', 'Stammdaten', 'stammdaten'],
     ['#/admin/protokoll', 'Protokoll', 'protokoll']];
@@ -161,14 +161,8 @@ export async function renderDashboard(root) {
     <a class="card tile" href="#/admin/liste?status=draft"><span class="num">${c.draft}</span><span class="lbl">Entwürfe</span></a>
     <a class="card tile" href="#/admin/liste?status=archived"><span class="num">${c.archived}</span><span class="lbl">Archiviert</span></a>
     <div class="card tile"><span class="num">${d.productCount}</span><span class="lbl">Produkte im Bestand</span></div>
-    <a class="card tile task" href="#/admin/fluff"><span class="num">${c.without_fluff}</span><span class="lbl">${c.without_fluff === 1 ? 'Eintrag' : 'Einträge'} ohne Fluff-Wert – jetzt bewerten</span></a>
   </div>`);
   body.appendChild(tiles);
-
-  if (c.without_fluff > 0) {
-    body.appendChild(el(`<div class="help-box"><strong>Nächster Schritt:</strong> ${c.without_fluff} ${c.without_fluff === 1 ? 'Eintrag hat' : 'Einträge haben'} noch keinen Fluff-Wert.
-      Die <a href="#/admin/fluff">Schnellerfassung</a> zeigt alle in einer Liste – ein Klick pro Spiel genügt.</div>`));
-  }
 
   const sec = el(`<section class="section"><h2>Letzte Änderungen</h2><div class="panel scroll-x" style="padding:0">
     <table><thead><tr><th>Zeitpunkt</th><th>Aktion</th><th>Eintrag</th><th>Details</th></tr></thead><tbody></tbody></table></div></section>`);
@@ -195,50 +189,6 @@ function auditRow(a) {
     <td class="diff">${esc(summary)}</td></tr>`);
 }
 const fmtVal = (v) => (v == null ? '–' : Array.isArray(v) ? v.join(', ') : String(v));
-
-// ------------------------------------------------- Fluff-Schnellerfassung
-export async function renderFluffQueue(root) {
-  const body = mount(root, 'fluff', 'Fluff-Schnellerfassung', 'Alle Spiele ohne Fluff-Wert – direkt bewerten, ohne Formularwechsel.');
-  body.innerHTML = '<div class="skeleton" style="height:160px"></div>';
-  const { games } = await api('/api/admin/fluff-queue');
-  body.innerHTML = '';
-  body.appendChild(el(`<div class="help-box"><strong>Fluff</strong> = Ausarbeitungsgrad der gesamten offiziell veröffentlichten Spielwelt,
-    unabhängig davon, wie viel davon du besitzt. Maßstab: ${SCALE_LABELS.fluff.join(' · ')}.</div>`));
-  const counter = el(`<p class="muted" id="fluff-count">${games.length} ${games.length === 1 ? 'Eintrag offen' : 'Einträge offen'}</p>`);
-  body.appendChild(counter);
-
-  if (!games.length) {
-    body.appendChild(emptyState('Alles bewertet', 'Für jedes Spiel liegt ein Fluff-Wert vor. Sehr gut!', '<p><a class="btn btn-sm" href="#/admin">Zur Übersicht</a></p>'));
-    return;
-  }
-  const list = el('<div class="panel" style="padding:0"></div>');
-  let open = games.length;
-  games.forEach((g) => {
-    const row = el(`<div class="fluff-row">
-      <div>
-        <strong>${esc(g.title)}</strong> <span class="badge badge-lang">${esc(g.language_code)}</span>
-        <div class="faint" style="font-size:var(--text-xs)">${esc(g.system_family)} · Crunch ${fmtScale(g.crunch)} · Narrativ ${fmtScale(g.narrative)} · ${esc(g.primary_publisher || '')}</div>
-        <div class="muted" style="font-size:var(--text-xs);margin-top:.2rem">${esc(g.short_description)}</div>
-      </div>
-      <div class="fluff-scale" role="group" aria-label="Fluff-Wert für ${esc(g.title)}">
-        ${SCALE_STEPS.map((v) => `<button type="button" data-v="${v}">${String(v).replace('.', ',')}</button>`).join('')}
-      </div>
-    </div>`);
-    row.querySelectorAll('button[data-v]').forEach((b) => b.addEventListener('click', async () => {
-      const v = Number(b.dataset.v);
-      row.querySelectorAll('button[data-v]').forEach((x) => x.classList.remove('on'));
-      b.classList.add('on');
-      try {
-        await api(`/api/admin/games/${g.id}/fluff`, { method: 'PATCH', body: { fluff: v } });
-        if (!row.classList.contains('done')) { open--; counter.textContent = `${open} ${open === 1 ? 'Eintrag offen' : 'Einträge offen'}`; }
-        row.classList.add('done');
-        toast(`${g.title}: Fluff ${String(v).replace('.', ',')} gespeichert.`);
-      } catch (e) { toast(e.message, 'err'); b.classList.remove('on'); }
-    }));
-    list.appendChild(row);
-  });
-  body.appendChild(list);
-}
 
 // ------------------------------------------------------------ Eintragsliste
 export async function renderList(root, params) {

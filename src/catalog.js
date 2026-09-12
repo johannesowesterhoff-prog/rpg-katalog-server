@@ -235,13 +235,6 @@ export async function getFacets(query, isAdmin) {
     out[key] = rows.map((r) => ({ value: r.value, label: r.value, count: r.count }));
   }
 
-  const { whereSql, params } = buildWhere(f, isAdmin);
-  const summarySql = `WITH ${cte}
-    SELECT count(*) FILTER (WHERE gd.product_count > 0)::int AS with_products
-    FROM gd ${whereSql}`;
-  const summaryR = await pool.query(summarySql, params);
-  out.summary = summaryR.rows[0];
-
   return out;
 }
 
@@ -329,34 +322,12 @@ export async function getDashboard() {
     pool.query(`SELECT
       count(*) FILTER (WHERE status = 'published')::int AS published,
       count(*) FILTER (WHERE status = 'draft')::int AS draft,
-      count(*) FILTER (WHERE status = 'archived')::int AS archived,
-      count(*) FILTER (WHERE fluff IS NULL AND status <> 'archived')::int AS without_fluff
+      count(*) FILTER (WHERE status = 'archived')::int AS archived
       FROM katalog.games`),
     pool.query('SELECT count(*)::int AS n FROM katalog.products'),
     getAuditLog(20),
   ]);
   return { counts: counts.rows[0], productCount: productCount.rows[0].n, audit };
-}
-
-export async function getFluffQueue() {
-  const cte = gameDetailCte(true);
-  const r = await pool.query(`WITH ${cte}
-    SELECT id, slug, title, language_code, system_family, short_description,
-      crunch, narrative, fluff, primary_publisher
-    FROM gd WHERE fluff IS NULL AND status <> 'archived'
-    ORDER BY updated_at DESC`);
-  return r.rows;
-}
-
-export async function setFluff(id, fluff, actor) {
-  const v = toScale(fluff);
-  if (v !== null && (v < 1 || v > 5 || Math.round(v * 2) !== v * 2)) {
-    throw httpError(400, 'Fluff muss zwischen 1 und 5 in 0,5er-Schritten liegen.');
-  }
-  const r = await pool.query('UPDATE katalog.games SET fluff = $1 WHERE id = $2 RETURNING id, title', [v, id]);
-  if (!r.rowCount) throw httpError(404, 'Eintrag nicht gefunden.');
-  await logAudit(pool, { actor, action: 'update', entity: 'games', entityId: id, diff: { fluff: v } });
-  return r.rows[0];
 }
 
 // --------------------------------------------------------- Anlegen/Ändern

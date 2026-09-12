@@ -23,7 +23,7 @@ export const MODE_DIMS = ['genreTop', 'genre', 'toneTop', 'tone', 'focus', 'camp
 
 const DEFAULTS = {
   q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [],
-  focus: [], campaign: [], toneTop: [], tone: [], hasProducts: false,
+  focus: [], campaign: [], toneTop: [], tone: [],
   crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5,
   sort: 'title', page: 1, status: null,
   ...Object.fromEntries(MODE_DIMS.map((k) => [k + 'Mode', 'OR'])),
@@ -43,7 +43,6 @@ export function parseFilters(query, isAdmin) {
   for (const key of MODE_DIMS) {
     if (query[key + 'Mode'] === 'AND') f[key + 'Mode'] = 'AND';
   }
-  f.hasProducts = query.hasProducts === '1';
   for (const key of ['crunch', 'narrative', 'fluff']) {
     const mn = Number(query[key + 'Min']);
     const mx = Number(query[key + 'Max']);
@@ -108,7 +107,6 @@ export function buildWhere(f, isAdmin, opts = {}) {
       ? `gd.${col} @> ${p(f[dim])}::text[]`
       : `gd.${col} && ${p(f[dim])}::text[]`);
   }
-  if (f.hasProducts) conds.push(`gd.product_count > 0`);
 
   if (!opts.excludeScales) {
     for (const key of ['crunch', 'narrative', 'fluff']) {
