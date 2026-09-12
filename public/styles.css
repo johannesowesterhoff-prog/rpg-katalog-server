@@ -71,6 +71,7 @@ body {
   margin: 0; background: var(--bg); color: var(--text);
   font-family: var(--font-body); font-size: var(--text-base); line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden; /* Sicherheitsnetz gegen unbeabsichtigten horizontalen Overflow */
 }
 h1,h2,h3,h4 { font-family: var(--font-display); font-weight: 700; line-height: 1.15; margin: 0; letter-spacing: -.01em; }
 h1 { font-size: var(--text-xl); }
@@ -374,6 +375,15 @@ input[type=range] { accent-color: var(--accent); }
 }
 @media (max-width: 860px) {
   .wrap { width: min(100%, 100% - 1.6rem); }
+  /* Kopfzeile: seit dem dritten Nav-Punkt (Wahlomat) reicht die Breite auf
+     schmalen Handys nicht mehr für Marke + Nav + Theme-Umschalter in einer
+     Zeile -- Nav schrumpft und wird zur Sicherheit selbst scrollbar, statt
+     dass die ganze Seite horizontal überläuft. */
+  .header-inner { gap: var(--space-2); }
+  .brand-text { font-size: .92rem; }
+  .site-nav { gap: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+  .site-nav::-webkit-scrollbar { display: none; }
+  .site-nav a { padding: .4rem .5rem; font-size: var(--text-xs); white-space: nowrap; flex: none; }
   .catalog-layout { grid-template-columns: 1fr; }
   .filter-toggle { display: inline-flex; }
   .sidebar {
