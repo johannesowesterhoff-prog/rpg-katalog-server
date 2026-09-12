@@ -1,7 +1,7 @@
 // Adminbereich: Dashboard, Editor, Import/Export, Stammdaten und
 // Änderungsprotokoll.
 import { api, setToken } from './api.js';
-import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, SCALE_HELP, SCALE_LABELS, STATUS_LABEL } from './ui.js';
+import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL } from './ui.js';
 
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 let master = null;
@@ -334,8 +334,8 @@ export async function renderEditor(root, id) {
         ${productTypeOptions.map((t) => `<option ${p.product_type === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
       <div class="field" style="margin:0"><label>Format</label><select class="p-binding">
         <option value="">–</option>
-        ${['hardcover', 'softcover', 'box', 'heft', 'kartenset', 'pdf', 'schirm', 'trifold', 'sonstiges'].map((b) => `<option value="${b}" ${p.binding === b ? 'selected' : ''}>${{ schirm: 'Spielleiterschirm' }[b] || (b.charAt(0).toUpperCase() + b.slice(1))}</option>`).join('')}</select></div>
-      <div class="field" style="margin:0"><label>Edition</label><input type="text" class="p-edition" value="${esc(p.edition || '')}"></div>
+        ${Object.entries(BINDING_LABEL).map(([b, label]) => `<option value="${b}" ${p.binding === b ? 'selected' : ''}>${label}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label>Be- &amp; Anmerkungen</label><input type="text" class="p-edition" value="${esc(p.edition || '')}"></div>
       <div class="field" style="margin:0"><label>Sprache</label><select class="p-lang"><option value="">wie Spiel</option>
         ${md.languages.map((l) => `<option value="${l.code}" ${p.language === l.code ? 'selected' : ''}>${l.code.toUpperCase()}</option>`).join('')}</select></div>
       <button type="button" class="btn btn-sm btn-danger" title="Produkt entfernen">Entfernen</button>

@@ -43,6 +43,8 @@ export function scaleBadges(g) {
 
 export const STATUS_LABEL = { published: 'Veröffentlicht', draft: 'Entwurf', archived: 'Archiviert' };
 
+export const BINDING_LABEL = { hardcover: 'Hardcover', softcover: 'Softcover', heft: 'Heft', faltblatt: 'Faltblatt', box: 'Box', zubehoer: 'Spielhilfe & Zubehör', sonstiges: 'Sonstiges' };
+
 /** Öffentliche Katalogkarte – Reihenfolge exakt wie im Auftrag. */
 export function gameCard(g, { onTag, onToneTag, showStatus = false } = {}) {
   const tags = (g.genre_setting_top || []).map((t) => `<button class="tag" data-tag="${esc(t)}" type="button">${esc(t)}</button>`).join('');

@@ -1,8 +1,6 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
 import { api } from './api.js';
-import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL } from './ui.js';
-
-const BINDING_LABEL = { hardcover: 'Hardcover', softcover: 'Softcover', box: 'Box', heft: 'Heft', kartenset: 'Kartenset', pdf: 'PDF', schirm: 'Spielleiterschirm', trifold: 'Trifold', sonstiges: 'Sonstiges' };
+import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL } from './ui.js';
 
 export async function renderDetail(root, slug, ctx) {
   root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:120px"></div></div>';
@@ -68,7 +66,7 @@ export async function renderDetail(root, slug, ctx) {
       <section class="section">
         <h2>Vorhandene Produkte (${products.length})</h2>
         ${products.length ? `<div class="scroll-x"><table>
-          <thead><tr><th>Titel</th><th>Typ</th><th>Format</th><th>Edition</th><th>Sprache</th></tr></thead>
+          <thead><tr><th>Titel</th><th>Typ</th><th>Format</th><th>Be- &amp; Anmerkungen</th><th>Sprache</th></tr></thead>
           <tbody>${products.map((p) => `<tr>
             <td>${esc(p.title)}</td>
             <td>${esc(p.product_type)}</td>
