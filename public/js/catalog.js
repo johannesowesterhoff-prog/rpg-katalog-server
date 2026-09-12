@@ -6,7 +6,7 @@ import { el, esc, gameCard, skeletonGrid, emptyState, toast, SCALE_HELP } from '
 // dort ist ein ODER/UND-Umschalter sinnvoll (im Gegensatz zu Sprache/Verlag/
 // Systemfamilie, die pro Spiel einwertig sind).
 const MODE_DIMS = ['genreTop', 'genre', 'toneTop', 'tone', 'focus', 'campaign'];
-const DEFAULTS = { q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [], focus: [], campaign: [], toneTop: [], tone: [], hasProducts: false, crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5, sort: 'title', page: 1, ...Object.fromEntries(MODE_DIMS.map((k) => [k + 'Mode', 'OR'])) };
+const DEFAULTS = { q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [], focus: [], campaign: [], toneTop: [], tone: [], crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5, sort: 'title', page: 1, ...Object.fromEntries(MODE_DIMS.map((k) => [k + 'Mode', 'OR'])) };
 const MULTI = ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'campaign', 'toneTop', 'tone'];
 const SCALES = [['crunch', 'Crunch'], ['narrative', 'Narrativ'], ['fluff', 'Fluff']];
 
@@ -15,7 +15,6 @@ export function stateFromQuery(params) {
   for (const k of MULTI) { const v = params.get(k); if (v) s[k] = v.split(',').filter(Boolean); }
   if (params.get('q')) s.q = params.get('q');
   for (const k of MODE_DIMS) if (params.get(k + 'Mode') === 'AND') s[k + 'Mode'] = 'AND';
-  if (params.get('hasProducts') === '1') s.hasProducts = true;
   for (const [key] of SCALES) {
     const mn = params.get(key + 'Min'), mx = params.get(key + 'Max');
     if (mn) s[key + 'Min'] = Number(mn);
@@ -31,7 +30,6 @@ export function queryFromState(s) {
   if (s.q) p.set('q', s.q);
   for (const k of MULTI) if (s[k].length) p.set(k, s[k].join(','));
   for (const k of MODE_DIMS) if (s[k].length > 1 && s[k + 'Mode'] === 'AND') p.set(k + 'Mode', 'AND');
-  if (s.hasProducts) p.set('hasProducts', '1');
   for (const [key] of SCALES) {
     if (s[key + 'Min'] > 1) p.set(key + 'Min', String(s[key + 'Min']));
     if (s[key + 'Max'] < 5) p.set(key + 'Max', String(s[key + 'Max']));
@@ -51,7 +49,6 @@ function activeChips(s) {
       chips.push({ label: `${label} ${String(s[key + 'Min']).replace('.', ',')}–${String(s[key + 'Max']).replace('.', ',')}`, clear: (st) => { st[key + 'Min'] = 1; st[key + 'Max'] = 5; } });
     }
   }
-  if (s.hasProducts) chips.push({ label: 'nur mit Produkten', clear: (st) => { st.hasProducts = false; } });
   return chips;
 }
 
@@ -277,15 +274,9 @@ function rangeGroup(key, label, s, push) {
   return box;
 }
 
-// Reihenfolge folgt bewusst der Anzeige auf der Katalogkarte (gameCard in
-// ui.js): Sprache/Systemfamilie stehen dort direkt unter dem Titel, dann
-// Top Genre, Top Tone, die drei Skalen, danach Sub Genre/Sub Tone/
-// Spielfokus/Kampagnenart/Verlag in der gc-meta-Liste.
 function renderFilters(container, s, facets, push) {
   container.innerHTML = '';
 
-  container.appendChild(facetGroup('Sprache', 'language', facets.languages, s, push));
-  container.appendChild(facetGroup('Systemfamilie', 'systemFamily', facets.systemFamilies, s, push));
   container.appendChild(facetGroup('Top Genre / Setting', 'genreTop', facets.genresTop, s, push));
   container.appendChild(facetGroup('Top Tone / Themen', 'toneTop', facets.toneThemesTop, s, push));
 
@@ -294,16 +285,11 @@ function renderFilters(container, s, facets, push) {
   scaleGroup.appendChild(el('<p class="faint" style="font-size:var(--text-xs);margin:0">Einträge ohne Wert werden ausgeblendet, sobald ein Bereich eingeschränkt wird.</p>'));
   container.appendChild(scaleGroup);
 
+  container.appendChild(facetGroup('Spielfokus', 'focus', facets.focus, s, push));
+  container.appendChild(facetGroup('Systemfamilie', 'systemFamily', facets.systemFamilies, s, push));
+  container.appendChild(facetGroup('Kampagnenart', 'campaign', facets.campaigns, s, push));
   container.appendChild(facetGroup('Sub Genre / Setting', 'genre', facets.genres, s, push));
   container.appendChild(facetGroup('Sub Tone / Themen', 'tone', facets.toneThemes, s, push));
-  container.appendChild(facetGroup('Spielfokus', 'focus', facets.focus, s, push));
-  container.appendChild(facetGroup('Kampagnenart', 'campaign', facets.campaigns, s, push));
   container.appendChild(facetGroup('Verlag', 'publisher', facets.publishers, s, push));
-
-  const prod = el(`<div class="filter-group"><h3>Bestand</h3>
-    <label class="check"><input type="checkbox" ${s.hasProducts ? 'checked' : ''}>
-      <span>nur mit vorhandenen Produkten</span><span class="count">${facets.summary?.with_products ?? ''}</span></label>
-  </div>`);
-  prod.querySelector('input').addEventListener('change', () => push((st) => { st.hasProducts = !st.hasProducts; }));
-  container.appendChild(prod);
+  container.appendChild(facetGroup('Sprache', 'language', facets.languages, s, push));
 }

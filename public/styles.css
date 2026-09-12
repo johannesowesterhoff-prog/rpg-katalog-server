@@ -312,14 +312,6 @@ tbody tr:hover { background: var(--surface-2); }
 .ac-list button:hover, .ac-list button.sel { background: var(--accent-soft); color: var(--accent); }
 .chosen { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: var(--space-2); }
 .chosen .chip { cursor: pointer; }
-.fluff-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: var(--space-4); align-items: center; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
-.fluff-row:hover { background: var(--surface-2); }
-.fluff-row.done { opacity: .45; }
-.fluff-scale { display: flex; gap: .2rem; flex-wrap: wrap; }
-.fluff-scale button { font: inherit; font-size: var(--text-xs); min-width: 2.4rem; padding: .3rem .35rem; border: 1px solid var(--border-strong); background: var(--bg-elev); color: var(--text-muted); border-radius: var(--radius-sm); cursor: pointer; font-variant-numeric: tabular-nums; }
-.fluff-scale button:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-.fluff-scale button.on { background: var(--accent); border-color: var(--accent); color: #08100f; font-weight: 700; }
-html[data-theme='light'] .fluff-scale button.on { color: #fff; }
 .sev { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: .1rem .4rem; border-radius: var(--radius-sm); }
 .sev.error { background: var(--danger-soft); color: var(--danger); }
 .sev.warning { background: var(--warn-soft); color: var(--warn); }
@@ -352,8 +344,6 @@ html[data-theme='light'] .fluff-scale button.on { color: #fff; }
 .wahlomat-budget-row output { color: var(--accent); font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
 .wahlomat-range { display: grid; grid-template-columns: 1fr 44px; gap: var(--space-3); align-items: center; }
 .wahlomat-range output { padding: .3rem; border-radius: var(--radius-full); background: var(--accent-soft); color: var(--accent); font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
-.wahlomat-nopref { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); color: var(--text-muted); font-size: var(--text-xs); font-weight: 400; }
-.wahlomat-nopref input { width: auto; accent-color: var(--accent); }
 .wahlomat-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap: var(--space-2); }
 .wahlomat-choice {
   display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border);
@@ -397,7 +387,6 @@ input[type=range] { accent-color: var(--accent); }
   .product-row { grid-template-columns: 1fr 1fr; }
   .card-grid { grid-template-columns: 1fr; }
   .tiles { grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); }
-  .fluff-row { grid-template-columns: 1fr; gap: var(--space-2); }
   .dl { grid-template-columns: 1fr; gap: .1rem var(--space-3); }
   .dl dt { margin-top: var(--space-2); }
   .scale-detail .row { grid-template-columns: 5.5rem 1fr auto; }

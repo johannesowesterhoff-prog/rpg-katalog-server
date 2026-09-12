@@ -246,7 +246,7 @@ export async function renderWahlomat(root) {
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat</h1>
     <p class="lede">Sechs kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln und Fluff — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele).</p>
-    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Genre, Ton, Crunch/Narrativ/Fluff kommen 1:1 aus den recherchierten Katalogdaten. Welt-Fremdheit, Bedrohung, Scheitern-Folgen, Figurenkompetenz und Handlungsfreiheit gibt es als Feld im Katalog nicht -- sie werden aus der vollen Tag-Palette jedes Spiels geschätzt, sind also Näherungen.</p>
+    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Genre, Ton, Crunch/Narrativ/Fluff kommen 1:1 aus den recherchierten Katalogdaten. Für Welt-Fremdheit, Bedrohung, Scheitern-Folgen, Figurenkompetenz und Handlungsfreiheit gibt es kein eigenes Katalogfeld -- sie werden aus der vollen, recherchierten Tag-Palette jedes Spiels (Genre, Ton inkl. Sub-Tone, Spielfokus) gezählt und geschätzt. Präziser als eine grobe Genre-Schublade, aber weiterhin eine Näherung.</p>
   </section>`);
   root.appendChild(head);
 
@@ -271,7 +271,6 @@ export async function renderWahlomat(root) {
     figurenkompetenz: [],
     welt_fremdheit: 3, gefahr: 3, handlungsfreiheit: 3, letalitaet: 3,
     crunch: 2.5, narrativ: 3, fluff: 3, weltwissen: 2,
-    noPref: {},
   };
 
   function budgetSum(key) { return Object.values(state[key]).reduce((a, b) => a + b, 0); }
@@ -308,17 +307,10 @@ export async function renderWahlomat(root) {
         <input type="range" min="1" max="5" step=".5" value="${state[name]}">
         <output>${state[name]}</output>
       </div>
-      <label class="wahlomat-nopref"><input type="checkbox"> Keine Präferenz -- diese Frage nicht werten</label>
     </fieldset>`);
     const input = wrap.querySelector('input[type=range]');
     const output = wrap.querySelector('output');
     input.addEventListener('input', () => { state[name] = Number(input.value); output.textContent = String(state[name]); });
-    const nopref = wrap.querySelector('.wahlomat-nopref input');
-    nopref.addEventListener('change', () => {
-      state.noPref[name] = nopref.checked;
-      input.disabled = nopref.checked;
-      output.textContent = nopref.checked ? '–' : String(state[name]);
-    });
     return wrap;
   }
 
@@ -407,12 +399,11 @@ export async function renderWahlomat(root) {
   }
 
   function groupProfile() {
-    const val = (name) => (state.noPref[name] ? null : state[name]);
     return {
       genre: state.genre, ton: state.ton, aktivitaeten: state.aktivitaeten,
-      welt_fremdheit: val('welt_fremdheit'), gefahr: val('gefahr'), handlungsfreiheit: val('handlungsfreiheit'),
-      figurenkompetenz: state.figurenkompetenz, letalitaet: val('letalitaet'),
-      crunch: val('crunch'), narrativ: val('narrativ'), fluff: val('fluff'), weltwissen: val('weltwissen'),
+      welt_fremdheit: state.welt_fremdheit, gefahr: state.gefahr, handlungsfreiheit: state.handlungsfreiheit,
+      figurenkompetenz: state.figurenkompetenz, letalitaet: state.letalitaet,
+      crunch: state.crunch, narrativ: state.narrativ, fluff: state.fluff, weltwissen: state.weltwissen,
     };
   }
 
@@ -459,7 +450,6 @@ export async function renderWahlomat(root) {
       state.ton = freshBudget('ton');
       state.aktivitaeten = freshBudget('aktivitaeten');
       state.figurenkompetenz = [];
-      state.noPref = {};
       quizWrap.hidden = false;
       progress.hidden = false;
       resultsWrap.hidden = true;

@@ -13,7 +13,7 @@ import {
 } from './src/auth.js';
 import {
   listGames, getFacets, getGameBySlug, getGameById, getMasterData, getWahlomatData,
-  getDashboard, getFluffQueue, setFluff, createGame, updateGame, setGameStatus,
+  getDashboard, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
   deleteMasterEntry, getAuditLog,
 } from './src/catalog.js';
@@ -149,10 +149,6 @@ app.post('/api/admin/password', requireAdmin, asyncRoute(async (req, res) => {
 
 // ------------------------------------------------------------- Admin-API
 app.get('/api/admin/dashboard', requireAdmin, asyncRoute(async (_req, res) => res.json(await getDashboard())));
-app.get('/api/admin/fluff-queue', requireAdmin, asyncRoute(async (_req, res) => res.json({ games: await getFluffQueue() })));
-app.patch('/api/admin/games/:id/fluff', requireAdmin, asyncRoute(async (req, res) => {
-  res.json(await setFluff(req.params.id, req.body?.fluff, 'admin'));
-}));
 app.get('/api/admin/games/:id', requireAdmin, asyncRoute(async (req, res) => {
   const g = await getGameById(req.params.id);
   if (!g) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });

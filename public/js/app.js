@@ -3,7 +3,7 @@ import { api, hasToken } from './api.js';
 import { renderCatalog } from './catalog.js';
 import { renderDetail } from './detail.js';
 import { renderWahlomat } from './wahlomat.js';
-import { renderLogin, renderDashboard, renderFluffQueue, renderList, renderEditor, renderImport, renderMasterData, renderAudit } from './admin.js';
+import { renderLogin, renderDashboard, renderList, renderEditor, renderImport, renderMasterData, renderAudit } from './admin.js';
 import { toast, emptyState } from './ui.js';
 
 const root = document.getElementById('app');
@@ -57,7 +57,6 @@ async function route() {
       const sub = parts[1];
       const map = {
         undefined: () => renderDashboard(root),
-        fluff: () => renderFluffQueue(root),
         liste: () => renderList(root, params),
         editor: () => renderEditor(root, parts[2] || null),
         import: () => renderImport(root),
