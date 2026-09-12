@@ -277,19 +277,25 @@ function rangeGroup(key, label, s, push) {
   return box;
 }
 
+// Reihenfolge folgt bewusst der Anzeige auf der Katalogkarte (gameCard in
+// ui.js): Sprache/Systemfamilie stehen dort direkt unter dem Titel, dann
+// Top Genre, Top Tone, die drei Skalen, danach Sub Genre/Sub Tone/
+// Spielfokus/Kampagnenart/Verlag in der gc-meta-Liste.
 function renderFilters(container, s, facets, push) {
   container.innerHTML = '';
+
+  container.appendChild(facetGroup('Sprache', 'language', facets.languages, s, push));
+  container.appendChild(facetGroup('Systemfamilie', 'systemFamily', facets.systemFamilies, s, push));
+  container.appendChild(facetGroup('Top Genre / Setting', 'genreTop', facets.genresTop, s, push));
+  container.appendChild(facetGroup('Top Tone / Themen', 'toneTop', facets.toneThemesTop, s, push));
+
   const scaleGroup = el('<div class="filter-group"><h3>Skalen (gleichwertig)</h3></div>');
   SCALES.forEach(([key, label]) => scaleGroup.appendChild(rangeGroup(key, label, s, push)));
   scaleGroup.appendChild(el('<p class="faint" style="font-size:var(--text-xs);margin:0">Einträge ohne Wert werden ausgeblendet, sobald ein Bereich eingeschränkt wird.</p>'));
   container.appendChild(scaleGroup);
 
-  container.appendChild(facetGroup('Top Genre / Setting', 'genreTop', facets.genresTop, s, push));
   container.appendChild(facetGroup('Sub Genre / Setting', 'genre', facets.genres, s, push));
-  container.appendChild(facetGroup('Top Tone / Themen', 'toneTop', facets.toneThemesTop, s, push));
   container.appendChild(facetGroup('Sub Tone / Themen', 'tone', facets.toneThemes, s, push));
-  container.appendChild(facetGroup('Sprache', 'language', facets.languages, s, push));
-  container.appendChild(facetGroup('Systemfamilie', 'systemFamily', facets.systemFamilies, s, push));
   container.appendChild(facetGroup('Spielfokus', 'focus', facets.focus, s, push));
   container.appendChild(facetGroup('Kampagnenart', 'campaign', facets.campaigns, s, push));
   container.appendChild(facetGroup('Verlag', 'publisher', facets.publishers, s, push));
