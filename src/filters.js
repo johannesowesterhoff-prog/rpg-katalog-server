@@ -78,10 +78,18 @@ export function buildWhere(f, isAdmin, opts = {}) {
   }
 
   if (f.q) {
-    conds.push(`(
-      gd.search_vector @@ websearch_to_tsquery('german', ${p(f.q)})
-      OR similarity(lower(katalog.imm_unaccent(gd.title)), lower(katalog.imm_unaccent(${p(f.q)}))) > 0.2
-    )`);
+    // websearch_to_tsquery matcht nur ganze Wortstämme ("Tiny" findet "Tiny",
+    // aber "Tin" nicht) -- für Suche-während-des-Tippens zusätzlich eine
+    // Präfix-tsquery bauen (jedes Wort + ':*'), damit auch Teilwörter wie
+    // "Tin" schon "Tiny Dungeon" treffen.
+    const qConds = [`gd.search_vector @@ websearch_to_tsquery('german', ${p(f.q)})`];
+    const prefixWords = f.q.trim().split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean);
+    if (prefixWords.length) {
+      const prefixQuery = prefixWords.map((w) => w + ':*').join(' & ');
+      qConds.push(`gd.search_vector @@ to_tsquery('german', ${p(prefixQuery)})`);
+    }
+    qConds.push(`similarity(lower(katalog.imm_unaccent(gd.title)), lower(katalog.imm_unaccent(${p(f.q)}))) > 0.2`);
+    conds.push(`(${qConds.join(' OR ')})`);
   }
   if (f.language.length) conds.push(`gd.language_code = ANY(${p(f.language)}::text[])`);
   if (f.publisher.length) conds.push(`gd.primary_publisher = ANY(${p(f.publisher)}::text[])`);
