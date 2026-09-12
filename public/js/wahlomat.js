@@ -1,5 +1,5 @@
-// RPG-Wahlomat: sechs Fragenschritte über Genre, Ton, Spielstil, Figuren,
-// Regeln und Fluff, danach ein Ranking der eigenen Sammlung.
+// RPG-Wahlomat: sieben Fragenschritte über Genre, Ton, Spielstil, Figuren,
+// Regeln, Fluff und Prioritäten, danach ein Ranking der eigenen Sammlung.
 //
 // Datengrundlage pro Frage (wichtig für die Einschätzung der Ergebnisse):
 //  - Genre, Ton, Crunch/Narrativ/Fluff: exakte Werte aus dem Katalog
@@ -38,6 +38,25 @@ const FIGURE_OPTIONS = [
   [5, 'Große Held:innen oder außergewöhnliche Wesen'],
 ];
 
+// Interner Label (muss zu den Komponenten-Labels in scoreGame() passen) +
+// Anzeigetext für die optionale Prioritäten-Auswahl im letzten Schritt.
+const PRIORITY_OPTIONS = [
+  ['Genre', 'Genre'],
+  ['Setting', 'Welt-Fremdheit'],
+  ['Ton', 'Ton'],
+  ['Bedrohung', 'Bedrohung & Druck'],
+  ['Spielstil', 'Spielstil / Aktivitäten'],
+  ['Freiheit', 'Handlungsfreiheit'],
+  ['Figurenbild', 'Figurenkompetenz'],
+  ['Scheitern', 'Scheitern-Folgen'],
+  ['Crunch', 'Crunch (Regelstruktur)'],
+  ['Narrativ', 'Narrative Mitgestaltung'],
+  ['Fluff', 'Welt-Ausarbeitung (Fluff)'],
+  ['Weltwissen', 'Weltwissen-Einstieg'],
+];
+const PRIORITY_MAX = 3;
+const PRIORITY_BOOST = 1.5;
+
 // Einzelfragen mit Regler 1-5, je Schritt zugeordnet.
 const RANGES = {
   1: [['welt_fremdheit', 'Wie fremd soll die Welt im Vergleich zu unserer sein?', '1 = wie unsere Realität · 5 = völlig fremdartig (andere Welt, andere Regeln der Natur)']],
@@ -55,6 +74,7 @@ const STEPS = [
   { n: 4, title: 'Figuren & Gefahr', lede: 'Wer seid ihr — und wie hart darf die Welt sein?' },
   { n: 5, title: 'Regeln & Erzählweise', lede: 'Wie viel System und wie viel gemeinsame Gestaltung wollt ihr?' },
   { n: 6, title: 'Fluff & Welttiefe', lede: 'Wie viel Hintergrund und Welterkundung soll das Spiel tragen?' },
+  { n: 7, title: 'Prioritäten', lede: 'Optional: Was soll im Ergebnis besonders stark zählen?' },
 ];
 
 // ---- Spielstil/Aktivitäten weiterhin aus Spielfokus-Tags abgeleitet.
@@ -175,10 +195,13 @@ function scoreGame(game, profile) {
     ['Fluff', W.fluff, profile.fluff != null, profile.fluff != null ? proximity(game.fluff, profile.fluff) : 0],
     ['Weltwissen', W.world, profile.weltwissen != null, profile.weltwissen != null ? proximity(game.weltwissen_einstieg, profile.weltwissen) : 0],
   ];
-  const activeWeight = components.reduce((sum, [, weight, active]) => sum + (active ? weight : 0), 0) || 1;
+  // Bis zu drei per "Prioritäten"-Schritt gewählte Dimensionen zählen stärker.
+  const priorities = profile.priorities || [];
+  const weightOf = (label, base) => (priorities.includes(label) ? base * PRIORITY_BOOST : base);
+  const activeWeight = components.reduce((sum, [label, weight, active]) => sum + (active ? weightOf(label, weight) : 0), 0) || 1;
   const breakdown = {};
   let raw = 0;
-  components.forEach(([label, weight, active, value]) => { const c = active ? weight * value : 0; breakdown[label] = c; raw += c; });
+  components.forEach(([label, weight, active, value]) => { const c = active ? weightOf(label, weight) * value : 0; breakdown[label] = c; raw += c; });
   return { ...game, score: (raw / activeWeight) * 100, breakdown };
 }
 
@@ -255,7 +278,7 @@ export async function renderWahlomat(root) {
   root.innerHTML = '';
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat</h1>
-    <p class="lede">Sechs kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln und Fluff — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele).</p>
+    <p class="lede">Sieben kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln, Fluff und euren Prioritäten — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele).</p>
     <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Genre, Ton, Crunch/Narrativ/Fluff kommen 1:1 aus den recherchierten Katalogdaten. Für Welt-Fremdheit, Bedrohung, Scheitern-Folgen, Figurenkompetenz und Handlungsfreiheit gibt es kein eigenes Katalogfeld -- sie werden aus der vollen, recherchierten Tag-Palette jedes Spiels (Genre, Ton inkl. Sub-Tone, Spielfokus) gezählt und geschätzt. Präziser als eine grobe Genre-Schublade, aber weiterhin eine Näherung.</p>
   </section>`);
   root.appendChild(head);
@@ -281,6 +304,7 @@ export async function renderWahlomat(root) {
     figurenkompetenz: [],
     welt_fremdheit: 3, gefahr: 3, handlungsfreiheit: 3, letalitaet: 3,
     crunch: 3, narrativ: 3, fluff: 3, weltwissen: 3,
+    priorities: [],
   };
 
   function budgetSum(key) { return Object.values(state[key]).reduce((a, b) => a + b, 0); }
@@ -345,6 +369,32 @@ export async function renderWahlomat(root) {
     return wrap;
   }
 
+  function priorityField() {
+    const wrap = el(`<fieldset class="wahlomat-field">
+      <legend>Was ist euch am wichtigsten?</legend>
+      <small>Optional: wählt bis zu ${PRIORITY_MAX} Dimensionen, die im Ergebnis stärker zählen sollen. Ohne Auswahl bleibt alles gleich gewichtet.</small>
+      <div class="wahlomat-choices"></div>
+    </fieldset>`);
+    const list = wrap.querySelector('.wahlomat-choices');
+    function refresh() {
+      const atMax = state.priorities.length >= PRIORITY_MAX;
+      list.querySelectorAll('input').forEach((cb) => { if (!cb.checked) cb.disabled = atMax; });
+    }
+    PRIORITY_OPTIONS.forEach(([key, label]) => {
+      const item = el(`<label class="wahlomat-choice"><input type="checkbox" value="${esc(key)}" ${state.priorities.includes(key) ? 'checked' : ''}><span>${esc(label)}</span></label>`);
+      const cb = item.querySelector('input');
+      cb.addEventListener('change', () => {
+        state.priorities = cb.checked
+          ? [...state.priorities, key]
+          : state.priorities.filter((v) => v !== key);
+        refresh();
+      });
+      list.appendChild(item);
+    });
+    refresh();
+    return wrap;
+  }
+
   let errorBox;
   function updateError() {
     if (!errorBox) return;
@@ -379,6 +429,7 @@ export async function renderWahlomat(root) {
       section.appendChild(fs);
     }
     if (s.n === 4) section.appendChild(figureField());
+    if (s.n === 7) section.appendChild(priorityField());
     (RANGES[s.n] || []).forEach(([name, label, hint]) => section.appendChild(rangeField(name, label, hint)));
 
     errorBox = el('<p class="wahlomat-error"></p>');
@@ -414,6 +465,7 @@ export async function renderWahlomat(root) {
       welt_fremdheit: state.welt_fremdheit, gefahr: state.gefahr, handlungsfreiheit: state.handlungsfreiheit,
       figurenkompetenz: state.figurenkompetenz, letalitaet: state.letalitaet,
       crunch: state.crunch, narrativ: state.narrativ, fluff: state.fluff, weltwissen: state.weltwissen,
+      priorities: state.priorities,
     };
   }
 
@@ -460,6 +512,7 @@ export async function renderWahlomat(root) {
       state.ton = freshBudget('ton');
       state.aktivitaeten = freshBudget('aktivitaeten');
       state.figurenkompetenz = [];
+      state.priorities = [];
       quizWrap.hidden = false;
       progress.hidden = false;
       resultsWrap.hidden = true;
