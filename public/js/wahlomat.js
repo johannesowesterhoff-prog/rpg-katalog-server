@@ -172,26 +172,46 @@ function scoreGame(game, profile) {
   return { ...game, score: (raw / activeWeight) * 100, breakdown };
 }
 
+// Für jede skalare Achse (1-5) symmetrisch prüfen: nah dran -> gut-Chip,
+// deutlich daneben -> Warn-Chip in die passende Richtung. Vorher gab es das
+// nur für Fluff/Letalität -- Crunch, Narrativ, Bedrohung, Handlungsfreiheit
+// und Welt-Fremdheit hatten gar keine oder nur eine einseitige Rückmeldung,
+// wodurch am Ende fast immer nur "Mehr/weniger Lore" als Warnung auftauchte.
+const SCALAR_AXES = [
+  ['crunch', 'Passender Regelumfang', 'Mehr Crunch als gewünscht', 'Weniger Crunch als gewünscht'],
+  ['narrativ', 'Passende narrative Mitgestaltung', 'Mehr narrative Mitgestaltung als gewünscht', 'Weniger narrative Mitgestaltung als gewünscht'],
+  ['fluff', 'Passende Welttiefe', 'Mehr Lore als gewünscht', 'Weniger Lore als gewünscht'],
+  ['gefahr', 'Passende Bedrohungsintensität', 'Bedrohlicher als gewünscht', 'Harmloser als gewünscht'],
+  ['letalitaet', 'Passende Schärfe beim Scheitern', 'Tödlicher als gewünscht', 'Glimpflicher als gewünscht'],
+  ['handlungsfreiheit', 'Passende Handlungsfreiheit', 'Offener als gewünscht', 'Linearer als gewünscht'],
+  ['welt_fremdheit', 'Passende Welt-Fremdheit', 'Fremder/seltsamer als gewünscht', 'Näher an der Realität als gewünscht'],
+];
+
 function makeChips(game, profile) {
   const highest = (values) => Object.entries(values).sort((a, b) => b[1] - a[1])[0]?.[0];
   const good = [];
   const warnings = [];
+
   const genre = highest(profile.genre);
   const tone = highest(profile.ton);
   const activity = highest(profile.aktivitaeten);
-  if (genre && game.genre.includes(genre)) good.push(`Genre „${genre}“`);
-  if (tone && game.ton.includes(tone)) good.push(`Ton „${tone}“`);
+  const genreHit = tagScore(game.genre, profile.genre) > 0;
+  const tonHit = tagScore(game.ton, profile.ton) > 0;
+  if (genreHit) good.push(`Genre „${genre && game.genre.includes(genre) ? genre : game.genre[0]}“`);
+  else warnings.push('Kein Wunschgenre getroffen');
+  if (tonHit) good.push(`Ton „${tone && game.ton.includes(tone) ? tone : game.ton[0]}“`);
+  else warnings.push('Kein Wunschton getroffen');
   if (activity && game.aktivitaeten[activity] >= 3.5) good.push('Stark bei ' + B.aktivitaeten.labels[activity]);
-  if (profile.crunch != null && proximity(game.crunch, profile.crunch) >= 0.82) good.push('Passender Regelumfang');
-  if (profile.gefahr != null && proximity(game.gefahr, profile.gefahr) >= 0.82) good.push('Passende Bedrohungsintensität');
-  if (profile.handlungsfreiheit != null && proximity(game.handlungsfreiheit, profile.handlungsfreiheit) >= 0.82) good.push('Passende Handlungsfreiheit');
-  if (profile.letalitaet != null && Math.abs(game.letalitaet - profile.letalitaet) >= 1.5) {
-    warnings.push(game.letalitaet > profile.letalitaet ? 'Tödlicher als gewünscht' : 'Weniger harte Folgen');
+
+  for (const [key, goodLabel, warnHighLabel, warnLowLabel] of SCALAR_AXES) {
+    const desired = profile[key];
+    if (desired == null) continue;
+    const gameValue = game[key];
+    if (proximity(gameValue, desired) >= 0.82) good.push(goodLabel);
+    else if (Math.abs(gameValue - desired) >= 1.5) warnings.push(gameValue > desired ? warnHighLabel : warnLowLabel);
   }
-  if (profile.fluff != null && Math.abs(game.fluff - profile.fluff) >= 1.5) {
-    warnings.push(game.fluff > profile.fluff ? 'Mehr Lore als gewünscht' : 'Weniger Lore als gewünscht');
-  }
-  return { good: good.slice(0, 4), warnings: warnings.slice(0, 2) };
+
+  return { good: good.slice(0, 6), warnings: warnings.slice(0, 5) };
 }
 
 // ---------------------------------------------------------------- Rendering
