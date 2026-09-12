@@ -1,33 +1,34 @@
 // RPG-Wahlomat: sechs Fragenschritte über Genre, Ton, Spielstil, Figuren,
 // Regeln und Fluff, danach ein Ranking der eigenen Sammlung.
 //
-// Die Fragen/Gewichte/Heuristiken sind bewusst 1:1 aus Johannes' eigenem
-// Fragebogen-Entwurf übernommen (siehe rpg-wahlomat-fragebogen.pdf). Einzige
-// inhaltliche Anpassung ggü. dem ursprünglichen Standalone-Tool: die
-// Genre-Punkteverteilung matcht jetzt gegen die echten Top-Genre-Tags
-// (genre_setting_top) statt gegen Sub-Genre-Tags, und der Ton wird zuerst aus
-// den kuratierten Top-Tone-Tags abgeleitet statt nur heuristisch aus
-// Genre/Fokus rekonstruiert -- weil wir diese Daten inzwischen im Katalog
-// gepflegt haben.
+// Datengrundlage pro Frage (wichtig für die Einschätzung der Ergebnisse):
+//  - Genre, Ton, Crunch/Narrativ/Fluff: exakte Werte aus dem Katalog
+//    (genre_setting_top, tone_theme_top, crunch/narrative/fluff-Skalen).
+//    Die Auswahllisten werden bei jedem Aufruf live aus den tatsächlich
+//    vergebenen Tags gebaut -- neue Top-Genres/-Tones tauchen also
+//    automatisch auf, nichts ist hartkodiert.
+//  - Spielstil/Aktivitäten: aus Spielfokus-Tags abgeleitet (play_focus).
+//  - Welt-Fremdheit, Bedrohung/Druck, Folgen des Scheiterns,
+//    Figurenkompetenz, Handlungsfreiheit: es gibt dafür KEIN eigenes
+//    Katalogfeld. Diese fünf Werte sind Schätzungen, die aus der vollen
+//    Tag-Palette eines Spiels (Top+Sub-Genre, Top+Sub-Tone, Spielfokus)
+//    gezählt werden -- je mehr passende Signal-Tags ein Spiel trägt, desto
+//    weiter schlägt der Wert aus 3 (Mitte) aus. Das ist präziser als eine
+//    grobe Genre-Schublade, bleibt aber eine Näherung, keine recherchierte
+//    Tatsache wie Crunch/Narrativ/Fluff.
 import { api } from './api.js';
 import { el, esc, toast } from './ui.js';
 
 const B = {
-  genre: {
-    total: 6, max: 3, key: 'genre',
-    labels: { Fantasy: 'Fantasy', 'Science-Fiction': 'Science-Fiction', Horror: 'Horror', Cyberpunk: 'Cyberpunk', Superhelden: 'Superhelden', Gegenwart: 'Gegenwart / Mystery' },
-  },
-  ton: {
-    total: 6, max: 3, key: 'ton',
-    labels: { Heroisch: 'Heroisch & hoffnungsvoll', Abenteuerlich: 'Abenteuerlich & locker', Skurril: 'Skurril & humorvoll', Düster: 'Düster & dramatisch', Bedrohlich: 'Spannend & bedrohlich', Unheimlich: 'Unheimlich & verstörend', Persönlich: 'Persönlich & emotional' },
-  },
+  genre: { total: 6, max: 3, key: 'genre', labels: {} },
+  ton: { total: 6, max: 3, key: 'ton', labels: {} },
   aktivitaeten: {
     total: 10, max: 4, key: 'aktivitaeten',
     labels: { kampf_taktik: 'Kämpfen & taktisch planen', erkundung: 'Erkunden & entdecken', ermittlung: 'Ermitteln & Rätsel lösen', soziale_szenen: 'Beziehungen & Rollenspiel', survival: 'Überleben & Ressourcen', weltgestaltung: 'Welt, Basis & Fraktionen' },
   },
 };
 
-const W = { genre: 15, setting: 7, tone: 12, threat: 6, activities: 15, agency: 5, figures: 7, lethality: 8, crunch: 7, narrativ: 8, fluff: 7, world: 3 };
+const W = { genre: 15, setting: 7, tone: 12, threat: 8, activities: 15, agency: 6, figures: 7, lethality: 8, crunch: 7, narrativ: 8, fluff: 7, world: 3 };
 
 const FIGURE_OPTIONS = [
   [1.5, 'Alltagsmenschen in einer außergewöhnlichen Lage'],
@@ -40,7 +41,7 @@ const FIGURE_OPTIONS = [
 // Einzelfragen mit Regler 1-5, je Schritt zugeordnet.
 const RANGES = {
   1: [['welt_fremdheit', 'Wie fremd und eigenständig soll die Welt sein?', '1 = nah an unserer Realität · 5 = sehr fremd oder seltsam', 3]],
-  2: [['gefahr', 'Wie intensiv sollen Bedrohung und Druck sein?', '1 = entspannt · 5 = Survival oder Horror', 3]],
+  2: [['gefahr', 'Wie intensiv sollen Bedrohung und Druck sein?', '1 = entspannt und sicher · 5 = existenziell bedrohlich (unabhängig vom Genre)', 3]],
   3: [['handlungsfreiheit', 'Wie offen soll die Handlung sein?', '1 = klarer Auftrag · 5 = Gruppe setzt Ziele und Richtung', 3]],
   4: [['letalitaet', 'Wie folgenreich darf Scheitern sein?', '1 = Folgen treiben weiter · 5 = Verlust gehört zum Nervenkitzel', 3]],
   5: [['crunch', 'Wie viel Regelstruktur möchtet ihr aktiv nutzen?', '1 = sehr leicht · 5 = taktisch und buildintensiv', 2.5], ['narrativ', 'Wie stark gestaltet ihr Handlung und Welt direkt mit?', '1 = Spielleitung führt klar · 5 = Welt gemeinsam gestalten', 3]],
@@ -56,87 +57,61 @@ const STEPS = [
   { n: 6, title: 'Fluff & Welttiefe', lede: 'Wie viel Hintergrund und Welterkundung soll das Spiel tragen?' },
 ];
 
-// ---- Heuristik-Tagsets fürs Auto-Profil (Fallback ohne manuelle Recherche).
-const TAGS = {
-  weltHigh: new Set(['Space Opera', 'Weird Fantasy', 'Primal Punk', 'Mythische Inselwelt', 'Cyberpunk', '(Post-)Apokalypse', 'Low-Fi Sci-Fi']),
-  weltMidHigh: new Set(['Science-Fiction', 'High Fantasy', 'Dark Fantasy', 'Superhelden', 'Märchenfantasy', 'Urban Fantasy', 'Hyborisches Zeitalter', 'Asiatische Martial-Arts-Welt']),
-  weltLow: new Set(['Gegenwart / Modern', 'Krimi', 'Noir', 'Neo-Noir', 'Politthriller', 'Kindgerecht', 'Akademie', 'Coming-of-Age', '(Pseudo-)Historisch', 'Auftragskiller']),
+// ---- Spielstil/Aktivitäten weiterhin aus Spielfokus-Tags abgeleitet.
+const AKTIVITAETEN_TAGS = {
+  kampf_taktik: new Set(['Kampf / Taktik', 'Action', 'Pulp-Action', 'Cinematic Action', 'Duelle']),
+  erkundung: new Set(['Erkundung', 'Dungeon-Crawls', 'Abenteuer', 'Episodische Insel-Abenteuer', 'Sword & Sorcery-Abenteuer', 'Raumfahrt', 'Hex-Crawl / Erkundung', 'Reise']),
+  ermittlung: new Set(['Ermittlungen', 'Ermittlungen / Verschwörungen', 'Mystery', 'Intrigen', 'Intrigen / Politik', 'kreative Problemlösung', 'Investigation / Detektivarbeit']),
+  soziale_szenen: new Set(['Charakterentwicklung', 'Charakterspiel', 'Soziale Interaktionen', 'Soziale Konflikte', 'Erzählorientiert', 'kooperatives Storytelling', 'Diplomatie']),
+  survival: new Set(['Überleben', 'Survival-Horror', 'Ressourcenmanagement', 'Old-School-Spiel', 'OSR']),
+  weltgestaltung: new Set(['Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Sandbox', 'Sandbox-Szenarien', 'Dorfleben', 'Adaptiv / Baukastensystem', 'Dungeonbau']),
+};
 
-  gefahrHigh: new Set(['Überleben', 'Survival-Horror', 'Horror', 'Kultbekämpfung', '(Post-)Apokalypse', 'Dark Fantasy']),
-  gefahrMid: new Set(['Kampf / Taktik', 'Gangspiel', 'Konflikte zwischen Kulturen', 'Action', 'Pulp-Action', 'Cinematic Action', 'Mystery']),
-  gefahrLow: new Set(['Kinderfreundlich / Familienrunden', 'Dorfleben', 'kooperatives Storytelling', 'Kindgerecht']),
+// ---- Signal-Tagsets für die fünf nicht direkt im Katalog erfassten Achsen.
+// Bewusst breit über Top+Sub-Genre, Top+Sub-Tone UND Spielfokus gestreut,
+// damit tatsächlich die recherchierten Sub-Tone-Tags (die genauesten Daten,
+// die wir pro Spiel haben) mit einfließen statt nur grobe Genre-Schubladen.
+const SIGNALS = {
+  weltHigh: new Set(['Space Opera', 'Weird Fantasy', 'Primal Punk', 'Mythische Inselwelt', 'Cyberpunk', '(Post-)Apokalypse', 'Low-Fi Sci-Fi', 'Mysteriös', 'Rätselhaft', 'Realitätsbruch', 'Kosmisches Grauen', 'Urzeitlich', 'Zauberhaft', 'Mythisch', 'Feenhaft', 'Skurril', 'Genreoffen', 'Weite']),
+  weltLow: new Set(['Gegenwart / Modern', 'Krimi', 'Noir', 'Neo-Noir', 'Politthriller', 'Akademie', 'Coming-of-Age', '(Pseudo-)Historisch', 'Auftragskiller', 'Alltagsnah', 'Glaubwürdig', 'Bürokratisch', 'Klassisch', 'Bodenständig'].filter(Boolean)),
 
-  letalHigh: new Set(['Überleben', 'Survival-Horror', 'Old-School-Spiel', 'Dungeon-Crawls', 'Sandbox', 'Sandbox-Szenarien', 'Aufbau einer Festung']),
-  letalMid: new Set(['Horror', 'Kampf / Taktik', 'Action', 'Pulp-Action', 'Cinematic Action']),
-  letalLow: new Set(['Kinderfreundlich / Familienrunden', 'kooperatives Storytelling', 'Dorfleben', 'Kindgerecht', 'Coming-of-Age']),
+  gefahrHigh: new Set(['Existenzielle Angst', 'Existenzieller Horror', 'Ausweglos', 'Kompromisslos', 'Brutal', 'Blutig', 'Körperliche Bedrohung', 'Klaustrophobisch', 'Entbehrungsreich', 'Bösartig', 'Prekär', 'Überlebenskampf', 'Weltuntergangsstimmung', 'Verstörend', 'Kosmisches Grauen', 'Horror', 'Survival-Horror', 'Überleben', 'Konsequenzenreich']),
+  gefahrLow: new Set(['Gemütlich', 'Idyllisch', 'Unbeschwert', 'Herzlich', 'Warmherzig', 'Niedlich', 'Verspielt', 'Fürsorglich', 'Einsteigerfreundlich', 'Jugendfreundlich', 'Kindgerecht', 'Kinderfreundlich / Familienrunden', 'kooperatives Storytelling']),
 
-  figHigh: new Set(['Superhelden', 'Mythische Heldenreisen', 'Cinematic Action', 'Pulp-Action', 'Ruhm und Rivalität']),
-  figLow: new Set(['Kindgerecht', 'Kinderfreundlich / Familienrunden', 'Coming-of-Age', 'Akademie', 'Schnelle Charaktererstellung']),
+  letalHigh: new Set(['Kompromisslos', 'Ausweglos', 'Verlust', 'Opferbereitschaft', 'Existenzielle Angst', 'Brutal', 'Blutig', 'Körperliche Bedrohung', 'Überlebenskampf', 'Konsequenzenreich', 'Old-School-Spiel', 'OSR', 'Dungeon-Crawls']),
+  letalLow: new Set(['Fürsorglich', 'Gemütlich', 'Kinderfreundlich / Familienrunden', 'Kindgerecht', 'Einsteigerfreundlich', 'Jugendfreundlich', 'Verspielt', 'kooperatives Storytelling', 'Coming-of-Age']),
 
-  handlHigh: new Set(['Sandbox', 'Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Dorfleben', 'Adaptiv / Baukastensystem', 'Improvisation']),
+  figHigh: new Set(['Heroisch', 'Superhelden', 'Mythische Heldenreisen', 'Cinematic Action', 'Pulp-Action', 'Ruhm und Rivalität', 'Legendenbildung', 'Episch', 'Tollkühn']),
+  figLow: new Set(['Kindgerecht', 'Kinderfreundlich / Familienrunden', 'Coming-of-Age', 'Akademie', 'Schnelle Charaktererstellung', 'Niedlich', 'Alltagsnah', 'Prekär', 'Tollpatschig']),
+
+  handlHigh: new Set(['Sandbox', 'Sandbox-Szenarien', 'Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Dorfleben', 'Adaptiv / Baukastensystem', 'Improvisation', 'Freie Weltgestaltung', 'Offen gestaltbar', 'Freiheit']),
   handlLow: new Set(['Missionen / Aufträge', 'Cinematic Action', 'Episodische Insel-Abenteuer', 'Serienartige Geschichten']),
-
-  aktivitaeten: {
-    kampf_taktik: new Set(['Kampf / Taktik', 'Action', 'Pulp-Action', 'Cinematic Action']),
-    erkundung: new Set(['Erkundung', 'Dungeon-Crawls', 'Abenteuer', 'Episodische Insel-Abenteuer', 'Sword & Sorcery-Abenteuer', 'Raumfahrt', 'Hex-Crawl / Erkundung']),
-    ermittlung: new Set(['Ermittlungen', 'Mystery', 'Intrigen', 'kreative Problemlösung']),
-    soziale_szenen: new Set(['Charakterentwicklung', 'Soziale Interaktionen', 'Erzählorientiert', 'kooperatives Storytelling']),
-    survival: new Set(['Überleben', 'Survival-Horror', 'Ressourcenmanagement', 'Old-School-Spiel']),
-    weltgestaltung: new Set(['Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Sandbox', 'Sandbox-Szenarien', 'Dorfleben', 'Adaptiv / Baukastensystem']),
-  },
 };
 
-// Kuratierte Top-Tone-Tags (siehe Katalog: Bodenständig, Cinematisch, Düster,
-// Heroisch, Hoffnungsvoll, Humorvoll, Mystisch / Okkult, Märchenhaft,
-// Politisch / Gesellschaftlich, Tragisch) auf die 7 Wahlomat-Tonbuckets.
-const TOP_TONE_MAP = {
-  'Düster': ['Düster'],
-  'Heroisch': ['Heroisch'],
-  'Hoffnungsvoll': ['Heroisch'],
-  'Humorvoll': ['Skurril'],
-  'Märchenhaft': ['Skurril'],
-  'Mystisch / Okkult': ['Unheimlich'],
-  'Tragisch': ['Persönlich'],
-  'Politisch / Gesellschaftlich': ['Düster'],
-  'Cinematisch': ['Abenteuerlich'],
-  'Bodenständig': ['Bedrohlich'],
-};
+function anyCount(tags, set) { return tags.filter((t) => set.has(t)).length; }
 
-const GENRE_ALIAS = { 'Gegenwart / Modern': 'Gegenwart' };
-
-function anyTag(tags, set) { return tags.some((tag) => set.has(tag)); }
-
-function automaticProfile(game) {
-  const tags = [...game.genre_setting_top, ...game.genre_setting, ...game.play_focus];
-  const aktivitaeten = {};
-  Object.entries(TAGS.aktivitaeten).forEach(([key, set]) => { aktivitaeten[key] = anyTag(tags, set) ? 4 : 1.5; });
-
-  return {
-    welt_fremdheit: anyTag(tags, TAGS.weltHigh) ? 4.5 : anyTag(tags, TAGS.weltMidHigh) ? 4 : anyTag(tags, TAGS.weltLow) ? 2 : 3,
-    gefahr: anyTag(tags, TAGS.gefahrHigh) ? 4.5 : anyTag(tags, TAGS.gefahrMid) ? 3.5 : anyTag(tags, TAGS.gefahrLow) ? 2 : 2.5,
-    letalitaet: anyTag(tags, TAGS.letalHigh) ? 4 : anyTag(tags, TAGS.letalMid) ? 3.5 : anyTag(tags, TAGS.letalLow) ? 2 : 2.5,
-    figurenkompetenz: anyTag(tags, TAGS.figHigh) ? 4.5 : anyTag(tags, TAGS.figLow) ? 2 : 3,
-    handlungsfreiheit: anyTag(tags, TAGS.handlHigh) ? 4 : anyTag(tags, TAGS.handlLow) ? 2.5 : 3,
-    aktivitaeten,
-  };
+// Zählbasierte Schätzung statt starrer Wenn/Sonst-Stufen: je mehr Signal-Tags
+// in eine Richtung zeigen, desto weiter weicht der Wert von der Mitte (3) ab.
+// Das verhindert, dass viele unterschiedliche Spiele auf denselben groben
+// Wert kollabieren.
+function scaleFromTags(tags, highSet, lowSet, step = 0.45) {
+  const value = 3 + (anyCount(tags, highSet) - anyCount(tags, lowSet)) * step;
+  return Math.min(5, Math.max(1, Math.round(value * 2) / 2));
 }
 
-function toneFromBuckets(game) {
-  const fromTop = game.tone_theme_top.flatMap((t) => TOP_TONE_MAP[t] || []);
-  if (fromTop.length) return [...new Set(fromTop)];
-  // Fallback nur, falls ein Spiel ausnahmsweise kein Top-Tone-Tag trägt.
-  const tags = [...game.genre_setting, ...game.play_focus];
-  const heuristic = {
-    Unheimlich: new Set(['Horror', 'Survival-Horror', '(Post-)Apokalypse']),
-    Bedrohlich: new Set(['Horror', 'Survival-Horror', 'Dark Fantasy']),
-    Düster: new Set(['Dark Fantasy', 'Noir', 'Neo-Noir', 'Politthriller', 'Krimi', 'Gangspiel']),
-    Heroisch: new Set(['Superhelden', 'Cinematic Action', 'Pulp-Action', 'Mythische Heldenreisen', 'Ruhm und Rivalität', 'High Fantasy']),
-    Abenteuerlich: new Set(['Erkundung', 'Abenteuer', 'Dungeon-Crawls', 'Missionen / Aufträge', 'Sword & Sorcery', 'Sword & Sorcery-Abenteuer']),
-    Skurril: new Set(['Satire', 'Kindgerecht', 'Märchen', 'kreative Problemlösung']),
-    Persönlich: new Set(['Charakterentwicklung', 'Soziale Interaktionen', 'Intrigen', 'Coming-of-Age']),
+function automaticProfile(game) {
+  const allTags = [...game.genre_setting_top, ...game.genre_setting, ...game.play_focus, ...game.tone_theme_top, ...game.tone_theme];
+  const aktivitaeten = {};
+  Object.entries(AKTIVITAETEN_TAGS).forEach(([key, set]) => { aktivitaeten[key] = anyCount(game.play_focus, set) ? 4 : 1.5; });
+
+  return {
+    welt_fremdheit: scaleFromTags(allTags, SIGNALS.weltHigh, SIGNALS.weltLow),
+    gefahr: scaleFromTags(allTags, SIGNALS.gefahrHigh, SIGNALS.gefahrLow),
+    letalitaet: scaleFromTags(allTags, SIGNALS.letalHigh, SIGNALS.letalLow),
+    figurenkompetenz: scaleFromTags(allTags, SIGNALS.figHigh, SIGNALS.figLow),
+    handlungsfreiheit: scaleFromTags(allTags, SIGNALS.handlHigh, SIGNALS.handlLow),
+    aktivitaeten,
   };
-  const tones = Object.entries(heuristic).filter(([, set]) => anyTag(tags, set)).map(([tone]) => tone);
-  return tones.length ? tones : ['Abenteuerlich'];
 }
 
 function buildGames(catalog) {
@@ -144,15 +119,17 @@ function buildGames(catalog) {
     throw new Error('Der Katalog enthält kein gültiges Spiele-Array.');
   }
   return catalog.games.map((game) => {
-    const genreTop = (game.genre_setting_top || []).map((g) => GENRE_ALIAS[g] || g);
-    const g = { ...game, genre_setting_top: game.genre_setting_top || [], genre_setting: game.genre_setting || [], play_focus: game.play_focus || [], tone_theme_top: game.tone_theme_top || [], tone_theme: game.tone_theme || [] };
+    const g = {
+      genre_setting_top: game.genre_setting_top || [], genre_setting: game.genre_setting || [],
+      play_focus: game.play_focus || [], tone_theme_top: game.tone_theme_top || [], tone_theme: game.tone_theme || [],
+    };
     return {
       id: game.slug,
       title: game.title,
       language: game.language,
       system_family: game.system_family,
-      genre: genreTop,
-      ton: toneFromBuckets(g),
+      genre: g.genre_setting_top,
+      ton: g.tone_theme_top,
       crunch: Number(game.crunch ?? 3),
       narrativ: Number(game.narrative ?? 3),
       fluff: Number(game.fluff ?? 3),
@@ -196,23 +173,25 @@ function scoreGame(game, profile) {
 }
 
 function makeChips(game, profile) {
-  const highest = (values) => Object.entries(values).sort((a, b) => b[1] - a[1])[0][0];
+  const highest = (values) => Object.entries(values).sort((a, b) => b[1] - a[1])[0]?.[0];
   const good = [];
   const warnings = [];
   const genre = highest(profile.genre);
   const tone = highest(profile.ton);
   const activity = highest(profile.aktivitaeten);
-  if (game.genre.includes(genre)) good.push('Wunschgenre');
-  if (game.ton.includes(tone)) good.push('Passender Ton');
-  if (game.aktivitaeten[activity] >= 3.5) good.push('Stark bei ' + B.aktivitaeten.labels[activity]);
+  if (genre && game.genre.includes(genre)) good.push(`Genre „${genre}“`);
+  if (tone && game.ton.includes(tone)) good.push(`Ton „${tone}“`);
+  if (activity && game.aktivitaeten[activity] >= 3.5) good.push('Stark bei ' + B.aktivitaeten.labels[activity]);
   if (profile.crunch != null && proximity(game.crunch, profile.crunch) >= 0.82) good.push('Passender Regelumfang');
+  if (profile.gefahr != null && proximity(game.gefahr, profile.gefahr) >= 0.82) good.push('Passende Bedrohungsintensität');
+  if (profile.handlungsfreiheit != null && proximity(game.handlungsfreiheit, profile.handlungsfreiheit) >= 0.82) good.push('Passende Handlungsfreiheit');
   if (profile.letalitaet != null && Math.abs(game.letalitaet - profile.letalitaet) >= 1.5) {
     warnings.push(game.letalitaet > profile.letalitaet ? 'Tödlicher als gewünscht' : 'Weniger harte Folgen');
   }
   if (profile.fluff != null && Math.abs(game.fluff - profile.fluff) >= 1.5) {
     warnings.push(game.fluff > profile.fluff ? 'Mehr Lore als gewünscht' : 'Weniger Lore als gewünscht');
   }
-  return { good: good.slice(0, 3), warnings: warnings.slice(0, 2) };
+  return { good: good.slice(0, 4), warnings: warnings.slice(0, 2) };
 }
 
 // ---------------------------------------------------------------- Rendering
@@ -223,6 +202,18 @@ export async function renderWahlomat(root) {
   let games;
   try {
     const data = await api('/api/wahlomat.json');
+    // Auswahllisten für Genre & Ton live aus den tatsächlich vergebenen
+    // Top-Tags bauen -- so tauchen alle Top-Genres/-Tones automatisch auf,
+    // auch neu hinzugekommene, ohne Codeänderung.
+    const genreSet = new Set();
+    const tonSet = new Set();
+    (data.games || []).forEach((g) => {
+      (g.genre_setting_top || []).forEach((t) => genreSet.add(t));
+      (g.tone_theme_top || []).forEach((t) => tonSet.add(t));
+    });
+    B.genre.labels = Object.fromEntries([...genreSet].sort().map((t) => [t, t]));
+    B.ton.labels = Object.fromEntries([...tonSet].sort().map((t) => [t, t]));
+
     games = buildGames(data);
   } catch (e) {
     root.innerHTML = '';
@@ -235,6 +226,7 @@ export async function renderWahlomat(root) {
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat</h1>
     <p class="lede">Sechs kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln und Fluff — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele).</p>
+    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Genre, Ton, Crunch/Narrativ/Fluff kommen 1:1 aus den recherchierten Katalogdaten. Welt-Fremdheit, Bedrohung, Scheitern-Folgen, Figurenkompetenz und Handlungsfreiheit gibt es als Feld im Katalog nicht -- sie werden aus der vollen Tag-Palette jedes Spiels geschätzt, sind also Näherungen.</p>
   </section>`);
   root.appendChild(head);
 
@@ -249,11 +241,13 @@ export async function renderWahlomat(root) {
   root.appendChild(quizWrap);
   root.appendChild(resultsWrap);
 
+  function freshBudget(key) { return Object.fromEntries(Object.keys(B[key].labels).map((k) => [k, 0])); }
+
   const state = {
     step: 1,
-    genre: Object.fromEntries(Object.keys(B.genre.labels).map((k) => [k, 0])),
-    ton: Object.fromEntries(Object.keys(B.ton.labels).map((k) => [k, 0])),
-    aktivitaeten: Object.fromEntries(Object.keys(B.aktivitaeten.labels).map((k) => [k, 0])),
+    genre: freshBudget('genre'),
+    ton: freshBudget('ton'),
+    aktivitaeten: freshBudget('aktivitaeten'),
     figurenkompetenz: [],
     welt_fremdheit: 3, gefahr: 3, handlungsfreiheit: 3, letalitaet: 3,
     crunch: 2.5, narrativ: 3, fluff: 3, weltwissen: 2,
@@ -286,7 +280,7 @@ export async function renderWahlomat(root) {
     return wrap;
   }
 
-  function rangeField(name, label, hint, disableable = true) {
+  function rangeField(name, label, hint) {
     const wrap = el(`<fieldset class="wahlomat-field">
       <legend>${esc(label)}</legend>
       <small>${esc(hint)}</small>
@@ -294,19 +288,17 @@ export async function renderWahlomat(root) {
         <input type="range" min="1" max="5" step=".5" value="${state[name]}">
         <output>${state[name]}</output>
       </div>
-      ${disableable ? `<label class="wahlomat-nopref"><input type="checkbox"> Keine Präferenz -- diese Frage nicht werten</label>` : ''}
+      <label class="wahlomat-nopref"><input type="checkbox"> Keine Präferenz -- diese Frage nicht werten</label>
     </fieldset>`);
     const input = wrap.querySelector('input[type=range]');
     const output = wrap.querySelector('output');
     input.addEventListener('input', () => { state[name] = Number(input.value); output.textContent = String(state[name]); });
     const nopref = wrap.querySelector('.wahlomat-nopref input');
-    if (nopref) {
-      nopref.addEventListener('change', () => {
-        state.noPref[name] = nopref.checked;
-        input.disabled = nopref.checked;
-        output.textContent = nopref.checked ? '–' : String(state[name]);
-      });
-    }
+    nopref.addEventListener('change', () => {
+      state.noPref[name] = nopref.checked;
+      input.disabled = nopref.checked;
+      output.textContent = nopref.checked ? '–' : String(state[name]);
+    });
     return wrap;
   }
 
@@ -443,9 +435,9 @@ export async function renderWahlomat(root) {
     </section>`);
     section.querySelector('#wRestart').addEventListener('click', () => {
       state.step = 1;
-      state.genre = Object.fromEntries(Object.keys(B.genre.labels).map((k) => [k, 0]));
-      state.ton = Object.fromEntries(Object.keys(B.ton.labels).map((k) => [k, 0]));
-      state.aktivitaeten = Object.fromEntries(Object.keys(B.aktivitaeten.labels).map((k) => [k, 0]));
+      state.genre = freshBudget('genre');
+      state.ton = freshBudget('ton');
+      state.aktivitaeten = freshBudget('aktivitaeten');
       state.figurenkompetenz = [];
       state.noPref = {};
       quizWrap.hidden = false;
