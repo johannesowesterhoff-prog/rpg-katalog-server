@@ -73,13 +73,6 @@ function httpError(status, message, extra = {}) {
   return e;
 }
 
-const SEARCH_VECTOR_EXPR = `
-  setweight(to_tsvector('german', coalesce($TITLE,'')), 'A') ||
-  setweight(to_tsvector('german', coalesce($ORIG,'')), 'B') ||
-  setweight(to_tsvector('german', coalesce($SHORT,'')), 'C') ||
-  setweight(to_tsvector('german', coalesce($LONG,'')), 'D')
-`;
-
 // -------------------------------------------------------------- Validierung
 export function validateGamePayload(payload, { forPublish }) {
   const errors = [];
@@ -434,17 +427,16 @@ export async function createGame(payload, actor) {
       `INSERT INTO katalog.games (
         slug, title, original_title, sort_title, language_id, system_family_id, edition, release_year,
         short_description, long_description, crunch, narrative, fluff, status, editorial_note,
-        search_vector, published_at
+        published_at
       ) VALUES (
         $1,$2,$3,$2,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-        ${SEARCH_VECTOR_EXPR.replaceAll('$TITLE', '$2').replaceAll('$ORIG', '$3').replaceAll('$SHORT', '$8').replaceAll('$LONG', '$9')},
-        CASE WHEN $13 = 'published' THEN now() ELSE NULL END
+        CASE WHEN $15 = 'published' THEN now() ELSE NULL END
       ) RETURNING id, slug`,
       [
         slug, payload.title.trim(), payload.original_title || null, languageId, systemFamilyId,
         payload.edition || null, payload.release_year || null, payload.short_description.trim(),
         payload.long_description || null, toScale(payload.crunch), toScale(payload.narrative), toScale(payload.fluff),
-        payload.status || 'draft', payload.editorial_note || null,
+        payload.status || 'draft', payload.editorial_note || null, payload.status || 'draft',
       ],
     );
     const gameId = ins.rows[0].id;
@@ -484,14 +476,13 @@ export async function updateGame(id, payload, actor) {
         slug=$1, title=$2, original_title=$3, sort_title=$2, language_id=$4, system_family_id=$5,
         edition=$6, release_year=$7, short_description=$8, long_description=$9,
         crunch=$10, narrative=$11, fluff=$12, status=$13, editorial_note=$14,
-        search_vector = ${SEARCH_VECTOR_EXPR.replaceAll('$TITLE', '$2').replaceAll('$ORIG', '$3').replaceAll('$SHORT', '$8').replaceAll('$LONG', '$9')},
-        published_at = CASE WHEN $13 = 'published' AND published_at IS NULL THEN now() ELSE published_at END
+        published_at = CASE WHEN $16 = 'published' AND published_at IS NULL THEN now() ELSE published_at END
       WHERE id = $15`,
       [
         slug, payload.title.trim(), payload.original_title || null, languageId, systemFamilyId,
         payload.edition || null, payload.release_year || null, payload.short_description.trim(),
         payload.long_description || null, toScale(payload.crunch), toScale(payload.narrative), toScale(payload.fluff),
-        payload.status || 'draft', payload.editorial_note || null, id,
+        payload.status || 'draft', payload.editorial_note || null, id, payload.status || 'draft',
       ],
     );
     await upsertRelations(client, id, payload);
