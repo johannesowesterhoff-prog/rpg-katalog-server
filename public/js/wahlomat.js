@@ -40,12 +40,12 @@ const FIGURE_OPTIONS = [
 
 // Einzelfragen mit Regler 1-5, je Schritt zugeordnet.
 const RANGES = {
-  1: [['welt_fremdheit', 'Wie fremd und eigenständig soll die Welt sein?', '1 = nah an unserer Realität · 5 = sehr fremd oder seltsam', 3]],
+  1: [['welt_fremdheit', 'Wie fremd soll die Welt im Vergleich zu unserer sein?', '1 = wie unsere Realität · 5 = völlig fremdartig (andere Welt, andere Regeln der Natur)', 3]],
   2: [['gefahr', 'Wie intensiv sollen Bedrohung und Druck sein?', '1 = entspannt und sicher · 5 = existenziell bedrohlich (unabhängig vom Genre)', 3]],
   3: [['handlungsfreiheit', 'Wie offen soll die Handlung sein?', '1 = klarer Auftrag · 5 = Gruppe setzt Ziele und Richtung', 3]],
-  4: [['letalitaet', 'Wie folgenreich darf Scheitern sein?', '1 = Folgen treiben weiter · 5 = Verlust gehört zum Nervenkitzel', 3]],
-  5: [['crunch', 'Wie viel Regelstruktur möchtet ihr aktiv nutzen?', '1 = sehr leicht · 5 = taktisch und buildintensiv', 2.5], ['narrativ', 'Wie stark gestaltet ihr Handlung und Welt direkt mit?', '1 = Spielleitung führt klar · 5 = Welt gemeinsam gestalten', 3]],
-  6: [['fluff', 'Wie wichtig sind Geschichte, Orte, Kultur und Fraktionen?', '1 = Handlung zählt · 5 = Lore ist ein Hauptreiz', 3], ['weltwissen', 'Wie viel Weltwissen möchtet ihr zu Beginn aufnehmen?', '1 = nur das Nötigste · 5 = bewusst tief einsteigen', 2]],
+  4: [['letalitaet', 'Wie folgenreich darf Scheitern sein?', '1 = Auch bei Fehlschlägen geht die Handlung weiter · 5 = Scheitern ist scheitern – echter Verlust (bis hin zum Charaktertod) ist möglich', 3]],
+  5: [['crunch', 'Wie viel Regelstruktur möchtet ihr aktiv nutzen?', '1 = sehr leicht, kaum Optionen · 5 = viele Regeln, Optionen und taktische Tiefe (z.B. Charakterbau, Builds)', 2.5], ['narrativ', 'Wie stark gestaltet ihr Handlung und Welt direkt mit?', '1 = Spielleitung führt klar · 5 = Welt gemeinsam gestalten', 3]],
+  6: [['fluff', 'Wie stark soll die Spielwelt bereits ausgearbeitet sein?', '1 = offen, wenig vorgegeben, viel selbst ausdenken · 5 = stark ausgearbeitete Welt mit viel Hintergrundmaterial', 3], ['weltwissen', 'Wie viel wollt ihr euch vor dem Spielen in die Spielwelt einlesen?', '1 = nur das Nötigste zum Loslegen · 5 = vorher ausführlich eintauchen', 2]],
 };
 
 const STEPS = [
@@ -72,7 +72,7 @@ const AKTIVITAETEN_TAGS = {
 // damit tatsächlich die recherchierten Sub-Tone-Tags (die genauesten Daten,
 // die wir pro Spiel haben) mit einfließen statt nur grobe Genre-Schubladen.
 const SIGNALS = {
-  weltHigh: new Set(['Space Opera', 'Weird Fantasy', 'Primal Punk', 'Mythische Inselwelt', 'Cyberpunk', '(Post-)Apokalypse', 'Low-Fi Sci-Fi', 'Mysteriös', 'Rätselhaft', 'Realitätsbruch', 'Kosmisches Grauen', 'Urzeitlich', 'Zauberhaft', 'Mythisch', 'Feenhaft', 'Skurril', 'Genreoffen', 'Weite']),
+  weltHigh: new Set(['Space Opera', 'Weird Fantasy', 'Primal Punk', 'Mythische Inselwelt', 'Cyberpunk', '(Post-)Apokalypse', 'Low-Fi Sci-Fi', 'Mysteriös', 'Rätselhaft', 'Realitätsbruch', 'Kosmisches Grauen', 'Urzeitlich', 'Zauberhaft', 'Mythisch', 'Feenhaft', 'Skurril', 'Genreoffen', 'Weite', 'Märchenhaft', 'Märchenfantasy']),
   weltLow: new Set(['Gegenwart / Modern', 'Krimi', 'Noir', 'Neo-Noir', 'Politthriller', 'Akademie', 'Coming-of-Age', '(Pseudo-)Historisch', 'Auftragskiller', 'Alltagsnah', 'Glaubwürdig', 'Bürokratisch', 'Klassisch', 'Bodenständig'].filter(Boolean)),
 
   gefahrHigh: new Set(['Existenzielle Angst', 'Existenzieller Horror', 'Ausweglos', 'Kompromisslos', 'Brutal', 'Blutig', 'Körperliche Bedrohung', 'Klaustrophobisch', 'Entbehrungsreich', 'Bösartig', 'Prekär', 'Überlebenskampf', 'Weltuntergangsstimmung', 'Verstörend', 'Kosmisches Grauen', 'Horror', 'Survival-Horror', 'Überleben', 'Konsequenzenreich']),
@@ -99,13 +99,23 @@ function scaleFromTags(tags, highSet, lowSet, step = 0.45) {
   return Math.min(5, Math.max(1, Math.round(value * 2) / 2));
 }
 
+// Top-Genres, die auf übernatürliche/fantastische Elemente hindeuten. Trägt
+// ein Spiel eines davon ZUSAMMEN mit "Gegenwart / Modern" (z.B. Monster im
+// Alltag), zieht "Gegenwart / Modern" die Welt-Fremdheit nicht mehr künstlich
+// nach unten -- die Mischung aus Alltag und Übernatürlichem ist ja gerade der
+// Punkt solcher Settings, nicht pure Realitätsnähe.
+const FANTASTICAL_TOP_GENRES = new Set(['Fantasy', 'Science-Fiction', 'Horror', 'Cyberpunk', 'Superhelden', '(Post-)Apokalypse', 'Universal']);
+
 function automaticProfile(game) {
   const allTags = [...game.genre_setting_top, ...game.genre_setting, ...game.play_focus, ...game.tone_theme_top, ...game.tone_theme];
+  const modernButFantastical = game.genre_setting_top.includes('Gegenwart / Modern')
+    && game.genre_setting_top.some((t) => FANTASTICAL_TOP_GENRES.has(t));
+  const weltTags = modernButFantastical ? allTags.filter((t) => t !== 'Gegenwart / Modern') : allTags;
   const aktivitaeten = {};
   Object.entries(AKTIVITAETEN_TAGS).forEach(([key, set]) => { aktivitaeten[key] = anyCount(game.play_focus, set) ? 4 : 1.5; });
 
   return {
-    welt_fremdheit: scaleFromTags(allTags, SIGNALS.weltHigh, SIGNALS.weltLow),
+    welt_fremdheit: scaleFromTags(weltTags, SIGNALS.weltHigh, SIGNALS.weltLow),
     gefahr: scaleFromTags(allTags, SIGNALS.gefahrHigh, SIGNALS.gefahrLow),
     letalitaet: scaleFromTags(allTags, SIGNALS.letalHigh, SIGNALS.letalLow),
     figurenkompetenz: scaleFromTags(allTags, SIGNALS.figHigh, SIGNALS.figLow),
