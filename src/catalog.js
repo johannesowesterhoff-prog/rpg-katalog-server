@@ -187,16 +187,23 @@ export async function listGames(query, isAdmin) {
   return { games: listR.rows, total, page: f.page, pages, pageSize: PAGE_SIZE };
 }
 
-async function facetCounts(cte, whereSql, params, { column, isArray }) {
+async function facetCounts(cte, whereSql, params, { column, isArray, tagKind }) {
   const notNull = `gd.${column} IS NOT NULL`;
   const combinedWhere = whereSql ? `${whereSql} AND ${notNull}` : `WHERE ${notNull}`;
   const fromExpr = isArray ? `gd, unnest(gd.${column}) AS value` : `gd`;
   const valueExpr = isArray ? 'value' : `gd.${column} AS value`;
+  // Für Tag-Dimensionen mit einer sinnvollen inhärenten Reihenfolge (z.B.
+  // Kampagnenart: One-Shot vor Kampagne vor Sandbox) wird nach der
+  // sort_order der Tags sortiert statt nach Häufigkeit; neue Tags ohne
+  // eigene sort_order (Default 100) landen dabei alphabetisch am Ende.
+  const orderExpr = tagKind
+    ? `(SELECT t.sort_order FROM katalog.tags t WHERE t.kind = '${tagKind}'::katalog.tag_kind AND t.name = value), value`
+    : 'count DESC, value';
   const sql = `WITH ${cte}
     SELECT ${valueExpr}, count(*)::int AS count
     FROM ${fromExpr}
     ${combinedWhere}
-    GROUP BY value ORDER BY count DESC, value`;
+    GROUP BY value ORDER BY ${orderExpr}`;
   const r = await pool.query(sql, params);
   return r.rows;
 }
@@ -212,12 +219,12 @@ export async function getFacets(query, isAdmin) {
     ['genresTop', 'genre_setting_top', true],
     ['genres', 'genre_setting', true],
     ['focus', 'play_focus', true],
-    ['campaigns', 'campaign_type', true],
+    ['campaigns', 'campaign_type', true, 'campaign_type'],
     ['toneThemesTop', 'tone_theme_top', true],
     ['toneThemes', 'tone_theme', true],
   ];
   const out = {};
-  for (const [key, column] of dims) {
+  for (const [key, column, isArray, tagKind] of dims) {
     // Zähle jede Facette unter allen Filtern AUSSER dem eigenen Feld, damit
     // Nutzer:innen sehen, wie viele Treffer eine weitere Auswahl brächte.
     const fCopy = { ...f };
@@ -231,7 +238,7 @@ export async function getFacets(query, isAdmin) {
     if (column === 'tone_theme_top') fCopy.toneTop = [];
     if (column === 'tone_theme') fCopy.tone = [];
     const { whereSql, params } = buildWhere(fCopy, isAdmin, { excludeScales: false });
-    const rows = await facetCounts(cte, whereSql, params, { column, isArray: dims.find((d) => d[1] === column)[2] });
+    const rows = await facetCounts(cte, whereSql, params, { column, isArray, tagKind });
     out[key] = rows.map((r) => ({ value: r.value, label: r.value, count: r.count }));
   }
 
