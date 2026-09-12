@@ -20,8 +20,8 @@ import { api } from './api.js';
 import { el, esc, toast } from './ui.js';
 
 const B = {
-  genre: { total: 6, max: 3, key: 'genre', labels: {} },
-  ton: { total: 6, max: 3, key: 'ton', labels: {} },
+  genre: { total: 10, max: 3, key: 'genre', labels: {} },
+  ton: { total: 10, max: 3, key: 'ton', labels: {} },
   aktivitaeten: {
     total: 10, max: 4, key: 'aktivitaeten',
     labels: { kampf_taktik: 'Kämpfen & taktisch planen', erkundung: 'Erkunden & entdecken', ermittlung: 'Ermitteln & Rätsel lösen', soziale_szenen: 'Beziehungen & Rollenspiel', survival: 'Überleben & Ressourcen', weltgestaltung: 'Welt, Basis & Fraktionen' },
@@ -40,12 +40,12 @@ const FIGURE_OPTIONS = [
 
 // Einzelfragen mit Regler 1-5, je Schritt zugeordnet.
 const RANGES = {
-  1: [['welt_fremdheit', 'Wie fremd soll die Welt im Vergleich zu unserer sein?', '1 = wie unsere Realität · 5 = völlig fremdartig (andere Welt, andere Regeln der Natur)', 3]],
-  2: [['gefahr', 'Wie intensiv sollen Bedrohung und Druck sein?', '1 = entspannt und sicher · 5 = existenziell bedrohlich (unabhängig vom Genre)', 3]],
-  3: [['handlungsfreiheit', 'Wie offen soll die Handlung sein?', '1 = klarer Auftrag · 5 = Gruppe setzt Ziele und Richtung', 3]],
-  4: [['letalitaet', 'Wie folgenreich darf Scheitern sein?', '1 = Auch bei Fehlschlägen geht die Handlung weiter · 5 = Scheitern ist scheitern – echter Verlust (bis hin zum Charaktertod) ist möglich', 3]],
-  5: [['crunch', 'Wie viel Regelstruktur möchtet ihr aktiv nutzen?', '1 = sehr leicht, kaum Optionen · 5 = viele Regeln, Optionen und taktische Tiefe (z.B. Charakterbau, Builds)', 2.5], ['narrativ', 'Wie stark gestaltet ihr Handlung und Welt direkt mit?', '1 = Spielleitung führt klar · 5 = Welt gemeinsam gestalten', 3]],
-  6: [['fluff', 'Wie stark soll die Spielwelt bereits ausgearbeitet sein?', '1 = offen, wenig vorgegeben, viel selbst ausdenken · 5 = stark ausgearbeitete Welt mit viel Hintergrundmaterial', 3], ['weltwissen', 'Wie viel wollt ihr euch vor dem Spielen in die Spielwelt einlesen?', '1 = nur das Nötigste zum Loslegen · 5 = vorher ausführlich eintauchen', 2]],
+  1: [['welt_fremdheit', 'Wie fremd soll die Welt im Vergleich zu unserer sein?', '1 = wie unsere Realität · 5 = völlig fremdartig (andere Welt, andere Regeln der Natur)']],
+  2: [['gefahr', 'Wie intensiv sollen Bedrohung und Druck sein?', '1 = entspannt und sicher · 5 = existenziell bedrohlich (unabhängig vom Genre)']],
+  3: [['handlungsfreiheit', 'Wie offen soll die Handlung sein?', '1 = klarer Auftrag · 5 = Gruppe setzt Ziele und Richtung']],
+  4: [['letalitaet', 'Wie folgenreich darf Scheitern sein?', '1 = Auch bei Fehlschlägen geht die Handlung weiter · 5 = Scheitern ist scheitern – echter Verlust (bis hin zum Charaktertod) ist möglich']],
+  5: [['crunch', 'Wie viel Regelstruktur möchtet ihr aktiv nutzen?', '1 = sehr leicht, kaum Optionen · 5 = viele Regeln, Optionen und taktische Tiefe (z.B. Charakterbau, Builds)'], ['narrativ', 'Wie stark gestaltet ihr Handlung und Welt direkt mit?', '1 = Spielleitung führt klar · 5 = Welt gemeinsam gestalten']],
+  6: [['fluff', 'Wie stark soll die Spielwelt bereits ausgearbeitet sein?', '1 = offen, wenig vorgegeben, viel selbst ausdenken · 5 = stark ausgearbeitete Welt mit viel Hintergrundmaterial'], ['weltwissen', 'Wie viel wollt ihr euch vor dem Spielen in die Spielwelt einlesen?', '1 = nur das Nötigste zum Loslegen · 5 = vorher ausführlich eintauchen']],
 };
 
 const STEPS = [
@@ -280,7 +280,7 @@ export async function renderWahlomat(root) {
     aktivitaeten: freshBudget('aktivitaeten'),
     figurenkompetenz: [],
     welt_fremdheit: 3, gefahr: 3, handlungsfreiheit: 3, letalitaet: 3,
-    crunch: 2.5, narrativ: 3, fluff: 3, weltwissen: 2,
+    crunch: 3, narrativ: 3, fluff: 3, weltwissen: 3,
   };
 
   function budgetSum(key) { return Object.values(state[key]).reduce((a, b) => a + b, 0); }
