@@ -91,7 +91,7 @@ export function buildWhere(f, isAdmin, opts = {}) {
     conds.push(`(${qConds.join(' OR ')})`);
   }
   if (f.language.length) conds.push(`gd.language_code = ANY(${p(f.language)}::text[])`);
-  if (f.publisher.length) conds.push(`gd.primary_publisher = ANY(${p(f.publisher)}::text[])`);
+  if (f.publisher.length) conds.push(`gd.publisher_names && ${p(f.publisher)}::text[]`);
   if (f.systemFamily.length) conds.push(`gd.system_family = ANY(${p(f.systemFamily)}::text[])`);
 
   // Array-Facetten: ODER (&&, mind. eine Überschneidung) oder UND (@>, alle
@@ -140,6 +140,11 @@ export function gameDetailCte(isAdmin) {
           SELECT p.name FROM katalog.game_publishers gp JOIN katalog.publishers p ON p.id = gp.publisher_id
           WHERE gp.game_id = g.id AND gp.is_primary LIMIT 1
         ) AS primary_publisher,
+        (
+          SELECT array_agg(p.name ORDER BY gp.is_primary DESC, p.name)
+          FROM katalog.game_publishers gp JOIN katalog.publishers p ON p.id = gp.publisher_id
+          WHERE gp.game_id = g.id
+        ) AS publisher_names,
         (
           SELECT array_agg(t.name ORDER BY t.sort_order, t.name)
           FROM katalog.game_tags gt JOIN katalog.tags t ON t.id = gt.tag_id

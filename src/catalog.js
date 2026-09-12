@@ -207,7 +207,7 @@ export async function getFacets(query, isAdmin) {
 
   const dims = [
     ['languages', 'language_code', false],
-    ['publishers', 'primary_publisher', false],
+    ['publishers', 'publisher_names', true],
     ['systemFamilies', 'system_family', false],
     ['genresTop', 'genre_setting_top', true],
     ['genres', 'genre_setting', true],
@@ -222,7 +222,7 @@ export async function getFacets(query, isAdmin) {
     // Nutzer:innen sehen, wie viele Treffer eine weitere Auswahl brächte.
     const fCopy = { ...f };
     if (column === 'language_code') fCopy.language = [];
-    if (column === 'primary_publisher') fCopy.publisher = [];
+    if (column === 'publisher_names') fCopy.publisher = [];
     if (column === 'system_family') fCopy.systemFamily = [];
     if (column === 'genre_setting_top') fCopy.genreTop = [];
     if (column === 'genre_setting') fCopy.genre = [];
