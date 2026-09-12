@@ -20,8 +20,8 @@ import { api } from './api.js';
 import { el, esc, toast } from './ui.js';
 
 const B = {
-  genre: { total: 10, max: 3, key: 'genre', labels: {} },
-  ton: { total: 10, max: 3, key: 'ton', labels: {} },
+  genre: { total: 10, max: 4, key: 'genre', labels: {} },
+  ton: { total: 10, max: 4, key: 'ton', labels: {} },
   aktivitaeten: {
     total: 10, max: 4, key: 'aktivitaeten',
     labels: { kampf_taktik: 'Kämpfen & taktisch planen', erkundung: 'Erkunden & entdecken', ermittlung: 'Ermitteln & Rätsel lösen', soziale_szenen: 'Beziehungen & Rollenspiel', survival: 'Überleben & Ressourcen', weltgestaltung: 'Welt, Basis & Fraktionen' },
@@ -498,12 +498,18 @@ export async function renderWahlomat(root) {
       </article>`;
     }).join('');
 
+    const priorityLabel = (key) => (PRIORITY_OPTIONS.find(([k]) => k === key) || [key, key])[1];
+    const priorityNote = profile.priorities.length
+      ? `<div class="help-box">Eure Prioritäten (<strong>${profile.priorities.map((k) => esc(priorityLabel(k))).join(', ')}</strong>) zählen ${Math.round((PRIORITY_BOOST - 1) * 100)} % stärker in diesem Ergebnis (${PRIORITY_BOOST}x Gewicht statt 1x).</div>`
+      : '';
+
     const section = el(`<section>
       <div class="result-bar">
         <div><p class="faint" style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.07em;margin:0 0 .2rem">Euer Ergebnis</p><h2>Passende Spiele</h2></div>
         <button type="button" class="btn" id="wRestart">Neu starten</button>
       </div>
       <div class="help-box">Bewertet wurden alle ${results.length} veröffentlichten Spiele aus dem Katalog.</div>
+      ${priorityNote}
       <div class="wahlomat-results">${listHtml}</div>
     </section>`);
     section.querySelector('#wRestart').addEventListener('click', () => {
