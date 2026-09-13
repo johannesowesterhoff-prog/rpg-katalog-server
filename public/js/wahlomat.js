@@ -372,7 +372,7 @@ export async function renderWahlomat(root) {
   function priorityField() {
     const wrap = el(`<fieldset class="wahlomat-field">
       <legend>Was ist euch am wichtigsten?</legend>
-      <small>Optional: wählt bis zu ${PRIORITY_MAX} Dimensionen, die im Ergebnis stärker zählen sollen. Ohne Auswahl bleibt alles gleich gewichtet.</small>
+      <small>Optional: wählt bis zu ${PRIORITY_MAX} Dimensionen, die ${Math.round((PRIORITY_BOOST - 1) * 100)} % stärker gewichtet werden sollen (${PRIORITY_BOOST}x statt 1x). Ohne Auswahl bleibt alles gleich gewichtet.</small>
       <div class="wahlomat-choices"></div>
     </fieldset>`);
     const list = wrap.querySelector('.wahlomat-choices');
@@ -498,18 +498,12 @@ export async function renderWahlomat(root) {
       </article>`;
     }).join('');
 
-    const priorityLabel = (key) => (PRIORITY_OPTIONS.find(([k]) => k === key) || [key, key])[1];
-    const priorityNote = profile.priorities.length
-      ? `<div class="help-box">Eure Prioritäten (<strong>${profile.priorities.map((k) => esc(priorityLabel(k))).join(', ')}</strong>) zählen ${Math.round((PRIORITY_BOOST - 1) * 100)} % stärker in diesem Ergebnis (${PRIORITY_BOOST}x Gewicht statt 1x).</div>`
-      : '';
-
     const section = el(`<section>
       <div class="result-bar">
         <div><p class="faint" style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.07em;margin:0 0 .2rem">Euer Ergebnis</p><h2>Passende Spiele</h2></div>
         <button type="button" class="btn" id="wRestart">Neu starten</button>
       </div>
       <div class="help-box">Bewertet wurden alle ${results.length} veröffentlichten Spiele aus dem Katalog.</div>
-      ${priorityNote}
       <div class="wahlomat-results">${listHtml}</div>
     </section>`);
     section.querySelector('#wRestart').addEventListener('click', () => {
