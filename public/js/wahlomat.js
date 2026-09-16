@@ -279,7 +279,7 @@ export async function renderWahlomat(root) {
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat</h1>
     <p class="lede">Sieben kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln, Fluff und euren Prioritäten — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele).</p>
-    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Genre, Ton, Crunch/Narrativ/Fluff kommen 1:1 aus den recherchierten Katalogdaten. Für Welt-Fremdheit, Bedrohung, Scheitern-Folgen, Figurenkompetenz und Handlungsfreiheit gibt es kein eigenes Katalogfeld -- sie werden aus der vollen, recherchierten Tag-Palette jedes Spiels (Genre, Ton inkl. Sub-Tone, Spielfokus) gezählt und geschätzt. Präziser als eine grobe Genre-Schublade, aber weiterhin eine Näherung.</p>
+    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Genre, Ton, Crunch/Narrativ/Fluff kommen 1:1 aus den recherchierten Katalogdaten. Für Welt-Fremdheit, Bedrohung, Scheitern-Folgen, Figurenkompetenz und Handlungsfreiheit gibt es kein eigenes Katalogfeld -- sie werden aus der vollen, recherchierten Tag-Palette jedes Spiels (Genre, Ton inkl. Sub-Tone, Spielfokus) gezählt und geschätzt. Präziser als eine grobe Genre-Schublade, aber weiterhin eine Näherung. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
   </section>`);
   root.appendChild(head);
 
