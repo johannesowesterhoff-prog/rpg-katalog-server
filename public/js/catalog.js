@@ -68,7 +68,7 @@ export function renderCatalog(root, ctx) {
 
   const head = el(`<section class="catalog-head">
     <h1>Rollenspiel-Katalog</h1>
-    <p class="lede">Alle Spiele der Sammlung mit Einordnung nach <strong>Crunch</strong>, <strong>Narrativ</strong> und <strong>Fluff</strong> sowie den tatsächlich vorhandenen Produkten.</p>
+    <p class="lede">Alle Spiele der Sammlung — filterbar nach Genre, Ton, Spielfokus, System und mehr, eingeordnet nach <strong>Crunch</strong>, <strong>Narrativ</strong> und <strong>Fluff</strong>, inklusive der tatsächlich vorhandenen Produkte.</p>
     <div class="search-row">
       <div class="search-box">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg>
