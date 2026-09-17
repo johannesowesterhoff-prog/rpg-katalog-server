@@ -237,18 +237,19 @@ export async function renderList(root, params) {
 // ---------------------------------------------------------------- Editor
 export async function renderEditor(root, id) {
   const body = mount(root, id ? 'liste' : 'editor', id ? 'Eintrag bearbeiten' : 'Neuer Eintrag',
-    'Geführtes Formular in fünf Abschnitten. Pflichtfelder werden vor dem Speichern geprüft.');
+    'Geführtes Formular in sechs Abschnitten. Pflichtfelder werden vor dem Speichern geprüft.');
   body.innerHTML = '<div class="skeleton" style="height:260px"></div>';
   const md = await loadMaster();
   let game = {
     title: '', original_title: '', language: 'de', system_family: '', edition: '', release_year: '',
     short_description: '', long_description: '', crunch: null, narrative: null, fluff: null,
-    status: 'draft', editorial_note: '', publishers: [], genre_setting_top: [], genre_setting: [], play_focus: [], campaign_type: [], tone_theme_top: [], tone_theme: [], products: [],
+    status: 'draft', editorial_note: '', publishers: [], genre_setting_top: [], genre_setting: [], play_focus: [], campaign_type: [], tone_theme_top: [], tone_theme: [], products: [], play_sessions: [],
   };
   if (id) {
     const r = await api('/api/admin/games/' + id);
     game = { ...r.game, publishers: r.game.publishers.map((p) => p.name), language: r.game.language,
-      products: r.game.products.map((p) => ({ ...p })) };
+      products: r.game.products.map((p) => ({ ...p })),
+      play_sessions: r.game.play_sessions.map((s) => ({ ...s })) };
   }
   body.innerHTML = '';
 
@@ -350,8 +351,33 @@ export async function renderEditor(root, id) {
   if (!state.products?.length) addProduct();
   s4.wrap.querySelector('#add-product').addEventListener('click', () => addProduct());
 
-  // ---- 5. Prüfen & Veröffentlichen
-  const s5 = step(5, 'Prüfen & Veröffentlichen', `
+  // ---- 5. Spielabende
+  const s5sessions = step(5, 'Spielabende', `
+    <div class="help-box">Protokolliert, wann und mit wem ihr dieses Spiel tatsächlich gespielt habt.</div>
+    <div id="sessions"></div>
+    <button type="button" class="btn btn-sm" id="add-session">+ Weiteren Spielabend hinzufügen</button>`);
+  form.appendChild(s5sessions.wrap);
+  const sessionBox = s5sessions.wrap.querySelector('#sessions');
+  const sessionRows = [];
+  function addSession(s = { played_on: '', participants: '', note: '', rating: '' }) {
+    const row = el(`<div class="session-row">
+      <div class="field" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
+      <div class="field" style="margin:0"><label>Mitspieler:innen</label><input type="text" class="s-participants" value="${esc(s.participants || '')}"></div>
+      <div class="field" style="margin:0"><label>Notiz</label><input type="text" class="s-note" value="${esc(s.note || '')}"></div>
+      <div class="field" style="margin:0"><label>Bewertung</label><select class="s-rating">
+        <option value="">–</option>
+        ${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${String(s.rating) === String(n) ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <button type="button" class="btn btn-sm btn-danger" title="Spielabend entfernen">Entfernen</button>
+    </div>`);
+    row.querySelector('button').addEventListener('click', () => { row.remove(); sessionRows.splice(sessionRows.indexOf(row), 1); });
+    sessionRows.push(row);
+    sessionBox.appendChild(row);
+  }
+  (state.play_sessions || []).forEach(addSession);
+  s5sessions.wrap.querySelector('#add-session').addEventListener('click', () => addSession());
+
+  // ---- 6. Prüfen & Veröffentlichen
+  const s5 = step(6, 'Prüfen & Veröffentlichen', `
     <div class="field"><label for="f-status">Status</label><select id="f-status">
       <option value="draft" ${state.status === 'draft' ? 'selected' : ''}>Entwurf – nicht öffentlich</option>
       <option value="published" ${state.status === 'published' ? 'selected' : ''}>Veröffentlicht – im Katalog sichtbar</option>
@@ -398,6 +424,12 @@ export async function renderEditor(root, id) {
         edition: r.querySelector('.p-edition').value.trim() || null,
         language: r.querySelector('.p-lang').value || null,
       })).filter((p) => p.title),
+      play_sessions: sessionRows.map((r) => ({
+        played_on: r.querySelector('.s-date').value || null,
+        participants: r.querySelector('.s-participants').value.trim() || null,
+        note: r.querySelector('.s-note').value.trim() || null,
+        rating: r.querySelector('.s-rating').value || null,
+      })).filter((s) => s.played_on),
     };
   }
 

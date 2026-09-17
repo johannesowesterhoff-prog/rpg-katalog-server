@@ -12,7 +12,7 @@ import {
   loginRateLimit, csrfGuard,
 } from './src/auth.js';
 import {
-  listGames, getFacets, getGameBySlug, getGameById, getMasterData, getWahlomatData,
+  listGames, getFacets, getGameBySlug, getGameById, getMasterData, getWahlomatData, getStats,
   getDashboard, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
   deleteMasterEntry, getAuditLog,
@@ -98,6 +98,10 @@ app.get('/api/games/:slug', attachAdminFlag, asyncRoute(async (req, res) => {
 
 app.get('/api/wahlomat.json', asyncRoute(async (_req, res) => {
   res.json(await getWahlomatData());
+}));
+
+app.get('/api/stats.json', asyncRoute(async (_req, res) => {
+  res.json(await getStats());
 }));
 
 app.get('/api/master-data', asyncRoute(async (_req, res) => {
