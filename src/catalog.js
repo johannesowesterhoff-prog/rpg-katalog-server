@@ -175,7 +175,7 @@ export async function getWahlomatData() {
 // Dashboard: Verteilungen, Skalen-Durchschnitte sowie Spielabend-Auswertung.
 export async function getStats() {
   const cte = gameDetailCte(false);
-  const [totals, genreDist, toneDist, langDist, scales, systemDist, campaignDist, mostPlayed, recentSessions] = await Promise.all([
+  const [totals, genreDist, toneDist, langDist, scales, scatter, systemDist, campaignDist, mostPlayed, recentSessions] = await Promise.all([
     pool.query(`SELECT
       (SELECT count(*) FROM katalog.games WHERE status = 'published')::int AS games,
       (SELECT count(*) FROM katalog.products pr JOIN katalog.games g ON g.id = pr.game_id WHERE g.status = 'published')::int AS products,
@@ -193,6 +193,10 @@ export async function getStats() {
     pool.query(`WITH ${cte}
       SELECT round(avg(crunch)::numeric, 1) AS crunch, round(avg(narrative)::numeric, 1) AS narrativ, round(avg(fluff)::numeric, 1) AS fluff
       FROM gd WHERE gd.status = 'published'`),
+    pool.query(`WITH ${cte}
+      SELECT slug, title, crunch, narrative, fluff FROM gd
+      WHERE gd.status = 'published' AND gd.crunch IS NOT NULL AND gd.narrative IS NOT NULL
+      ORDER BY title`),
     pool.query(`WITH ${cte}
       SELECT system_family AS value, count(*)::int AS count FROM gd
       WHERE gd.status = 'published' GROUP BY system_family ORDER BY count DESC, value LIMIT 8`),
@@ -215,6 +219,7 @@ export async function getStats() {
     toneDist: toneDist.rows,
     langDist: langDist.rows,
     scales: scales.rows[0],
+    scatter: scatter.rows,
     systemDist: systemDist.rows,
     campaignDist: campaignDist.rows,
     mostPlayed: mostPlayed.rows,

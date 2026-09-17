@@ -297,6 +297,18 @@ tbody tr:hover { background: var(--surface-2); }
 .stat-list a { font-weight: 700; }
 .stat-list .muted { display: block; font-size: var(--text-xs); margin-top: .1rem; }
 
+.scatter-wrap { position: relative; max-width: 640px; }
+.scatter-svg { display: block; width: 100%; height: auto; }
+.scatter-grid { stroke: var(--border); stroke-width: 1; }
+.scatter-grid.origin { stroke: var(--border-strong); stroke-width: 1.5; }
+.scatter-tick { fill: var(--text-faint); font-size: 10px; font-family: var(--font-body); }
+.scatter-axis-label { fill: var(--text-muted); font-size: 11px; font-family: var(--font-body); text-transform: uppercase; letter-spacing: .06em; }
+.scatter-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 1; cursor: pointer; transition: r .1s ease; }
+.scatter-dot:hover { r: 7.5; fill-opacity: 1 !important; }
+.scatter-tooltip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: var(--space-2) var(--space-3); font-size: var(--text-xs); line-height: 1.5; white-space: nowrap; z-index: 5; }
+.scatter-legend { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
+.scatter-legend-ramp { width: 80px; height: 10px; border-radius: 5px; background: linear-gradient(to right, color-mix(in srgb, var(--accent) 15%, transparent), var(--accent)); }
+
 /* ---------- Admin ---------- */
 .admin-head { padding: var(--space-8) 0 var(--space-4); display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-4); flex-wrap: wrap; }
 .admin-tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--border); margin-bottom: var(--space-6); overflow-x: auto; }
