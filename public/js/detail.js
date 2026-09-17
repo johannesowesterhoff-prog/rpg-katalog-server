@@ -51,6 +51,8 @@ export async function renderDetail(root, slug, ctx) {
   };
 
   const products = g.products || [];
+  const sessions = g.play_sessions || [];
+  const fmtDateOnly = (v) => (v ? new Date(v).toLocaleDateString('de-DE') : '–');
   const layout = el(`<div class="detail-layout">
     <div>
       <section class="section">
@@ -75,6 +77,19 @@ export async function renderDetail(root, slug, ctx) {
             <td>${esc((p.language || g.language_code).toUpperCase())}</td>
           </tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">Für dieses Spiel ist derzeit kein Produkt im Bestand erfasst.</p>'}
+      </section>
+
+      <section class="section">
+        <h2>Spielabende (${sessions.length})</h2>
+        ${sessions.length ? `<div class="scroll-x"><table>
+          <thead><tr><th>Datum</th><th>Mitspieler:innen</th><th>Notiz</th><th>Bewertung</th></tr></thead>
+          <tbody>${sessions.map((s) => `<tr>
+            <td>${esc(fmtDateOnly(s.played_on))}</td>
+            <td>${esc(s.participants || '–')}</td>
+            <td>${esc(s.note || '–')}</td>
+            <td>${s.rating ? '★'.repeat(s.rating) : '–'}</td>
+          </tr>`).join('')}</tbody></table></div>`
+      : '<p class="muted">Für dieses Spiel ist noch kein Spielabend protokolliert.</p>'}
       </section>
     </div>
 

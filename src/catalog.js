@@ -107,6 +107,10 @@ export function validateGamePayload(payload, { forPublish }) {
     if (prod.title && prod.title.trim().length > 200) push('products', `Produkttitel „${prod.title}" ist zu lang.`);
     if (prod.isbn && !/^[0-9Xx-]{10,17}$/.test(prod.isbn)) push('products', `ISBN „${prod.isbn}" hat ein ungültiges Format.`);
   }
+  for (const s of payload.play_sessions || []) {
+    if (s.played_on && Number.isNaN(new Date(s.played_on).getTime())) push('play_sessions', `Ungültiges Datum „${s.played_on}".`);
+    if (s.rating && (Number(s.rating) < 1 || Number(s.rating) > 5)) push('play_sessions', 'Bewertung muss zwischen 1 und 5 liegen.');
+  }
   return errors;
 }
 
@@ -164,6 +168,58 @@ export async function getWahlomatData() {
     FROM gd WHERE status = 'published' ORDER BY title`;
   const r = await pool.query(sql);
   return { games: r.rows };
+}
+
+// --------------------------------------------------------- Statistik
+// Aggregierte Kennzahlen über die veröffentlichte Sammlung fürs Statistik-
+// Dashboard: Verteilungen, Skalen-Durchschnitte sowie Spielabend-Auswertung.
+export async function getStats() {
+  const cte = gameDetailCte(false);
+  const [totals, genreDist, toneDist, langDist, scales, systemDist, campaignDist, mostPlayed, recentSessions] = await Promise.all([
+    pool.query(`SELECT
+      (SELECT count(*) FROM katalog.games WHERE status = 'published')::int AS games,
+      (SELECT count(*) FROM katalog.products pr JOIN katalog.games g ON g.id = pr.game_id WHERE g.status = 'published')::int AS products,
+      (SELECT count(DISTINCT gp.publisher_id) FROM katalog.game_publishers gp JOIN katalog.games g ON g.id = gp.game_id WHERE g.status = 'published')::int AS publishers,
+      (SELECT count(*) FROM katalog.play_sessions ps JOIN katalog.games g ON g.id = ps.game_id WHERE g.status = 'published')::int AS sessions`),
+    pool.query(`WITH ${cte}
+      SELECT value, count(*)::int AS count FROM gd, unnest(gd.genre_setting_top) AS value
+      WHERE gd.status = 'published' GROUP BY value ORDER BY count DESC, value`),
+    pool.query(`WITH ${cte}
+      SELECT value, count(*)::int AS count FROM gd, unnest(gd.tone_theme_top) AS value
+      WHERE gd.status = 'published' GROUP BY value ORDER BY count DESC, value`),
+    pool.query(`WITH ${cte}
+      SELECT language_label AS value, count(*)::int AS count FROM gd
+      WHERE gd.status = 'published' GROUP BY language_label ORDER BY count DESC, value`),
+    pool.query(`WITH ${cte}
+      SELECT round(avg(crunch)::numeric, 1) AS crunch, round(avg(narrative)::numeric, 1) AS narrativ, round(avg(fluff)::numeric, 1) AS fluff
+      FROM gd WHERE gd.status = 'published'`),
+    pool.query(`WITH ${cte}
+      SELECT system_family AS value, count(*)::int AS count FROM gd
+      WHERE gd.status = 'published' GROUP BY system_family ORDER BY count DESC, value LIMIT 8`),
+    pool.query(`WITH ${cte}
+      SELECT value, count(*)::int AS count FROM gd, unnest(gd.campaign_type) AS value
+      WHERE gd.status = 'published' GROUP BY value ORDER BY count DESC, value`),
+    pool.query(`SELECT g.slug, g.title, count(ps.id)::int AS sessions, to_char(max(ps.played_on), 'YYYY-MM-DD') AS last_played
+      FROM katalog.play_sessions ps JOIN katalog.games g ON g.id = ps.game_id
+      WHERE g.status = 'published'
+      GROUP BY g.id, g.slug, g.title ORDER BY sessions DESC, last_played DESC LIMIT 5`),
+    pool.query(`SELECT g.slug, g.title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.participants, ps.note, ps.rating
+      FROM katalog.play_sessions ps JOIN katalog.games g ON g.id = ps.game_id
+      WHERE g.status = 'published'
+      ORDER BY ps.played_on DESC, ps.id DESC LIMIT 8`),
+  ]);
+
+  return {
+    totals: totals.rows[0],
+    genreDist: genreDist.rows,
+    toneDist: toneDist.rows,
+    langDist: langDist.rows,
+    scales: scales.rows[0],
+    systemDist: systemDist.rows,
+    campaignDist: campaignDist.rows,
+    mostPlayed: mostPlayed.rows,
+    recentSessions: recentSessions.rows,
+  };
 }
 
 // --------------------------------------------------------- Öffentliche API
@@ -252,7 +308,7 @@ export async function getGameBySlug(slug, isAdmin) {
   const g = r.rows[0];
   if (g.status !== 'published' && !isAdmin) return null;
 
-  const [publishers, products] = await Promise.all([
+  const [publishers, products, playSessions] = await Promise.all([
     pool.query(
       `SELECT p.name, gp.is_primary FROM katalog.game_publishers gp JOIN katalog.publishers p ON p.id = gp.publisher_id
        WHERE gp.game_id = $1 ORDER BY gp.is_primary DESC, p.name`, [g.id],
@@ -263,9 +319,14 @@ export async function getGameBySlug(slug, isAdmin) {
        LEFT JOIN katalog.languages l ON l.id = pr.language_id
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
+    pool.query(
+      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, note, rating FROM katalog.play_sessions
+       WHERE game_id = $1 ORDER BY played_on DESC, id DESC`, [g.id],
+    ),
   ]);
   g.publishers = publishers.rows;
   g.products = products.rows;
+  g.play_sessions = playSessions.rows;
   delete g.search_vector;
 
   const similarR = await pool.query(`WITH ${cte}
@@ -281,7 +342,7 @@ export async function getGameById(id) {
   const r = await pool.query(`WITH ${cte} SELECT * FROM gd WHERE id = $1`, [id]);
   if (!r.rowCount) return null;
   const g = r.rows[0];
-  const [publishers, products] = await Promise.all([
+  const [publishers, products, playSessions] = await Promise.all([
     pool.query(
       `SELECT p.name, gp.is_primary FROM katalog.game_publishers gp JOIN katalog.publishers p ON p.id = gp.publisher_id
        WHERE gp.game_id = $1 ORDER BY gp.is_primary DESC, p.name`, [g.id],
@@ -292,9 +353,14 @@ export async function getGameById(id) {
        LEFT JOIN katalog.languages l ON l.id = pr.language_id
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
+    pool.query(
+      `SELECT id, to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, note, rating FROM katalog.play_sessions
+       WHERE game_id = $1 ORDER BY played_on DESC, id DESC`, [g.id],
+    ),
   ]);
   g.publishers = publishers.rows;
   g.products = products.rows;
+  g.play_sessions = playSessions.rows;
   delete g.search_vector;
   return g;
 }
@@ -378,6 +444,16 @@ async function upsertRelations(client, gameId, payload) {
       [gameId, typeR.rows[0].id, prod.title.trim(), prod.binding || null, prod.edition || null, langId, prod.isbn || null, sortOrder],
     );
     sortOrder += 10;
+  }
+
+  await client.query('DELETE FROM katalog.play_sessions WHERE game_id = $1', [gameId]);
+  for (const s of payload.play_sessions || []) {
+    if (!s.played_on) continue;
+    await client.query(
+      `INSERT INTO katalog.play_sessions (game_id, played_on, participants, note, rating)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [gameId, s.played_on, s.participants || null, s.note || null, s.rating ? Number(s.rating) : null],
+    );
   }
 }
 
