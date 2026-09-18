@@ -297,7 +297,7 @@ tbody tr:hover { background: var(--surface-2); }
 .stat-list a { font-weight: 700; }
 .stat-list .muted { display: block; font-size: var(--text-xs); margin-top: .1rem; }
 
-.scatter-wrap { position: relative; max-width: 600px; }
+.scatter-wrap { position: relative; max-width: 100%; }
 .scatter-svg { display: block; width: 100%; height: auto; }
 .scatter-grid { stroke: var(--border); stroke-width: 1; }
 .scatter-grid.origin { stroke: var(--border-strong); stroke-width: 1.5; }

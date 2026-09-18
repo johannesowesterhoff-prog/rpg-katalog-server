@@ -54,10 +54,10 @@ function dotPlot(label, games, field) {
   entries.forEach((e) => { if (buckets.has(e.value)) buckets.get(e.value).push(e.title); });
   const maxCount = Math.max(1, ...[...buckets.values()].map((b) => b.length));
 
-  const W = 600;
-  const dotR = 5.5;
-  const pitch = Math.min(13, Math.max(dotR * 2 + 1, 160 / maxCount));
-  const pad = { l: 20, r: 20, t: 10, b: 30 };
+  const W = 340;
+  const dotR = 3.5;
+  const pitch = Math.min(9, Math.max(dotR * 2 + 1, 120 / maxCount));
+  const pad = { l: 18, r: 18, t: 8, b: 26 };
   const plotW = W - pad.l - pad.r;
   const H = pad.t + pad.b + maxCount * pitch + dotR * 2;
   const domain = [0.5, 5.5];
@@ -121,9 +121,11 @@ export async function renderStats(root) {
   </div>`);
   root.appendChild(scaleTiles);
 
+  const dotPlotGrid = el('<div class="stat-grid"></div>');
+  root.appendChild(dotPlotGrid);
   [['Crunch', 'crunch'], ['Narrativ', 'narrative'], ['Fluff', 'fluff']].forEach(([label, field]) => {
     const section = el(dotPlot(label, s.scatter, field));
-    root.appendChild(section);
+    dotPlotGrid.appendChild(section);
     wireDotTooltip(section);
   });
 
