@@ -207,7 +207,7 @@ export async function getStats() {
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE g.id IS NULL OR g.status = 'published'
       GROUP BY g.id, g.slug, g.title, ps.external_title ORDER BY sessions DESC, last_played DESC LIMIT 5`),
-    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.note, ps.rating
+    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.note
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE g.id IS NULL OR g.status = 'published'
       ORDER BY ps.played_on DESC, ps.id DESC LIMIT 8`),
@@ -325,7 +325,7 @@ export async function getGameBySlug(slug, isAdmin) {
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
     pool.query(
-      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, ${isAdmin ? 'participants,' : 'NULL::text AS participants,'} note, rating FROM katalog.play_sessions
+      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, ${isAdmin ? 'participants, rating,' : 'NULL::text AS participants, NULL::smallint AS rating,'} note FROM katalog.play_sessions
        WHERE game_id = $1 ORDER BY played_on DESC, id DESC`, [g.id],
     ),
   ]);

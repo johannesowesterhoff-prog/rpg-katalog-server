@@ -149,7 +149,7 @@ export async function renderStats(root) {
   const recentHtml = s.recentSessions.length
     ? `<ol class="stat-list">${s.recentSessions.map((r) => `<li>
         ${titleLink(r.title, r.slug)}
-        <span class="muted">${esc(fmtDateOnly(r.played_on))}${r.rating ? ' · ' + '★'.repeat(r.rating) : ''}</span>
+        <span class="muted">${esc(fmtDateOnly(r.played_on))}</span>
         ${r.note ? `<p class="faint" style="font-size:var(--text-xs);margin:.2rem 0 0">${esc(r.note)}</p>` : ''}
       </li>`).join('')}</ol>`
     : '<p class="muted">Noch keine Spielabende protokolliert.</p>';
