@@ -17,13 +17,13 @@ function barSection(title, rows) {
 
 const fmtDateOnly = (v) => (v ? new Date(v).toLocaleDateString('de-DE') : '–');
 
-function wireScatterTooltip(section) {
+function wireDotTooltip(section) {
   const wrap = section.querySelector('.scatter-wrap');
   if (!wrap) return;
   const tooltip = wrap.querySelector('.scatter-tooltip');
   const show = (dot, evt) => {
     const rect = wrap.getBoundingClientRect();
-    tooltip.innerHTML = `<strong>${esc(dot.dataset.title)}</strong><br>Crunch ${dot.dataset.crunch} · Narrativ ${dot.dataset.narrativ} · Fluff ${dot.dataset.fluff}`;
+    tooltip.innerHTML = `<strong>${esc(dot.dataset.title)}</strong><br>Wert: ${dot.dataset.value}`;
     let x = evt.clientX - rect.left + 12;
     let y = evt.clientY - rect.top + 12;
     tooltip.hidden = false;
@@ -39,54 +39,50 @@ function wireScatterTooltip(section) {
   });
 }
 
-// Streudiagramm Crunch (x) gegen Narrativ (y), je ein Punkt pro Spiel. 3 ist
-// auf beiden Skalen die Mitte -- entsprechend liegt der "0-Punkt" genau im
-// Zentrum der Achsen, betont durch die kräftigere Mittellinie. Fluff hat
-// keine dritte Achse, sondern geht als Punkt-Deckkraft ein (mehr Fluff =
-// kräftigerer Punkt), damit alle drei Skalen im selben Diagramm stecken.
-function scatterSection(games) {
-  const W = 640;
-  const H = 440;
-  const pad = { l: 40, r: 16, t: 16, b: 40 };
+// Ein Punktwolken-Diagramm je Skala (Crunch/Narrativ/Fluff), unabhängig
+// voneinander -- keine Verknüpfung zwischen den drei Werten. Je Spielwert
+// (1-5 in 0,5er-Schritten) wird ein Turm aus Punkten gestapelt, ein Punkt
+// pro Spiel mit genau diesem Wert. 3 ist die Skalenmitte und bekommt eine
+// kräftigere Mittellinie.
+function dotPlot(label, games, field) {
+  const entries = games
+    .map((g) => ({ title: g.title, value: g[field] == null ? null : Number(g[field]) }))
+    .filter((e) => e.value != null);
+
+  const values = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+  const buckets = new Map(values.map((v) => [v, []]));
+  entries.forEach((e) => { if (buckets.has(e.value)) buckets.get(e.value).push(e.title); });
+  const maxCount = Math.max(1, ...[...buckets.values()].map((b) => b.length));
+
+  const W = 600;
+  const dotR = 5.5;
+  const pitch = Math.min(13, Math.max(dotR * 2 + 1, 160 / maxCount));
+  const pad = { l: 20, r: 20, t: 10, b: 30 };
   const plotW = W - pad.l - pad.r;
-  const plotH = H - pad.t - pad.b;
+  const H = pad.t + pad.b + maxCount * pitch + dotR * 2;
   const domain = [0.5, 5.5];
   const sx = (v) => pad.l + ((v - domain[0]) / (domain[1] - domain[0])) * plotW;
-  const sy = (v) => H - pad.b - ((v - domain[0]) / (domain[1] - domain[0])) * plotH;
+  const baseline = H - pad.b;
 
   const ticks = [1, 2, 3, 4, 5];
-  const gridLines = ticks.map((t) => `
-    <line x1="${sx(t)}" y1="${pad.t}" x2="${sx(t)}" y2="${H - pad.b}" class="scatter-grid${t === 3 ? ' origin' : ''}"></line>
-    <line x1="${pad.l}" y1="${sy(t)}" x2="${W - pad.r}" y2="${sy(t)}" class="scatter-grid${t === 3 ? ' origin' : ''}"></line>`).join('');
+  const gridLines = ticks.map((t) => `<line x1="${sx(t)}" y1="${pad.t}" x2="${sx(t)}" y2="${baseline}" class="scatter-grid${t === 3 ? ' origin' : ''}"></line>`).join('');
+  const tickLabels = ticks.map((t) => `<text x="${sx(t)}" y="${baseline + 18}" class="scatter-tick" text-anchor="middle">${t}</text>`).join('');
 
-  const tickLabels = ticks.map((t) => `
-    <text x="${sx(t)}" y="${H - pad.b + 16}" class="scatter-tick" text-anchor="middle">${t}</text>
-    <text x="${pad.l - 8}" y="${sy(t) + 4}" class="scatter-tick" text-anchor="end">${t}</text>`).join('');
-
-  const points = games.map((g) => {
-    const crunch = Number(g.crunch);
-    const narrativ = Number(g.narrative);
-    const fluff = g.fluff == null ? null : Number(g.fluff);
-    const opacity = fluff == null ? 0.5 : 0.2 + ((fluff - 1) / 4) * 0.8;
-    return `<circle cx="${sx(crunch).toFixed(1)}" cy="${sy(narrativ).toFixed(1)}" r="5.5" class="scatter-dot" style="fill-opacity:${opacity.toFixed(2)}"
-      data-title="${esc(g.title)}" data-crunch="${crunch}" data-narrativ="${narrativ}" data-fluff="${fluff == null ? '–' : fluff}"></circle>`;
-  }).join('');
+  const dots = values.flatMap((v) => buckets.get(v).map((title, i) => `
+    <circle cx="${sx(v).toFixed(1)}" cy="${(baseline - dotR - i * pitch).toFixed(1)}" r="${dotR}" class="scatter-dot"
+      data-title="${esc(title)}" data-value="${v}"></circle>`)).join('');
 
   return `<section class="section">
-    <h2>Crunch × Narrativ</h2>
-    <p class="muted" style="font-size:var(--text-xs);margin:-.4rem 0 var(--space-3)">Jeder Punkt ein Spiel · 3 ist die Skalenmitte und liegt im Zentrum · kräftigere Punkte haben mehr Fluff.</p>
-    ${games.length ? `<div class="scatter-wrap">
-      <svg viewBox="0 0 ${W} ${H}" class="scatter-svg" role="img" aria-label="Streudiagramm Crunch gegen Narrativ, Punktfarbe zeigt Fluff">
+    <h2>${esc(label)}</h2>
+    <p class="muted" style="font-size:var(--text-xs);margin:-.4rem 0 var(--space-3)">Jeder Punkt ein Spiel mit diesem Wert · 3 ist die Skalenmitte.</p>
+    ${entries.length ? `<div class="scatter-wrap">
+      <svg viewBox="0 0 ${W} ${H}" class="scatter-svg" role="img" aria-label="Verteilung ${esc(label)}, Punkte pro Skalenwert">
         ${gridLines}
         ${tickLabels}
-        <text x="${pad.l + plotW / 2}" y="${H - 4}" class="scatter-axis-label" text-anchor="middle">Crunch (Regeldichte)</text>
-        <text x="12" y="${pad.t + plotH / 2}" class="scatter-axis-label" text-anchor="middle" transform="rotate(-90 12 ${pad.t + plotH / 2})">Narrativ (Erzählmechanik)</text>
-        ${points}
+        ${dots}
       </svg>
       <div class="scatter-tooltip" hidden></div>
-    </div>
-    <div class="scatter-legend"><span class="muted" style="font-size:var(--text-xs)">Fluff</span><span class="scatter-legend-ramp"></span><span class="muted" style="font-size:var(--text-xs)">niedrig → hoch</span></div>`
-    : '<p class="muted">Keine Daten.</p>'}
+    </div>` : '<p class="muted">Keine Daten.</p>'}
   </section>`;
 }
 
@@ -125,9 +121,11 @@ export async function renderStats(root) {
   </div>`);
   root.appendChild(scaleTiles);
 
-  const scatterWrap = el(scatterSection(s.scatter));
-  root.appendChild(scatterWrap);
-  wireScatterTooltip(scatterWrap);
+  [['Crunch', 'crunch'], ['Narrativ', 'narrative'], ['Fluff', 'fluff']].forEach(([label, field]) => {
+    const section = el(dotPlot(label, s.scatter, field));
+    root.appendChild(section);
+    wireDotTooltip(section);
+  });
 
   const distGrid = el(`<div class="stat-grid"></div>`);
   distGrid.innerHTML = barSection('Top Genre / Setting', s.genreDist)
