@@ -180,7 +180,7 @@ export async function getStats() {
       (SELECT count(*) FROM katalog.games WHERE status = 'published')::int AS games,
       (SELECT count(*) FROM katalog.products pr JOIN katalog.games g ON g.id = pr.game_id WHERE g.status = 'published')::int AS products,
       (SELECT count(DISTINCT gp.publisher_id) FROM katalog.game_publishers gp JOIN katalog.games g ON g.id = gp.game_id WHERE g.status = 'published')::int AS publishers,
-      (SELECT count(*) FROM katalog.play_sessions ps JOIN katalog.games g ON g.id = ps.game_id WHERE g.status = 'published')::int AS sessions`),
+      (SELECT count(*) FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id WHERE g.id IS NULL OR g.status = 'published')::int AS sessions`),
     pool.query(`WITH ${cte}
       SELECT value, count(*)::int AS count FROM gd, unnest(gd.genre_setting_top) AS value
       WHERE gd.status = 'published' GROUP BY value ORDER BY count DESC, value`),
@@ -203,13 +203,13 @@ export async function getStats() {
     pool.query(`WITH ${cte}
       SELECT value, count(*)::int AS count FROM gd, unnest(gd.campaign_type) AS value
       WHERE gd.status = 'published' GROUP BY value ORDER BY count DESC, value`),
-    pool.query(`SELECT g.slug, g.title, count(ps.id)::int AS sessions, to_char(max(ps.played_on), 'YYYY-MM-DD') AS last_played
-      FROM katalog.play_sessions ps JOIN katalog.games g ON g.id = ps.game_id
-      WHERE g.status = 'published'
-      GROUP BY g.id, g.slug, g.title ORDER BY sessions DESC, last_played DESC LIMIT 5`),
-    pool.query(`SELECT g.slug, g.title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.participants, ps.note, ps.rating
-      FROM katalog.play_sessions ps JOIN katalog.games g ON g.id = ps.game_id
-      WHERE g.status = 'published'
+    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, count(ps.id)::int AS sessions, to_char(max(ps.played_on), 'YYYY-MM-DD') AS last_played
+      FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+      WHERE g.id IS NULL OR g.status = 'published'
+      GROUP BY g.id, g.slug, g.title, ps.external_title ORDER BY sessions DESC, last_played DESC LIMIT 5`),
+    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.note, ps.rating
+      FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+      WHERE g.id IS NULL OR g.status = 'published'
       ORDER BY ps.played_on DESC, ps.id DESC LIMIT 8`),
   ]);
 
@@ -325,7 +325,7 @@ export async function getGameBySlug(slug, isAdmin) {
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
     pool.query(
-      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, note, rating FROM katalog.play_sessions
+      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, ${isAdmin ? 'participants,' : 'NULL::text AS participants,'} note, rating FROM katalog.play_sessions
        WHERE game_id = $1 ORDER BY played_on DESC, id DESC`, [g.id],
     ),
   ]);
@@ -406,6 +406,55 @@ export async function getDashboard() {
     getAuditLog(20),
   ]);
   return { counts: counts.rows[0], productCount: productCount.rows[0].n, audit };
+}
+
+// ------------------------------------------------- Spielabende (Verwaltung)
+// Eigenständige Verwaltung aller Spielabende (nicht an einen Spiel-Editor
+// gebunden) -- u.a. für Sessions zu Systemen außerhalb des eigenen Katalogs
+// (external_title statt game_id).
+export async function listPlaySessions() {
+  const r = await pool.query(`
+    SELECT ps.id, ps.game_id, g.slug AS game_slug, g.title AS game_title, ps.external_title,
+      to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.participants, ps.note, ps.rating
+    FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+    ORDER BY ps.played_on DESC, ps.id DESC`);
+  return r.rows;
+}
+
+export async function getGameLookup() {
+  const r = await pool.query('SELECT id, slug, title FROM katalog.games ORDER BY title');
+  return r.rows;
+}
+
+function validatePlaySessionPayload(payload) {
+  const errors = [];
+  const push = (field, message) => errors.push({ field, message });
+  if (!payload.played_on || Number.isNaN(new Date(payload.played_on).getTime())) push('played_on', 'Gültiges Datum ist Pflicht.');
+  const hasGame = payload.game_id !== undefined && payload.game_id !== null && payload.game_id !== '';
+  const hasExternal = !!(payload.external_title && String(payload.external_title).trim());
+  if (hasGame === hasExternal) push('game', 'Entweder ein Katalog-Spiel oder ein externer Titel -- nicht beides, nicht keins.');
+  if (payload.rating && (Number(payload.rating) < 1 || Number(payload.rating) > 5)) push('rating', 'Bewertung muss zwischen 1 und 5 liegen.');
+  return errors;
+}
+
+export async function createPlaySession(payload, actor) {
+  const errors = validatePlaySessionPayload(payload);
+  if (errors.length) throw httpError(422, 'Bitte die markierten Felder prüfen.', { errors });
+  const r = await pool.query(
+    `INSERT INTO katalog.play_sessions (game_id, external_title, played_on, participants, note, rating)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+    [payload.game_id || null, payload.external_title ? String(payload.external_title).trim() : null, payload.played_on,
+      payload.participants ? String(payload.participants).trim() : null, payload.note ? String(payload.note).trim() : null,
+      payload.rating ? Number(payload.rating) : null],
+  );
+  await logAudit(pool, { actor, action: 'insert', entity: 'play_sessions', entityId: r.rows[0].id, diff: { played_on: payload.played_on } });
+  return { id: r.rows[0].id };
+}
+
+export async function deletePlaySession(id, actor) {
+  const r = await pool.query('DELETE FROM katalog.play_sessions WHERE id = $1 RETURNING id', [id]);
+  if (!r.rowCount) throw httpError(404, 'Eintrag nicht gefunden.');
+  await logAudit(pool, { actor, action: 'delete', entity: 'play_sessions', entityId: id });
 }
 
 // --------------------------------------------------------- Anlegen/Ändern

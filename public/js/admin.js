@@ -1,7 +1,7 @@
 // Adminbereich: Dashboard, Editor, Import/Export, Stammdaten und
 // Änderungsprotokoll.
 import { api, setToken } from './api.js';
-import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL } from './ui.js';
+import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL } from './ui.js';
 
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 let master = null;
@@ -52,6 +52,7 @@ function openPasswordDialog() {
 function tabs(active) {
   const items = [['#/admin', 'Übersicht', 'dashboard'],
     ['#/admin/liste', 'Einträge', 'liste'], ['#/admin/editor', 'Neuer Eintrag', 'editor'],
+    ['#/admin/spielabende', 'Spielabende', 'spielabende'],
     ['#/admin/import', 'Import & Export', 'import'], ['#/admin/stammdaten', 'Stammdaten', 'stammdaten'],
     ['#/admin/protokoll', 'Protokoll', 'protokoll']];
   return el(`<nav class="admin-tabs" aria-label="Adminbereich">${items.map(([href, label, key]) =>
@@ -709,6 +710,112 @@ export async function renderMasterData(root) {
     });
     body.appendChild(sec);
   }
+}
+
+// ----------------------------------------------------------- Spielabende
+export async function renderPlaySessions(root) {
+  const body = mount(root, 'spielabende', 'Spielabende',
+    'Protokoll aller gespielten Runden -- auch zu Systemen außerhalb des Katalogs. Mitspieler:innen sind nur hier im Adminbereich sichtbar, nie öffentlich.');
+  body.innerHTML = '<div class="skeleton" style="height:260px"></div>';
+  const [{ sessions }, { games }] = await Promise.all([
+    api('/api/admin/play-sessions'),
+    api('/api/admin/games-lookup'),
+  ]);
+  body.innerHTML = '';
+
+  const titleToGame = new Map(games.map((g) => [g.title.toLowerCase(), g]));
+
+  const formSection = el(`<section class="section">
+    <h2>Neuer Spielabend</h2>
+    <form id="ps-form">
+      <div class="session-row" style="grid-template-columns:.8fr 1.4fr 1.2fr 1.6fr .7fr auto">
+        <div class="field" style="margin:0"><label for="ps-date">Datum *</label><input type="date" id="ps-date" required></div>
+        <div class="field" id="ps-game-field" style="margin:0"><label for="ps-game">Spiel (Katalog-Titel oder frei)</label></div>
+        <div class="field" style="margin:0"><label for="ps-participants">Mitspieler:innen</label><input type="text" id="ps-participants"></div>
+        <div class="field" style="margin:0"><label for="ps-note">Notiz</label><input type="text" id="ps-note"></div>
+        <div class="field" style="margin:0"><label for="ps-rating">Bewertung</label><select id="ps-rating">
+          <option value="">–</option>
+          ${[1, 2, 3, 4, 5].map((n) => `<option value="${n}">${n}</option>`).join('')}</select></div>
+        <button type="submit" class="btn btn-primary">Hinzufügen</button>
+      </div>
+    </form>
+    <div id="ps-form-msg"></div>
+  </section>`);
+  const gameAc = autocomplete({ options: games.map((g) => g.title), placeholder: 'Titel tippen …', id: 'ps-game' });
+  formSection.querySelector('#ps-game-field').appendChild(gameAc.wrap);
+  body.appendChild(formSection);
+
+  const listSection = el(`<section class="section"><h2>Bisherige Einträge (<span id="ps-count">${sessions.length}</span>)</h2>
+    <div class="scroll-x"><table>
+      <thead><tr><th>Datum</th><th>Spiel</th><th>Mitspieler:innen</th><th>Notiz</th><th>Bewertung</th><th></th></tr></thead>
+      <tbody id="ps-rows"></tbody>
+    </table></div>
+  </section>`);
+  body.appendChild(listSection);
+
+  let allSessions = sessions;
+  function renderRows() {
+    const tb = listSection.querySelector('#ps-rows');
+    tb.innerHTML = '';
+    listSection.querySelector('#ps-count').textContent = allSessions.length;
+    if (!allSessions.length) { tb.appendChild(el('<tr><td colspan="6" class="muted">Noch keine Spielabende erfasst.</td></tr>')); return; }
+    allSessions.forEach((s) => {
+      const title = s.game_title || s.external_title;
+      const titleHtml = s.game_slug
+        ? `<a href="#/spiele/${esc(s.game_slug)}" target="_blank" rel="noopener">${esc(title)}</a>`
+        : `${esc(title)} <span class="faint" style="font-size:var(--text-xs)">(extern)</span>`;
+      const tr = el(`<tr>
+        <td>${esc(s.played_on)}</td>
+        <td>${titleHtml}</td>
+        <td>${esc(s.participants || '–')}</td>
+        <td>${esc(s.note || '–')}</td>
+        <td>${s.rating ? '★'.repeat(s.rating) : '–'}</td>
+        <td><button type="button" class="btn btn-sm btn-danger">Löschen</button></td>
+      </tr>`);
+      tr.querySelector('button').addEventListener('click', async () => {
+        if (!confirmDialog(`Spielabend „${title}" vom ${s.played_on} wirklich löschen?`)) return;
+        try {
+          await api(`/api/admin/play-sessions/${s.id}`, { method: 'DELETE' });
+          allSessions = allSessions.filter((x) => x.id !== s.id);
+          renderRows();
+          toast('Gelöscht.');
+        } catch (e) { toast(e.message, 'err'); }
+      });
+      tb.appendChild(tr);
+    });
+  }
+  renderRows();
+
+  formSection.querySelector('#ps-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = formSection.querySelector('#ps-form-msg');
+    msg.innerHTML = '';
+    const gameText = gameAc.value;
+    if (!gameText) { msg.appendChild(el('<div class="error-box">Bitte ein Spiel oder einen Titel angeben.</div>')); return; }
+    const matched = titleToGame.get(gameText.toLowerCase());
+    const payload = {
+      played_on: formSection.querySelector('#ps-date').value,
+      participants: formSection.querySelector('#ps-participants').value.trim() || null,
+      note: formSection.querySelector('#ps-note').value.trim() || null,
+      rating: formSection.querySelector('#ps-rating').value || null,
+    };
+    if (matched) payload.game_id = matched.id; else payload.external_title = gameText;
+    try {
+      const r = await api('/api/admin/play-sessions', { method: 'POST', body: payload });
+      allSessions = [{
+        id: r.id, game_id: matched?.id || null, game_slug: matched?.slug || null,
+        game_title: matched?.title || null, external_title: matched ? null : gameText,
+        played_on: payload.played_on, participants: payload.participants, note: payload.note,
+        rating: payload.rating ? Number(payload.rating) : null,
+      }, ...allSessions];
+      renderRows();
+      formSection.querySelector('#ps-form').reset();
+      gameAc.input.value = '';
+      toast('Spielabend hinzugefügt.');
+    } catch (err) {
+      msg.appendChild(el(`<div class="error-box">${esc(err.message)}</div>`));
+    }
+  });
 }
 
 // -------------------------------------------------------------- Protokoll

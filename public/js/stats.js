@@ -137,17 +137,19 @@ export async function renderStats(root) {
     + barSection('Sprache', s.langDist);
   root.appendChild(distGrid);
 
+  const titleLink = (title, slug) => (slug ? `<a href="#/spiele/${esc(slug)}">${esc(title)}</a>` : `${esc(title)} <span class="faint" style="font-size:var(--text-xs)">(extern)</span>`);
+
   const mostPlayedHtml = s.mostPlayed.length
     ? `<ol class="stat-list">${s.mostPlayed.map((g) => `<li>
-        <a href="#/spiele/${esc(g.slug)}">${esc(g.title)}</a>
+        ${titleLink(g.title, g.slug)}
         <span class="muted">${g.sessions}× gespielt, zuletzt ${fmtDateOnly(g.last_played)}</span>
       </li>`).join('')}</ol>`
     : '<p class="muted">Noch keine Spielabende protokolliert.</p>';
 
   const recentHtml = s.recentSessions.length
     ? `<ol class="stat-list">${s.recentSessions.map((r) => `<li>
-        <a href="#/spiele/${esc(r.slug)}">${esc(r.title)}</a>
-        <span class="muted">${esc(fmtDateOnly(r.played_on))}${r.participants ? ' · ' + esc(r.participants) : ''}${r.rating ? ' · ' + '★'.repeat(r.rating) : ''}</span>
+        ${titleLink(r.title, r.slug)}
+        <span class="muted">${esc(fmtDateOnly(r.played_on))}${r.rating ? ' · ' + '★'.repeat(r.rating) : ''}</span>
         ${r.note ? `<p class="faint" style="font-size:var(--text-xs);margin:.2rem 0 0">${esc(r.note)}</p>` : ''}
       </li>`).join('')}</ol>`
     : '<p class="muted">Noch keine Spielabende protokolliert.</p>';
