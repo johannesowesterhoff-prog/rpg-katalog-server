@@ -361,7 +361,7 @@ export async function renderEditor(root, id) {
   const sessionBox = s5sessions.wrap.querySelector('#sessions');
   const sessionRows = [];
   const existingCampaigns = [...new Set((state.play_sessions || []).map((s) => s.campaign).filter(Boolean))];
-  function addSession(s = { played_on: '', participants: '', note: '', rating: '', campaign: '', campaign_status: '', campaign_kind: '', session_number: '', role: '' }) {
+  function addSession(s = { played_on: '', participants: '', note: '', campaign: '', campaign_status: '', campaign_kind: '', session_number: '', role: '' }) {
     const row = el(`<div class="session-row">
       <div class="field narrow" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
       <div class="field" style="margin:0"><label>Mitspieler:innen</label><input type="text" class="s-participants" value="${esc(s.participants || '')}"></div>
@@ -382,9 +382,6 @@ export async function renderEditor(root, id) {
         <option value="spieler" ${s.role === 'spieler' ? 'selected' : ''}>Spieler:in</option>
       </select></div>
       <div class="field wide" style="margin:0"><label>Notiz</label><input type="text" class="s-note" value="${esc(s.note || '')}"></div>
-      <div class="field narrow" style="margin:0"><label>Bewertung</label><select class="s-rating">
-        <option value="">–</option>
-        ${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${String(s.rating) === String(n) ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       <button type="button" class="btn btn-sm btn-danger" title="Spielabend entfernen">Entfernen</button>
     </div>`);
     row.querySelector('button').addEventListener('click', () => { row.remove(); sessionRows.splice(sessionRows.indexOf(row), 1); });
@@ -454,7 +451,6 @@ export async function renderEditor(root, id) {
         session_number: r.querySelector('.s-session-number').value || null,
         role: r.querySelector('.s-role').value || null,
         note: r.querySelector('.s-note').value.trim() || null,
-        rating: r.querySelector('.s-rating').value || null,
       })).filter((s) => s.played_on),
     };
   }
@@ -774,9 +770,6 @@ export async function renderPlaySessions(root) {
           <option value="spieler">Spieler:in</option>
         </select></div>
         <div class="field wide" style="margin:0"><label for="ps-note">Notiz</label><input type="text" id="ps-note"></div>
-        <div class="field narrow" style="margin:0"><label for="ps-rating">Bewertung</label><select id="ps-rating">
-          <option value="">–</option>
-          ${[1, 2, 3, 4, 5].map((n) => `<option value="${n}">${n}</option>`).join('')}</select></div>
         <button type="submit" class="btn btn-primary">Hinzufügen</button>
       </div>
     </form>
@@ -790,7 +783,7 @@ export async function renderPlaySessions(root) {
   const listSection = el(`<section class="section"><h2>Bisherige Einträge (<span id="ps-count">${sessions.length}</span>)</h2>
     <div id="ps-filter-banner"></div>
     <div class="scroll-x"><table>
-      <thead><tr><th>Datum</th><th>Spiel</th><th>Kampagne</th><th>Mitspieler:innen</th><th>Rolle</th><th>Notiz</th><th>Bewertung</th><th></th></tr></thead>
+      <thead><tr><th>Datum</th><th>Spiel</th><th>Kampagne</th><th>Mitspieler:innen</th><th>Rolle</th><th>Notiz</th><th></th></tr></thead>
       <tbody id="ps-rows"></tbody>
     </table></div>
   </section>`);
@@ -805,6 +798,73 @@ export async function renderPlaySessions(root) {
 
   let allSessions = sessions;
   let campaignFilter = null;
+
+  function openEditRow(tr, s) {
+    const editRow = el(`<tr><td colspan="7">
+      <div class="session-row">
+        <div class="field narrow" style="margin:0"><label>Datum *</label><input type="date" class="e-date" value="${esc(s.played_on)}" required></div>
+        <div class="field" id="e-game-field" style="margin:0"><label>Spiel (Katalog-Titel oder frei)</label></div>
+        <div class="field" style="margin:0"><label>Mitspieler:innen</label><input type="text" class="e-participants" value="${esc(s.participants || '')}"></div>
+        <div class="field" style="margin:0"><label>Kampagne</label><input type="text" class="e-campaign" list="ps-campaign-names" value="${esc(s.campaign || '')}"></div>
+        <div class="field narrow" style="margin:0"><label>Session-Nr.</label><input type="number" min="1" class="e-session-number" value="${esc(s.session_number || '')}"></div>
+        <div class="field narrow" style="margin:0"><label>Kampagnenart</label><select class="e-campaign-kind">
+          <option value="">–</option>
+          ${Object.entries(CAMPAIGN_KIND_LABEL).map(([v, l]) => `<option value="${v}" ${s.campaign_kind === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select></div>
+        <div class="field narrow" style="margin:0"><label>Kampagnenstatus</label><select class="e-campaign-status">
+          <option value="">–</option>
+          <option value="laufend" ${s.campaign_status === 'laufend' ? 'selected' : ''}>laufend</option>
+          <option value="abgeschlossen" ${s.campaign_status === 'abgeschlossen' ? 'selected' : ''}>abgeschlossen</option>
+        </select></div>
+        <div class="field narrow" style="margin:0"><label>Rolle</label><select class="e-role">
+          <option value="">–</option>
+          <option value="spielleiter" ${s.role === 'spielleiter' ? 'selected' : ''}>Spielleiter:in</option>
+          <option value="spieler" ${s.role === 'spieler' ? 'selected' : ''}>Spieler:in</option>
+        </select></div>
+        <div class="field wide" style="margin:0"><label>Notiz</label><input type="text" class="e-note" value="${esc(s.note || '')}"></div>
+        <button type="button" class="btn btn-sm btn-primary e-save">Speichern</button>
+        <button type="button" class="btn btn-sm e-cancel">Abbrechen</button>
+      </div>
+      <div class="e-msg"></div>
+    </td></tr>`);
+    const editGameAc = autocomplete({ value: s.game_title || s.external_title || '', options: games.map((g) => g.title), placeholder: 'Titel tippen …' });
+    editRow.querySelector('#e-game-field').appendChild(editGameAc.wrap);
+    tr.replaceWith(editRow);
+
+    editRow.querySelector('.e-cancel').addEventListener('click', () => editRow.replaceWith(tr));
+    editRow.querySelector('.e-save').addEventListener('click', async () => {
+      const msg = editRow.querySelector('.e-msg');
+      msg.innerHTML = '';
+      const gameText = editGameAc.value;
+      if (!gameText) { msg.appendChild(el('<div class="error-box">Bitte ein Spiel oder einen Titel angeben.</div>')); return; }
+      const matched = titleToGame.get(gameText.toLowerCase());
+      const payload = {
+        played_on: editRow.querySelector('.e-date').value,
+        participants: editRow.querySelector('.e-participants').value.trim() || null,
+        campaign: editRow.querySelector('.e-campaign').value.trim() || null,
+        campaign_status: editRow.querySelector('.e-campaign-status').value || null,
+        campaign_kind: editRow.querySelector('.e-campaign-kind').value || null,
+        session_number: editRow.querySelector('.e-session-number').value || null,
+        role: editRow.querySelector('.e-role').value || null,
+        note: editRow.querySelector('.e-note').value.trim() || null,
+      };
+      if (matched) payload.game_id = matched.id; else payload.external_title = gameText;
+      try {
+        await api(`/api/admin/play-sessions/${s.id}`, { method: 'PATCH', body: payload });
+        Object.assign(s, {
+          game_id: matched?.id || null, game_slug: matched?.slug || null, game_title: matched?.title || null,
+          external_title: matched ? null : gameText,
+          played_on: payload.played_on, participants: payload.participants, campaign: payload.campaign,
+          campaign_status: payload.campaign_status, campaign_kind: payload.campaign_kind,
+          session_number: payload.session_number ? Number(payload.session_number) : null,
+          role: payload.role, note: payload.note,
+        });
+        renderRows();
+        toast('Gespeichert.');
+      } catch (e) { msg.appendChild(el(`<div class="error-box">${esc(e.message)}</div>`)); }
+    });
+  }
+
   function renderRows() {
     const tb = listSection.querySelector('#ps-rows');
     tb.innerHTML = '';
@@ -822,7 +882,7 @@ export async function renderPlaySessions(root) {
     }
 
     const visible = campaignFilter ? allSessions.filter((s) => groupKey(s) === campaignFilter) : allSessions;
-    if (!visible.length) { tb.appendChild(el('<tr><td colspan="8" class="muted">Noch keine Spielabende erfasst.</td></tr>')); return; }
+    if (!visible.length) { tb.appendChild(el('<tr><td colspan="7" class="muted">Noch keine Spielabende erfasst.</td></tr>')); return; }
     visible.forEach((s) => {
       const title = s.game_title || s.external_title;
       const titleHtml = s.game_slug
@@ -836,11 +896,14 @@ export async function renderPlaySessions(root) {
         <td>${esc(s.participants || '–')}</td>
         <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
         <td>${esc(s.note || '–')}</td>
-        <td>${s.rating ? '★'.repeat(s.rating) : '–'}</td>
-        <td><button type="button" class="btn btn-sm btn-danger">Löschen</button></td>
+        <td class="row-actions">
+          <button type="button" class="btn btn-sm ps-edit">Bearbeiten</button>
+          <button type="button" class="btn btn-sm btn-danger">Löschen</button>
+        </td>
       </tr>`);
       const campaignBtn = tr.querySelector('.ps-campaign-link');
       if (campaignBtn) campaignBtn.addEventListener('click', () => { campaignFilter = groupKey(s); renderRows(); });
+      tr.querySelector('.ps-edit').addEventListener('click', () => openEditRow(tr, s));
       tr.querySelector('.btn-danger').addEventListener('click', async () => {
         if (!confirmDialog(`Spielabend „${title}" vom ${s.played_on} wirklich löschen?`)) return;
         try {

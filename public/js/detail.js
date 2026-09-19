@@ -53,7 +53,6 @@ export async function renderDetail(root, slug, ctx) {
   const products = g.products || [];
   const sessions = g.play_sessions || [];
   const showParticipants = sessions.some((s) => s.participants != null);
-  const showRating = sessions.some((s) => s.rating != null);
   const showCampaign = sessions.some((s) => s.campaign != null);
   const fmtDateOnly = (v) => (v ? new Date(v).toLocaleDateString('de-DE') : '–');
   const campaignLabel = (s) => campaignSessionLabel(s, sessions.filter((x) => x.campaign === s.campaign)) || '–';
@@ -86,13 +85,12 @@ export async function renderDetail(root, slug, ctx) {
       <section class="section">
         <h2>Spielabende (${sessions.length})</h2>
         ${sessions.length ? `<div class="scroll-x"><table>
-          <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}${showParticipants ? '<th>Mitspieler:innen</th>' : ''}<th>Notiz</th>${showRating ? '<th>Bewertung</th>' : ''}</tr></thead>
+          <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}${showParticipants ? '<th>Mitspieler:innen</th>' : ''}<th>Notiz</th></tr></thead>
           <tbody>${sessions.map((s) => `<tr>
             <td>${esc(fmtDateOnly(s.played_on))}</td>
             ${showCampaign ? `<td>${campaignLabel(s)}</td>` : ''}
             ${showParticipants ? `<td>${esc(s.participants || '–')}</td>` : ''}
             <td>${esc(s.note || '–')}</td>
-            ${showRating ? `<td>${s.rating ? '★'.repeat(s.rating) : '–'}</td>` : ''}
           </tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">Für dieses Spiel ist noch kein Spielabend protokolliert.</p>'}
       </section>
