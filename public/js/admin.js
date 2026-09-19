@@ -360,10 +360,12 @@ export async function renderEditor(root, id) {
   form.appendChild(s5sessions.wrap);
   const sessionBox = s5sessions.wrap.querySelector('#sessions');
   const sessionRows = [];
-  function addSession(s = { played_on: '', participants: '', note: '', rating: '' }) {
+  const existingCampaigns = [...new Set((state.play_sessions || []).map((s) => s.campaign).filter(Boolean))];
+  function addSession(s = { played_on: '', participants: '', note: '', rating: '', campaign: '' }) {
     const row = el(`<div class="session-row">
       <div class="field" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
       <div class="field" style="margin:0"><label>Mitspieler:innen</label><input type="text" class="s-participants" value="${esc(s.participants || '')}"></div>
+      <div class="field" style="margin:0"><label>Kampagne</label><input type="text" class="s-campaign" list="campaign-names" value="${esc(s.campaign || '')}"></div>
       <div class="field" style="margin:0"><label>Notiz</label><input type="text" class="s-note" value="${esc(s.note || '')}"></div>
       <div class="field" style="margin:0"><label>Bewertung</label><select class="s-rating">
         <option value="">–</option>
@@ -373,6 +375,9 @@ export async function renderEditor(root, id) {
     row.querySelector('button').addEventListener('click', () => { row.remove(); sessionRows.splice(sessionRows.indexOf(row), 1); });
     sessionRows.push(row);
     sessionBox.appendChild(row);
+  }
+  if (!sessionBox.querySelector('#campaign-names')) {
+    sessionBox.parentElement.appendChild(el(`<datalist id="campaign-names">${existingCampaigns.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>`));
   }
   (state.play_sessions || []).forEach(addSession);
   s5sessions.wrap.querySelector('#add-session').addEventListener('click', () => addSession());
@@ -428,6 +433,7 @@ export async function renderEditor(root, id) {
       play_sessions: sessionRows.map((r) => ({
         played_on: r.querySelector('.s-date').value || null,
         participants: r.querySelector('.s-participants').value.trim() || null,
+        campaign: r.querySelector('.s-campaign').value.trim() || null,
         note: r.querySelector('.s-note').value.trim() || null,
         rating: r.querySelector('.s-rating').value || null,
       })).filter((s) => s.played_on),
@@ -728,10 +734,11 @@ export async function renderPlaySessions(root) {
   const formSection = el(`<section class="section">
     <h2>Neuer Spielabend</h2>
     <form id="ps-form">
-      <div class="session-row" style="grid-template-columns:.8fr 1.4fr 1.2fr 1.6fr .7fr auto">
+      <div class="session-row" style="grid-template-columns:.8fr 1.4fr 1.2fr 1.2fr 1.6fr .7fr auto">
         <div class="field" style="margin:0"><label for="ps-date">Datum *</label><input type="date" id="ps-date" required></div>
         <div class="field" id="ps-game-field" style="margin:0"><label for="ps-game">Spiel (Katalog-Titel oder frei)</label></div>
         <div class="field" style="margin:0"><label for="ps-participants">Mitspieler:innen</label><input type="text" id="ps-participants"></div>
+        <div class="field" style="margin:0"><label for="ps-campaign">Kampagne</label><input type="text" id="ps-campaign" list="ps-campaign-names"></div>
         <div class="field" style="margin:0"><label for="ps-note">Notiz</label><input type="text" id="ps-note"></div>
         <div class="field" style="margin:0"><label for="ps-rating">Bewertung</label><select id="ps-rating">
           <option value="">–</option>
@@ -739,6 +746,7 @@ export async function renderPlaySessions(root) {
         <button type="submit" class="btn btn-primary">Hinzufügen</button>
       </div>
     </form>
+    <datalist id="ps-campaign-names"></datalist>
     <div id="ps-form-msg"></div>
   </section>`);
   const gameAc = autocomplete({ options: games.map((g) => g.title), placeholder: 'Titel tippen …', id: 'ps-game' });
@@ -747,18 +755,29 @@ export async function renderPlaySessions(root) {
 
   const listSection = el(`<section class="section"><h2>Bisherige Einträge (<span id="ps-count">${sessions.length}</span>)</h2>
     <div class="scroll-x"><table>
-      <thead><tr><th>Datum</th><th>Spiel</th><th>Mitspieler:innen</th><th>Notiz</th><th>Bewertung</th><th></th></tr></thead>
+      <thead><tr><th>Datum</th><th>Spiel</th><th>Kampagne</th><th>Mitspieler:innen</th><th>Notiz</th><th>Bewertung</th><th></th></tr></thead>
       <tbody id="ps-rows"></tbody>
     </table></div>
   </section>`);
   body.appendChild(listSection);
+
+  function groupKey(s) { return (s.game_id ?? `x:${s.external_title}`) + '|' + s.campaign; }
+  function campaignLabel(s, all) {
+    if (!s.campaign) return null;
+    const group = all.filter((x) => x.campaign && groupKey(x) === groupKey(s))
+      .sort((a, b) => a.played_on.localeCompare(b.played_on) || a.id - b.id);
+    const idx = group.findIndex((x) => x.id === s.id) + 1;
+    return `${s.campaign} · Session ${idx}/${group.length}`;
+  }
 
   let allSessions = sessions;
   function renderRows() {
     const tb = listSection.querySelector('#ps-rows');
     tb.innerHTML = '';
     listSection.querySelector('#ps-count').textContent = allSessions.length;
-    if (!allSessions.length) { tb.appendChild(el('<tr><td colspan="6" class="muted">Noch keine Spielabende erfasst.</td></tr>')); return; }
+    const campaignNames = [...new Set(allSessions.map((s) => s.campaign).filter(Boolean))];
+    formSection.querySelector('#ps-campaign-names').innerHTML = campaignNames.map((c) => `<option value="${esc(c)}">`).join('');
+    if (!allSessions.length) { tb.appendChild(el('<tr><td colspan="7" class="muted">Noch keine Spielabende erfasst.</td></tr>')); return; }
     allSessions.forEach((s) => {
       const title = s.game_title || s.external_title;
       const titleHtml = s.game_slug
@@ -767,6 +786,7 @@ export async function renderPlaySessions(root) {
       const tr = el(`<tr>
         <td>${esc(s.played_on)}</td>
         <td>${titleHtml}</td>
+        <td>${esc(campaignLabel(s, allSessions) || '–')}</td>
         <td>${esc(s.participants || '–')}</td>
         <td>${esc(s.note || '–')}</td>
         <td>${s.rating ? '★'.repeat(s.rating) : '–'}</td>
@@ -796,6 +816,7 @@ export async function renderPlaySessions(root) {
     const payload = {
       played_on: formSection.querySelector('#ps-date').value,
       participants: formSection.querySelector('#ps-participants').value.trim() || null,
+      campaign: formSection.querySelector('#ps-campaign').value.trim() || null,
       note: formSection.querySelector('#ps-note').value.trim() || null,
       rating: formSection.querySelector('#ps-rating').value || null,
     };
@@ -805,7 +826,7 @@ export async function renderPlaySessions(root) {
       allSessions = [{
         id: r.id, game_id: matched?.id || null, game_slug: matched?.slug || null,
         game_title: matched?.title || null, external_title: matched ? null : gameText,
-        played_on: payload.played_on, participants: payload.participants, note: payload.note,
+        played_on: payload.played_on, participants: payload.participants, campaign: payload.campaign, note: payload.note,
         rating: payload.rating ? Number(payload.rating) : null,
       }, ...allSessions];
       renderRows();
