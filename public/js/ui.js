@@ -42,7 +42,13 @@ export function scaleBadges(g) {
 }
 
 export const STATUS_LABEL = { published: 'Veröffentlicht', draft: 'Entwurf', archived: 'Archiviert' };
-export const CAMPAIGN_KIND_LABEL = { 'one-shot': 'One-Shot', 'two-shot': 'Two-Shot', 'few-shot': 'Few-Shot', kampagne: 'Kampagne' };
+export const CAMPAIGN_KIND_LABEL = {
+  'one-shot': 'One-Shot (Two-Shot)',
+  'few-shot': 'Few-Shot',
+  kampagne: 'Kampagne',
+  'epische-kampagne': 'Epische Kampagne',
+  'sandbox-szenarien': 'Sandbox-Szenarien',
+};
 
 // Bildet das Label "Kampagne (Art) · Session N[/M]" für einen Spielabend
 // innerhalb einer Gruppe (gleiche Kampagne). Eine manuell gesetzte
