@@ -49,6 +49,43 @@ function openPasswordDialog() {
   dlg.showModal();
 }
 
+function openArchivePasswordDialog() {
+  const dlg = el(`<dialog class="panel" style="max-width:26rem;border:none;border-radius:var(--radius-lg)">
+    <form>
+      <h2 style="font-size:var(--text-md);margin:0 0 var(--space-2)">Archiv-Passwort setzen</h2>
+      <p class="muted" style="font-size:var(--text-sm);margin:0 0 var(--space-3)">Eigenes, vom Admin-Passwort unabhängiges Passwort für den Lesezugriff aufs private „Schwarze Regal“ (Deep-Links auf den Spiel-Detailseiten).</p>
+      <div class="field"><label for="apw1">Neues Archiv-Passwort</label><input type="password" id="apw1" autocomplete="new-password" minlength="10" required></div>
+      <div class="field"><label for="apw2">Wiederholen</label><input type="password" id="apw2" autocomplete="new-password" minlength="10" required></div>
+      <div id="apw-error"></div>
+      <div class="row-actions" style="justify-content:flex-end;margin-top:var(--space-3)">
+        <button type="button" class="btn btn-ghost" id="apw-cancel">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>
+  </dialog>`);
+  document.body.appendChild(dlg);
+  const close = () => { dlg.close(); dlg.remove(); };
+  dlg.querySelector('#apw-cancel').addEventListener('click', close);
+  dlg.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errBox = dlg.querySelector('#apw-error');
+    errBox.innerHTML = '';
+    const p1 = dlg.querySelector('#apw1').value;
+    if (p1 !== dlg.querySelector('#apw2').value) {
+      errBox.appendChild(el('<div class="error-box">Die beiden Passwörter stimmen nicht überein.</div>'));
+      return;
+    }
+    try {
+      await api('/api/admin/archive-password', { method: 'POST', body: { password: p1 } });
+      close();
+      toast('Archiv-Passwort gespeichert.');
+    } catch (err) {
+      errBox.appendChild(el(`<div class="error-box">${esc(err.message)}</div>`));
+    }
+  });
+  dlg.showModal();
+}
+
 function tabs(active) {
   const items = [['#/admin', 'Übersicht', 'dashboard'],
     ['#/admin/liste', 'Einträge', 'liste'], ['#/admin/editor', 'Neuer Eintrag', 'editor'],
@@ -61,7 +98,7 @@ function tabs(active) {
 function adminHead(title, subtitle, extraHtml = '') {
   return el(`<div class="admin-head">
     <div><h1>${esc(title)}</h1><p class="muted" style="margin:.3rem 0 0">${esc(subtitle)}</p></div>
-    <div class="row-actions">${extraHtml}<button type="button" class="btn btn-sm btn-ghost" id="change-pw">Passwort ändern</button><button type="button" class="btn btn-sm btn-ghost" id="logout">Abmelden</button></div>
+    <div class="row-actions">${extraHtml}<button type="button" class="btn btn-sm btn-ghost" id="archive-pw">Archiv-Passwort</button><button type="button" class="btn btn-sm btn-ghost" id="change-pw">Passwort ändern</button><button type="button" class="btn btn-sm btn-ghost" id="logout">Abmelden</button></div>
   </div>`);
 }
 
@@ -69,6 +106,7 @@ function mount(root, active, title, subtitle, extraHtml = '') {
   root.innerHTML = '';
   const head = adminHead(title, subtitle, extraHtml);
   head.querySelector('#change-pw').addEventListener('click', () => openPasswordDialog());
+  head.querySelector('#archive-pw').addEventListener('click', () => openArchivePasswordDialog());
   head.querySelector('#logout').addEventListener('click', async () => {
     await api('/api/admin/logout', { method: 'POST' }).catch(() => {});
     setToken(null);

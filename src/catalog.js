@@ -337,6 +337,16 @@ export async function getGameBySlug(slug, isAdmin) {
   return { game: g, similar: similarR.rows };
 }
 
+// Bewusst getrennt von getGameBySlug()/gameDetailCte(): archive_slug bleibt
+// aus der öffentlichen Katalog-CTE komplett heraus, damit er nie ungeschützt
+// in /api/games/:slug landen kann -- siehe requireArchiveAccess in auth.js
+// und die Route GET /api/games/:slug/archive-link in server.js.
+export async function getArchiveSlug(slug) {
+  const r = await pool.query('SELECT archive_slug FROM katalog.games WHERE slug = $1', [slug]);
+  if (!r.rowCount) return undefined;
+  return r.rows[0].archive_slug;
+}
+
 export async function getGameById(id) {
   const cte = gameDetailCte(true);
   const r = await pool.query(`WITH ${cte} SELECT * FROM gd WHERE id = $1`, [id]);

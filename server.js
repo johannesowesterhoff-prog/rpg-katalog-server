@@ -10,9 +10,11 @@ import {
   hasPassword, setPassword, checkPassword, issueToken, verifyToken,
   setSessionCookie, clearSessionCookie, attachAdminFlag, requireAdmin,
   loginRateLimit, csrfGuard,
+  checkArchivePassword, setArchivePassword, hasArchivePassword,
+  setArchiveCookie, clearArchiveCookie, requireArchiveAccess,
 } from './src/auth.js';
 import {
-  listGames, getFacets, getGameBySlug, getGameById, getMasterData, getWahlomatData, getStats,
+  listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats,
   getDashboard, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
   deleteMasterEntry, getAuditLog,
@@ -96,6 +98,16 @@ app.get('/api/games/:slug', attachAdminFlag, asyncRoute(async (req, res) => {
   res.json(data);
 }));
 
+// Deep-Link ins private "Schwarze Regal" (separate PDF-Datenbank, siehe
+// handoff_archive_link.md) -- archive_slug ist absichtlich NICHT Teil der
+// öffentlichen /api/games/:slug-Antwort (s. getGameBySlug/gameDetailCte),
+// sondern nur über diese eigens abgesicherte Route erreichbar.
+app.get('/api/games/:slug/archive-link', requireArchiveAccess, asyncRoute(async (req, res) => {
+  const archiveSlug = await getArchiveSlug(req.params.slug);
+  if (archiveSlug === undefined) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
+  res.json({ archive_slug: archiveSlug || null });
+}));
+
 app.get('/api/wahlomat.json', asyncRoute(async (_req, res) => {
   res.json(await getWahlomatData());
 }));
@@ -150,6 +162,36 @@ app.post('/api/admin/password', requireAdmin, asyncRoute(async (req, res) => {
   setSessionCookie(res, token);
   res.json({ token });
 }));
+
+// ------------------------------------------------ Archiv-Login ("Schwarzes Regal")
+// Eigenständiger, vom Admin-Login komplett unabhängiger Lesezugriff (siehe
+// handoff_archive_link.md). Nur ein Admin darf das Archiv-Passwort setzen
+// (unten), aber jeder, der es kennt, darf danach nur lesen -- keinerlei
+// Schreibrechte auf den Katalog.
+app.get('/api/admin/archive-password/state', requireAdmin, asyncRoute(async (_req, res) => {
+  res.json({ isSet: await hasArchivePassword() });
+}));
+
+app.post('/api/admin/archive-password', requireAdmin, asyncRoute(async (req, res) => {
+  const { password } = req.body || {};
+  if (!password || String(password).length < 10) return res.status(400).json({ error: 'Passwort muss mindestens 10 Zeichen haben.' });
+  await setArchivePassword(password);
+  res.json({ ok: true });
+}));
+
+app.post('/api/archive/login', loginRateLimit, asyncRoute(async (req, res) => {
+  const { password } = req.body || {};
+  const ok = password && await checkArchivePassword(password);
+  if (!ok) return res.status(401).json({ error: 'Passwort ist falsch.' });
+  const token = issueToken('archive');
+  setArchiveCookie(res, token);
+  res.json({ token });
+}));
+
+app.post('/api/archive/logout', (req, res) => {
+  clearArchiveCookie(res);
+  res.json({ ok: true });
+});
 
 // ------------------------------------------------------------- Admin-API
 app.get('/api/admin/dashboard', requireAdmin, asyncRoute(async (_req, res) => res.json(await getDashboard())));
