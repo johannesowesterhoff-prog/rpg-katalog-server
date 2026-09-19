@@ -1,6 +1,6 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
 import { api } from './api.js';
-import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL } from './ui.js';
+import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, campaignSessionLabel } from './ui.js';
 
 export async function renderDetail(root, slug, ctx) {
   root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:120px"></div></div>';
@@ -56,14 +56,7 @@ export async function renderDetail(root, slug, ctx) {
   const showRating = sessions.some((s) => s.rating != null);
   const showCampaign = sessions.some((s) => s.campaign != null);
   const fmtDateOnly = (v) => (v ? new Date(v).toLocaleDateString('de-DE') : '–');
-  const campaignLabel = (s) => {
-    if (!s.campaign) return '–';
-    const group = sessions.filter((x) => x.campaign === s.campaign).sort((a, b) => a.played_on.localeCompare(b.played_on));
-    const idx = group.findIndex((x) => x.played_on === s.played_on) + 1;
-    return s.campaign_status === 'abgeschlossen'
-      ? `${esc(s.campaign)} · Session ${idx}/${group.length}`
-      : `${esc(s.campaign)} · Session ${idx}`;
-  };
+  const campaignLabel = (s) => campaignSessionLabel(s, sessions.filter((x) => x.campaign === s.campaign)) || '–';
   const layout = el(`<div class="detail-layout">
     <div>
       <section class="section">

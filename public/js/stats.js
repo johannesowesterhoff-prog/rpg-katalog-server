@@ -1,7 +1,7 @@
 // Statistik-Seite: aggregierte Kennzahlen über die veröffentlichte Sammlung
 // (Verteilungen, Skalen-Durchschnitte, Spielabend-Auswertung).
 import { api } from './api.js';
-import { el, esc, emptyState } from './ui.js';
+import { el, esc, emptyState, CAMPAIGN_KIND_LABEL } from './ui.js';
 
 function barSection(title, rows) {
   const max = Math.max(1, ...rows.map((r) => r.count));
@@ -170,8 +170,9 @@ export async function renderStats(root) {
   }
 
   if (s.campaigns?.length) {
+    const kindTag = (c) => (CAMPAIGN_KIND_LABEL[c.campaign_kind] ? `, ${CAMPAIGN_KIND_LABEL[c.campaign_kind]}` : '');
     const campaignsHtml = `<ol class="stat-list">${s.campaigns.map((c) => `<li>
-        <b>${esc(c.campaign)}</b> ${c.campaign_status === 'abgeschlossen' ? '<span class="faint" style="font-size:var(--text-xs)">(abgeschlossen)</span>' : '<span class="faint" style="font-size:var(--text-xs)">(laufend)</span>'}
+        <b>${esc(c.campaign)}</b> <span class="faint" style="font-size:var(--text-xs)">(${c.campaign_status === 'abgeschlossen' ? 'abgeschlossen' : 'laufend'}${kindTag(c)})</span>
         <br>${titleLink(c.title, c.slug)}
         <span class="muted">${c.sessions}× gespielt, zuletzt ${fmtDateOnly(c.last_played)}</span>
       </li>`).join('')}</ol>`;

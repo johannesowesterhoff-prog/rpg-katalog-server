@@ -1,7 +1,7 @@
 // Adminbereich: Dashboard, Editor, Import/Export, Stammdaten und
 // Änderungsprotokoll.
 import { api, setToken } from './api.js';
-import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL } from './ui.js';
+import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, campaignSessionLabel } from './ui.js';
 
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 let master = null;
@@ -361,23 +361,28 @@ export async function renderEditor(root, id) {
   const sessionBox = s5sessions.wrap.querySelector('#sessions');
   const sessionRows = [];
   const existingCampaigns = [...new Set((state.play_sessions || []).map((s) => s.campaign).filter(Boolean))];
-  function addSession(s = { played_on: '', participants: '', note: '', rating: '', campaign: '', campaign_status: '', role: '' }) {
+  function addSession(s = { played_on: '', participants: '', note: '', rating: '', campaign: '', campaign_status: '', campaign_kind: '', session_number: '', role: '' }) {
     const row = el(`<div class="session-row">
-      <div class="field" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
+      <div class="field narrow" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
       <div class="field" style="margin:0"><label>Mitspieler:innen</label><input type="text" class="s-participants" value="${esc(s.participants || '')}"></div>
       <div class="field" style="margin:0"><label>Kampagne</label><input type="text" class="s-campaign" list="campaign-names" value="${esc(s.campaign || '')}"></div>
-      <div class="field" style="margin:0"><label>Kampagnenstatus</label><select class="s-campaign-status">
+      <div class="field narrow" style="margin:0"><label>Session-Nr.</label><input type="number" min="1" class="s-session-number" value="${esc(s.session_number || '')}"></div>
+      <div class="field narrow" style="margin:0"><label>Kampagnenart</label><select class="s-campaign-kind">
+        <option value="">–</option>
+        ${Object.entries(CAMPAIGN_KIND_LABEL).map(([v, l]) => `<option value="${v}" ${s.campaign_kind === v ? 'selected' : ''}>${l}</option>`).join('')}
+      </select></div>
+      <div class="field narrow" style="margin:0"><label>Kampagnenstatus</label><select class="s-campaign-status">
         <option value="">–</option>
         <option value="laufend" ${s.campaign_status === 'laufend' ? 'selected' : ''}>laufend</option>
         <option value="abgeschlossen" ${s.campaign_status === 'abgeschlossen' ? 'selected' : ''}>abgeschlossen</option>
       </select></div>
-      <div class="field" style="margin:0"><label>Rolle</label><select class="s-role">
+      <div class="field narrow" style="margin:0"><label>Rolle</label><select class="s-role">
         <option value="">–</option>
         <option value="spielleiter" ${s.role === 'spielleiter' ? 'selected' : ''}>Spielleiter:in</option>
         <option value="spieler" ${s.role === 'spieler' ? 'selected' : ''}>Spieler:in</option>
       </select></div>
-      <div class="field" style="margin:0"><label>Notiz</label><input type="text" class="s-note" value="${esc(s.note || '')}"></div>
-      <div class="field" style="margin:0"><label>Bewertung</label><select class="s-rating">
+      <div class="field wide" style="margin:0"><label>Notiz</label><input type="text" class="s-note" value="${esc(s.note || '')}"></div>
+      <div class="field narrow" style="margin:0"><label>Bewertung</label><select class="s-rating">
         <option value="">–</option>
         ${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${String(s.rating) === String(n) ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       <button type="button" class="btn btn-sm btn-danger" title="Spielabend entfernen">Entfernen</button>
@@ -445,6 +450,8 @@ export async function renderEditor(root, id) {
         participants: r.querySelector('.s-participants').value.trim() || null,
         campaign: r.querySelector('.s-campaign').value.trim() || null,
         campaign_status: r.querySelector('.s-campaign-status').value || null,
+        campaign_kind: r.querySelector('.s-campaign-kind').value || null,
+        session_number: r.querySelector('.s-session-number').value || null,
         role: r.querySelector('.s-role').value || null,
         note: r.querySelector('.s-note').value.trim() || null,
         rating: r.querySelector('.s-rating').value || null,
@@ -746,23 +753,28 @@ export async function renderPlaySessions(root) {
   const formSection = el(`<section class="section">
     <h2>Neuer Spielabend</h2>
     <form id="ps-form">
-      <div class="session-row" style="grid-template-columns:.8fr 1.3fr 1.1fr 1fr .9fr .9fr 1.3fr .7fr auto">
-        <div class="field" style="margin:0"><label for="ps-date">Datum *</label><input type="date" id="ps-date" required></div>
+      <div class="session-row">
+        <div class="field narrow" style="margin:0"><label for="ps-date">Datum *</label><input type="date" id="ps-date" required></div>
         <div class="field" id="ps-game-field" style="margin:0"><label for="ps-game">Spiel (Katalog-Titel oder frei)</label></div>
         <div class="field" style="margin:0"><label for="ps-participants">Mitspieler:innen</label><input type="text" id="ps-participants"></div>
         <div class="field" style="margin:0"><label for="ps-campaign">Kampagne</label><input type="text" id="ps-campaign" list="ps-campaign-names"></div>
-        <div class="field" style="margin:0"><label for="ps-campaign-status">Kampagnenstatus</label><select id="ps-campaign-status">
+        <div class="field narrow" style="margin:0"><label for="ps-session-number">Session-Nr.</label><input type="number" min="1" id="ps-session-number"></div>
+        <div class="field narrow" style="margin:0"><label for="ps-campaign-kind">Kampagnenart</label><select id="ps-campaign-kind">
+          <option value="">–</option>
+          ${Object.entries(CAMPAIGN_KIND_LABEL).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
+        </select></div>
+        <div class="field narrow" style="margin:0"><label for="ps-campaign-status">Kampagnenstatus</label><select id="ps-campaign-status">
           <option value="">–</option>
           <option value="laufend">laufend</option>
           <option value="abgeschlossen">abgeschlossen</option>
         </select></div>
-        <div class="field" style="margin:0"><label for="ps-role">Rolle</label><select id="ps-role">
+        <div class="field narrow" style="margin:0"><label for="ps-role">Rolle</label><select id="ps-role">
           <option value="">–</option>
           <option value="spielleiter">Spielleiter:in</option>
           <option value="spieler">Spieler:in</option>
         </select></div>
-        <div class="field" style="margin:0"><label for="ps-note">Notiz</label><input type="text" id="ps-note"></div>
-        <div class="field" style="margin:0"><label for="ps-rating">Bewertung</label><select id="ps-rating">
+        <div class="field wide" style="margin:0"><label for="ps-note">Notiz</label><input type="text" id="ps-note"></div>
+        <div class="field narrow" style="margin:0"><label for="ps-rating">Bewertung</label><select id="ps-rating">
           <option value="">–</option>
           ${[1, 2, 3, 4, 5].map((n) => `<option value="${n}">${n}</option>`).join('')}</select></div>
         <button type="submit" class="btn btn-primary">Hinzufügen</button>
@@ -787,10 +799,7 @@ export async function renderPlaySessions(root) {
   function groupKey(s) { return (s.game_id ?? `x:${s.external_title}`) + '|' + s.campaign; }
   function campaignLabel(s, all) {
     if (!s.campaign) return null;
-    const group = all.filter((x) => x.campaign && groupKey(x) === groupKey(s))
-      .sort((a, b) => a.played_on.localeCompare(b.played_on) || a.id - b.id);
-    const idx = group.findIndex((x) => x.id === s.id) + 1;
-    return s.campaign_status === 'abgeschlossen' ? `${s.campaign} · Session ${idx}/${group.length}` : `${s.campaign} · Session ${idx}`;
+    return campaignSessionLabel(s, all.filter((x) => x.campaign && groupKey(x) === groupKey(s)));
   }
   const ROLE_LABEL = { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' };
 
@@ -823,7 +832,7 @@ export async function renderPlaySessions(root) {
       const tr = el(`<tr>
         <td>${esc(s.played_on)}</td>
         <td>${titleHtml}</td>
-        <td>${label ? `<button type="button" class="link-btn ps-campaign-link">${esc(label)}</button>` : '–'}</td>
+        <td>${label ? `<button type="button" class="link-btn ps-campaign-link">${label}</button>` : '–'}</td>
         <td>${esc(s.participants || '–')}</td>
         <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
         <td>${esc(s.note || '–')}</td>
@@ -858,6 +867,8 @@ export async function renderPlaySessions(root) {
       participants: formSection.querySelector('#ps-participants').value.trim() || null,
       campaign: formSection.querySelector('#ps-campaign').value.trim() || null,
       campaign_status: formSection.querySelector('#ps-campaign-status').value || null,
+      campaign_kind: formSection.querySelector('#ps-campaign-kind').value || null,
+      session_number: formSection.querySelector('#ps-session-number').value || null,
       role: formSection.querySelector('#ps-role').value || null,
       note: formSection.querySelector('#ps-note').value.trim() || null,
       rating: formSection.querySelector('#ps-rating').value || null,
@@ -869,7 +880,9 @@ export async function renderPlaySessions(root) {
         id: r.id, game_id: matched?.id || null, game_slug: matched?.slug || null,
         game_title: matched?.title || null, external_title: matched ? null : gameText,
         played_on: payload.played_on, participants: payload.participants, campaign: payload.campaign,
-        campaign_status: payload.campaign_status, role: payload.role, note: payload.note,
+        campaign_status: payload.campaign_status, campaign_kind: payload.campaign_kind,
+        session_number: payload.session_number ? Number(payload.session_number) : null,
+        role: payload.role, note: payload.note,
         rating: payload.rating ? Number(payload.rating) : null,
       }, ...allSessions];
       renderRows();

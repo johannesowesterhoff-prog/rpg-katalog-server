@@ -42,6 +42,26 @@ export function scaleBadges(g) {
 }
 
 export const STATUS_LABEL = { published: 'Veröffentlicht', draft: 'Entwurf', archived: 'Archiviert' };
+export const CAMPAIGN_KIND_LABEL = { 'one-shot': 'One-Shot', 'two-shot': 'Two-Shot', 'few-shot': 'Few-Shot', kampagne: 'Kampagne' };
+
+// Bildet das Label "Kampagne (Art) · Session N[/M]" für einen Spielabend
+// innerhalb einer Gruppe (gleiche Kampagne). Eine manuell gesetzte
+// session_number ersetzt die chronologisch ermittelte Position -- z.B. um
+// eine bereits vor dem Protokoll begonnene Zählung fortzuführen. Das "/M"
+// erscheint nur bei abgeschlossenen Kampagnen (M = höchste vergebene Nummer,
+// sonst die Anzahl protokollierter Sessions).
+export function campaignSessionLabel(s, group) {
+  if (!s.campaign) return null;
+  const sorted = [...group].sort((a, b) => a.played_on.localeCompare(b.played_on));
+  const idx = s.session_number ?? (sorted.indexOf(s) + 1);
+  const kindLabel = CAMPAIGN_KIND_LABEL[s.campaign_kind];
+  let total = null;
+  if (s.campaign_status === 'abgeschlossen') {
+    const numbered = sorted.filter((x) => x.session_number != null).map((x) => x.session_number);
+    total = numbered.length ? Math.max(...numbered) : sorted.length;
+  }
+  return `${esc(s.campaign)}${kindLabel ? ` (${kindLabel})` : ''} · Session ${idx}${total ? '/' + total : ''}`;
+}
 
 export const BINDING_LABEL = { hardcover: 'Hardcover', softcover: 'Softcover', heft: 'Heft', faltblatt: 'Faltblatt', box: 'Box', zubehoer: 'Spielhilfe & Zubehör', sonstiges: 'Sonstiges' };
 
