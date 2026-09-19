@@ -23,9 +23,15 @@ const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true';
 // Lokal über http funktioniert das Präfix nicht -- dann auf einen normalen
 // Namen ausweichen, aber weiterhin httpOnly + sameSite=lax.
 export const COOKIE_NAME = COOKIE_SECURE ? '__Host-rk_session' : 'rk_session';
+// Eigenes, unabhängiges Cookie für den separaten Lesezugriff aufs "Schwarze
+// Regal" (siehe requireArchiveAccess weiter unten) -- bewusst nicht dasselbe
+// Cookie wie der Admin-Login, damit ein Archiv-Passwort niemals Adminrechte
+// gibt (nur umgekehrt: ein Admin-Token genügt auch fürs Archiv).
+export const COOKIE_NAME_ARCHIVE = COOKIE_SECURE ? '__Host-rk_archive_session' : 'rk_archive_session';
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 Stunden
 
 const PASSWORD_SETTING_KEY = 'admin_password';
+const ARCHIVE_PASSWORD_SETTING_KEY = 'archive_password';
 
 // ---------------------------------------------------------------- Hashing
 function scryptHash(password, salt) {
@@ -49,42 +55,55 @@ export function verifyPasswordHash(password, stored) {
 }
 
 // ------------------------------------------------------------ Settings
-export async function hasPassword() {
-  const r = await pool.query('SELECT 1 FROM app_settings WHERE key = $1', [PASSWORD_SETTING_KEY]);
+async function hasPasswordFor(key) {
+  const r = await pool.query('SELECT 1 FROM app_settings WHERE key = $1', [key]);
   return r.rowCount > 0;
 }
 
-export async function setPassword(password) {
+async function setPasswordFor(key, password) {
   const stored = hashPassword(password);
   await pool.query(
     `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, now())
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-    [PASSWORD_SETTING_KEY, stored],
+    [key, stored],
   );
 }
 
-export async function checkPassword(password) {
-  const r = await pool.query('SELECT value FROM app_settings WHERE key = $1', [PASSWORD_SETTING_KEY]);
+async function checkPasswordFor(key, password) {
+  const r = await pool.query('SELECT value FROM app_settings WHERE key = $1', [key]);
   if (!r.rowCount) return false;
   return verifyPasswordHash(password, r.rows[0].value);
 }
+
+export const hasPassword = () => hasPasswordFor(PASSWORD_SETTING_KEY);
+export const setPassword = (password) => setPasswordFor(PASSWORD_SETTING_KEY, password);
+export const checkPassword = (password) => checkPasswordFor(PASSWORD_SETTING_KEY, password);
+
+// Separates, unabhängiges Passwort für den Lesezugriff aufs "Schwarze
+// Regal" -- eigener app_settings-Key, eigener Hash, nichts mit dem
+// Admin-Passwort geteilt (siehe handoff_archive_link.md).
+export const hasArchivePassword = () => hasPasswordFor(ARCHIVE_PASSWORD_SETTING_KEY);
+export const setArchivePassword = (password) => setPasswordFor(ARCHIVE_PASSWORD_SETTING_KEY, password);
+export const checkArchivePassword = (password) => checkPasswordFor(ARCHIVE_PASSWORD_SETTING_KEY, password);
 
 // -------------------------------------------------------------- Tokens
 function sign(payload) {
   return crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest();
 }
 
-export function issueToken() {
+export function issueToken(kind = 'admin') {
   const exp = Date.now() + SESSION_TTL_MS;
-  const payload = `admin.${exp}`;
+  const payload = `${kind}.${exp}`;
   const sig = sign(payload).toString('base64url');
   return `${payload}.${sig}`;
 }
 
-export function verifyToken(token) {
-  if (!token || typeof token !== 'string') return false;
+/** Prüft Signatur + Ablauf eines Tokens und gibt dessen Art zurück
+ *  ('admin' | 'archive'), oder null wenn ungültig/abgelaufen. */
+function verifyAnyToken(token) {
+  if (!token || typeof token !== 'string') return null;
   const lastDot = token.lastIndexOf('.');
-  if (lastDot < 0) return false;
+  if (lastDot < 0) return null;
   const payload = token.slice(0, lastDot);
   const sig = token.slice(lastDot + 1);
   let sigBuf, expectedBuf;
@@ -92,20 +111,24 @@ export function verifyToken(token) {
     sigBuf = Buffer.from(sig, 'base64url');
     expectedBuf = sign(payload);
   } catch {
-    return false;
+    return null;
   }
-  if (sigBuf.length !== expectedBuf.length) return false;
-  if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return false;
+  if (sigBuf.length !== expectedBuf.length) return null;
+  if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
   const [kind, expStr] = payload.split('.');
-  if (kind !== 'admin') return false;
+  if (kind !== 'admin' && kind !== 'archive') return null;
   const exp = Number(expStr);
-  if (!Number.isFinite(exp) || Date.now() > exp) return false;
-  return true;
+  if (!Number.isFinite(exp) || Date.now() > exp) return null;
+  return kind;
+}
+
+export function verifyToken(token) {
+  return verifyAnyToken(token) === 'admin';
 }
 
 // --------------------------------------------------------------- Cookie
-export function setSessionCookie(res, token) {
-  res.setHeader('Set-Cookie', cookie.serialize(COOKIE_NAME, token, {
+export function setSessionCookie(res, token, cookieName = COOKIE_NAME) {
+  res.setHeader('Set-Cookie', cookie.serialize(cookieName, token, {
     httpOnly: true,
     secure: COOKIE_SECURE,
     sameSite: 'lax',
@@ -114,8 +137,8 @@ export function setSessionCookie(res, token) {
   }));
 }
 
-export function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', cookie.serialize(COOKIE_NAME, '', {
+export function clearSessionCookie(res, cookieName = COOKIE_NAME) {
+  res.setHeader('Set-Cookie', cookie.serialize(cookieName, '', {
     httpOnly: true,
     secure: COOKIE_SECURE,
     sameSite: 'lax',
@@ -124,11 +147,14 @@ export function clearSessionCookie(res) {
   }));
 }
 
+export const setArchiveCookie = (res, token) => setSessionCookie(res, token, COOKIE_NAME_ARCHIVE);
+export const clearArchiveCookie = (res) => clearSessionCookie(res, COOKIE_NAME_ARCHIVE);
+
 function tokenFromRequest(req) {
   const auth = req.headers.authorization;
   if (auth && auth.startsWith('Bearer ')) return auth.slice(7);
   const cookies = cookie.parse(req.headers.cookie || '');
-  return cookies[COOKIE_NAME] || null;
+  return cookies[COOKIE_NAME] || cookies[COOKIE_NAME_ARCHIVE] || null;
 }
 
 /** Ermittelt req.isAdmin, ohne die Route zu sperren -- für öffentliche Routen,
@@ -146,6 +172,18 @@ export function requireAdmin(req, res, next) {
     return res.status(401).json({ error: 'Nicht angemeldet.' });
   }
   req.isAdmin = true;
+  next();
+}
+
+/** Sperrt die Route für alle außer Archiv-Reader ODER Admin (Admin-Login
+ *  gibt automatisch auch Zugriff aufs Schwarze Regal -- nicht umgekehrt). */
+export function requireArchiveAccess(req, res, next) {
+  const kind = verifyAnyToken(tokenFromRequest(req));
+  if (!kind) {
+    return res.status(401).json({ error: 'Kein gültiger Zugriff auf das Schwarze Regal.' });
+  }
+  if (kind === 'admin') req.isAdmin = true;
+  req.hasArchiveAccess = true;
   next();
 }
 

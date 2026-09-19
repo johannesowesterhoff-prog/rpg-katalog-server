@@ -1,6 +1,10 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
-import { api } from './api.js';
+import { api, setArchiveToken } from './api.js';
 import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL } from './ui.js';
+
+// Deep-Link-Ziel im privaten "Schwarzen Regal" (separate PDF-Datenbank,
+// siehe handoff_archive_link.md). Format: #g=<archive_slug>.
+const ARCHIVE_URL = 'https://claude.ai/artifact/T9PsrHThnX4oiZU6CnYSdm';
 
 export async function renderDetail(root, slug, ctx) {
   root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:120px"></div></div>';
@@ -110,9 +114,15 @@ export async function renderDetail(root, slug, ctx) {
           <dt>Kampagnenart</dt><dd class="tag-row">${(g.campaign_type || []).map((t) => `<a class="tag" href="#/?campaign=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
         </dl>
       </div>
+
+      <div class="panel section">
+        <h2 style="font-size:var(--text-sm);font-family:var(--font-body);text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin-bottom:var(--space-4)">Schwarzes Regal</h2>
+        <div id="archive-panel"><p class="faint" style="font-size:var(--text-xs)">Lädt …</p></div>
+      </div>
     </aside>
   </div>`);
   root.appendChild(layout);
+  renderArchivePanel(layout.querySelector('#archive-panel'), g.slug);
 
   if (data.similar?.length) {
     const sec = el('<section class="section"><h2>Ähnliche Spiele</h2><div class="similar-grid"></div></section>');
@@ -129,4 +139,57 @@ function scaleLabel(key, v) {
   const raw = SCALE_LABELS[key][Math.round(v) - 1] || '';
   if (Number.isInteger(v)) return raw;
   return 'etwa ' + raw.replace(/^\d+\s*=\s*/, '');
+}
+
+// -------------------------------------------------------- Schwarzes Regal
+// Privater, passwortgeschützter Deep-Link zur separaten PDF-Datenbank
+// "Schwarzes Regal" (siehe handoff_archive_link.md). archive_slug wird nie
+// in der öffentlichen /api/games/:slug-Antwort mitgeliefert -- diese eigene,
+// separat authentifizierte Route ist die einzige Quelle dafür.
+async function renderArchivePanel(container, slug) {
+  let data;
+  try {
+    data = await api(`/api/games/${encodeURIComponent(slug)}/archive-link`);
+  } catch (e) {
+    if (e.status === 401) return renderArchiveLocked(container, slug);
+    container.innerHTML = '';
+    return;
+  }
+  renderArchiveUnlocked(container, data);
+}
+
+function renderArchiveUnlocked(container, data) {
+  container.innerHTML = '';
+  if (!data.archive_slug) {
+    container.appendChild(el('<p class="faint" style="font-size:var(--text-xs)">Kein Eintrag im Schwarzen Regal gefunden.</p>'));
+    return;
+  }
+  const url = `${ARCHIVE_URL}#g=${encodeURIComponent(data.archive_slug)}`;
+  container.appendChild(el(`<a class="btn btn-sm" target="_blank" rel="noopener" href="${esc(url)}">Im Schwarzen Regal öffnen ↗</a>`));
+}
+
+function renderArchiveLocked(container, slug) {
+  container.innerHTML = '';
+  const form = el(`<form>
+    <p class="faint" style="font-size:var(--text-xs);margin-bottom:.5rem">Privat, nur für dich – Passwort eingeben.</p>
+    <div style="display:flex;gap:.4rem">
+      <input type="password" placeholder="Passwort" autocomplete="current-password" aria-label="Passwort fürs Schwarze Regal" style="flex:1;min-width:0">
+      <button type="submit" class="btn btn-sm">Freischalten</button>
+    </div>
+    <div class="archive-error"></div>
+  </form>`);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = form.querySelector('input');
+    const errBox = form.querySelector('.archive-error');
+    errBox.innerHTML = '';
+    try {
+      const r = await api('/api/archive/login', { method: 'POST', body: { password: input.value } });
+      setArchiveToken(r.token);
+      await renderArchivePanel(container, slug);
+    } catch (err) {
+      errBox.appendChild(el(`<p class="error-box" style="font-size:var(--text-xs);margin:.5rem 0 0">${esc(err.message)}</p>`));
+    }
+  });
+  container.appendChild(form);
 }
