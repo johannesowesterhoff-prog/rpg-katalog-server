@@ -159,4 +159,22 @@ export async function renderStats(root) {
     <section class="section"><h2>Zuletzt gespielt</h2>${recentHtml}</section>
   </div>`);
   root.appendChild(sessionSections);
+
+  const roleMap = Object.fromEntries((s.roleStats || []).map((r) => [r.value, r.count]));
+  if (roleMap.spielleiter || roleMap.spieler) {
+    const roleTiles = el(`<div class="tiles">
+      <div class="card tile"><span class="num">${roleMap.spielleiter || 0}</span><span class="lbl">× Spielleiter:in</span></div>
+      <div class="card tile"><span class="num">${roleMap.spieler || 0}</span><span class="lbl">× Spieler:in</span></div>
+    </div>`);
+    root.appendChild(roleTiles);
+  }
+
+  if (s.campaigns?.length) {
+    const campaignsHtml = `<ol class="stat-list">${s.campaigns.map((c) => `<li>
+        <b>${esc(c.campaign)}</b> ${c.campaign_status === 'abgeschlossen' ? '<span class="faint" style="font-size:var(--text-xs)">(abgeschlossen)</span>' : '<span class="faint" style="font-size:var(--text-xs)">(laufend)</span>'}
+        <br>${titleLink(c.title, c.slug)}
+        <span class="muted">${c.sessions}× gespielt, zuletzt ${fmtDateOnly(c.last_played)}</span>
+      </li>`).join('')}</ol>`;
+    root.appendChild(el(`<section class="section"><h2>Kampagnen</h2>${campaignsHtml}</section>`));
+  }
 }

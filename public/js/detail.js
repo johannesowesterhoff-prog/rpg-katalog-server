@@ -60,7 +60,9 @@ export async function renderDetail(root, slug, ctx) {
     if (!s.campaign) return '–';
     const group = sessions.filter((x) => x.campaign === s.campaign).sort((a, b) => a.played_on.localeCompare(b.played_on));
     const idx = group.findIndex((x) => x.played_on === s.played_on) + 1;
-    return `${esc(s.campaign)} · Session ${idx}/${group.length}`;
+    return s.campaign_status === 'abgeschlossen'
+      ? `${esc(s.campaign)} · Session ${idx}/${group.length}`
+      : `${esc(s.campaign)} · Session ${idx}`;
   };
   const layout = el(`<div class="detail-layout">
     <div>
