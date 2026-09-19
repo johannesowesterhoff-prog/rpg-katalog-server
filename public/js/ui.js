@@ -124,7 +124,7 @@ export function autocomplete({ value = '', options = [], placeholder = '', onCha
   const open = () => {
     close();
     const q = input.value.trim().toLowerCase();
-    const hits = options.filter((o) => o.toLowerCase().includes(q)).slice(0, 8);
+    const hits = options.filter((o) => o.toLowerCase().includes(q));
     if (!hits.length) return;
     list = el(`<div class="ac-list">${hits.map((h) => `<button type="button">${esc(h)}</button>`).join('')}</div>`);
     list.querySelectorAll('button').forEach((b, i) => b.addEventListener('mousedown', (ev) => {
