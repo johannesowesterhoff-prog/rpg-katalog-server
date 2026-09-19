@@ -167,6 +167,9 @@ label { font-size: var(--text-sm); font-weight: 500; }
 .tag.is-active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
 .tag-row { display: flex; flex-wrap: wrap; gap: .3rem; }
 .tag-row-tone { margin-top: .3rem; }
+.campaign-badges .tag { cursor: default; }
+.campaign-badges .tag:hover { color: var(--text-muted); border-color: transparent; background: var(--surface-2); }
+.campaign-badges .tag-row { margin-top: .25rem; }
 .tag-tone { background: transparent; border-color: var(--border); }
 .tag-tone:hover { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
 

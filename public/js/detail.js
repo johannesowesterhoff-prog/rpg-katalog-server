@@ -1,6 +1,6 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
 import { api } from './api.js';
-import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, campaignSessionLabel } from './ui.js';
+import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, campaignSessionBadges } from './ui.js';
 
 export async function renderDetail(root, slug, ctx) {
   root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:120px"></div></div>';
@@ -55,7 +55,6 @@ export async function renderDetail(root, slug, ctx) {
   const showParticipants = sessions.some((s) => s.participants != null);
   const showCampaign = sessions.some((s) => s.campaign != null);
   const fmtDateOnly = (v) => (v ? new Date(v).toLocaleDateString('de-DE') : '–');
-  const campaignLabel = (s) => campaignSessionLabel(s, sessions.filter((x) => x.campaign === s.campaign)) || '–';
   const layout = el(`<div class="detail-layout">
     <div>
       <section class="section">
@@ -88,7 +87,7 @@ export async function renderDetail(root, slug, ctx) {
           <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}${showParticipants ? '<th>Mitspieler:innen</th>' : ''}<th>Notiz</th></tr></thead>
           <tbody>${sessions.map((s) => `<tr>
             <td>${esc(fmtDateOnly(s.played_on))}</td>
-            ${showCampaign ? `<td>${campaignLabel(s)}</td>` : ''}
+            ${showCampaign ? '<td class="session-campaign-cell">–</td>' : ''}
             ${showParticipants ? `<td>${esc(s.participants || '–')}</td>` : ''}
             <td>${esc(s.note || '–')}</td>
           </tr>`).join('')}</tbody></table></div>`
@@ -115,6 +114,13 @@ export async function renderDetail(root, slug, ctx) {
       </div>
     </aside>
   </div>`);
+  if (showCampaign) {
+    layout.querySelectorAll('.session-campaign-cell').forEach((cell, i) => {
+      const s = sessions[i];
+      const badges = campaignSessionBadges(s, sessions.filter((x) => x.campaign === s.campaign));
+      if (badges) { cell.textContent = ''; cell.appendChild(badges); }
+    });
+  }
   root.appendChild(layout);
 
   if (data.similar?.length) {

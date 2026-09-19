@@ -1,7 +1,7 @@
 // Adminbereich: Dashboard, Editor, Import/Export, Stammdaten und
 // Änderungsprotokoll.
 import { api, setToken } from './api.js';
-import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, campaignSessionLabel } from './ui.js';
+import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, campaignSessionBadges } from './ui.js';
 
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 let master = null;
@@ -790,10 +790,6 @@ export async function renderPlaySessions(root) {
   body.appendChild(listSection);
 
   function groupKey(s) { return (s.game_id ?? `x:${s.external_title}`) + '|' + s.campaign; }
-  function campaignLabel(s, all) {
-    if (!s.campaign) return null;
-    return campaignSessionLabel(s, all.filter((x) => x.campaign && groupKey(x) === groupKey(s)));
-  }
   const ROLE_LABEL = { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' };
 
   let allSessions = sessions;
@@ -888,11 +884,10 @@ export async function renderPlaySessions(root) {
       const titleHtml = s.game_slug
         ? `<a href="#/spiele/${esc(s.game_slug)}" target="_blank" rel="noopener">${esc(title)}</a>`
         : `${esc(title)} <span class="faint" style="font-size:var(--text-xs)">(extern)</span>`;
-      const label = campaignLabel(s, allSessions);
       const tr = el(`<tr>
         <td>${esc(s.played_on)}</td>
         <td>${titleHtml}</td>
-        <td>${label ? `<button type="button" class="link-btn ps-campaign-link">${label}</button>` : '–'}</td>
+        <td class="campaign-cell">–</td>
         <td>${esc(s.participants || '–')}</td>
         <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
         <td>${esc(s.note || '–')}</td>
@@ -901,8 +896,9 @@ export async function renderPlaySessions(root) {
           <button type="button" class="btn btn-sm btn-danger">Löschen</button>
         </td>
       </tr>`);
-      const campaignBtn = tr.querySelector('.ps-campaign-link');
-      if (campaignBtn) campaignBtn.addEventListener('click', () => { campaignFilter = groupKey(s); renderRows(); });
+      const group = allSessions.filter((x) => x.campaign && groupKey(x) === groupKey(s));
+      const badges = campaignSessionBadges(s, group, { onNameClick: () => { campaignFilter = groupKey(s); renderRows(); } });
+      if (badges) { const cell = tr.querySelector('.campaign-cell'); cell.textContent = ''; cell.appendChild(badges); }
       tr.querySelector('.ps-edit').addEventListener('click', () => openEditRow(tr, s));
       tr.querySelector('.btn-danger').addEventListener('click', async () => {
         if (!confirmDialog(`Spielabend „${title}" vom ${s.played_on} wirklich löschen?`)) return;

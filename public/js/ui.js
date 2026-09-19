@@ -56,17 +56,45 @@ export const CAMPAIGN_KIND_LABEL = {
 // eine bereits vor dem Protokoll begonnene Zählung fortzuführen. Das "/M"
 // erscheint nur bei abgeschlossenen Kampagnen (M = höchste vergebene Nummer,
 // sonst die Anzahl protokollierter Sessions).
-export function campaignSessionLabel(s, group) {
+export function campaignSessionParts(s, group) {
   if (!s.campaign) return null;
   const sorted = [...group].sort((a, b) => a.played_on.localeCompare(b.played_on));
   const idx = s.session_number ?? (sorted.indexOf(s) + 1);
-  const kindLabel = CAMPAIGN_KIND_LABEL[s.campaign_kind];
   let total = null;
   if (s.campaign_status === 'abgeschlossen') {
     const numbered = sorted.filter((x) => x.session_number != null).map((x) => x.session_number);
     total = numbered.length ? Math.max(...numbered) : sorted.length;
   }
-  return `${esc(s.campaign)}${kindLabel ? ` (${kindLabel})` : ''} · Session ${idx}${total ? '/' + total : ''}`;
+  return {
+    name: s.campaign,
+    kindLabel: CAMPAIGN_KIND_LABEL[s.campaign_kind] || null,
+    statusLabel: s.campaign_status === 'abgeschlossen' ? 'abgeschlossen' : 'laufend',
+    sessionLabel: `Session ${idx}${total ? '/' + total : ''}`,
+  };
+}
+
+export function campaignSessionLabel(s, group) {
+  const p = campaignSessionParts(s, group);
+  if (!p) return null;
+  return `${esc(p.name)}${p.kindLabel ? ` (${p.kindLabel})` : ''} · ${p.sessionLabel}`;
+}
+
+// Kompakte Badge-Darstellung: Name als Link-Button (für Klick-Filter),
+// darunter kleine Tags für Kampagnenart/-status/Session-Zähler.
+export function campaignSessionBadges(s, group, { onNameClick } = {}) {
+  const p = campaignSessionParts(s, group);
+  if (!p) return null;
+  const nameHtml = onNameClick ? `<button type="button" class="link-btn" id="cn-name">${esc(p.name)}</button>` : `<b>${esc(p.name)}</b>`;
+  const wrap = el(`<div class="campaign-badges">
+    ${nameHtml}
+    <div class="tag-row">
+      ${p.kindLabel ? `<span class="tag">${esc(p.kindLabel)}</span>` : ''}
+      <span class="tag">${esc(p.statusLabel)}</span>
+      <span class="tag">${esc(p.sessionLabel)}</span>
+    </div>
+  </div>`);
+  if (onNameClick) wrap.querySelector('#cn-name').addEventListener('click', onNameClick);
+  return wrap;
 }
 
 export const BINDING_LABEL = { hardcover: 'Hardcover', softcover: 'Softcover', heft: 'Heft', faltblatt: 'Faltblatt', box: 'Box', zubehoer: 'Spielhilfe & Zubehör', sonstiges: 'Sonstiges' };
