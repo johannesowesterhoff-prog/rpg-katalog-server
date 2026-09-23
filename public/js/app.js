@@ -4,7 +4,7 @@ import { renderCatalog } from './catalog.js';
 import { renderDetail } from './detail.js';
 import { renderWahlomat } from './wahlomat.js';
 import { renderStats } from './stats.js';
-import { renderLogin, renderDashboard, renderList, renderEditor, renderImport, renderMasterData, renderAudit } from './admin.js';
+import { renderLogin, renderDashboard, renderList, renderEditor, renderImport, renderMasterData, renderAudit, renderPlaySessions } from './admin.js';
 import { toast, emptyState } from './ui.js';
 
 const root = document.getElementById('app');
@@ -61,6 +61,7 @@ async function route() {
         undefined: () => renderDashboard(root),
         liste: () => renderList(root, params),
         editor: () => renderEditor(root, parts[2] || null),
+        spielabende: () => renderPlaySessions(root),
         import: () => renderImport(root),
         stammdaten: () => renderMasterData(root),
         protokoll: () => renderAudit(root),

@@ -18,6 +18,7 @@ import {
   getDashboard, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
   deleteMasterEntry, getAuditLog,
+  listPlaySessions, getGameLookup, createPlaySession, updatePlaySession, deletePlaySession,
 } from './src/catalog.js';
 import { stagingPreview, getImportRun, commitImport } from './src/importer.js';
 
@@ -312,6 +313,23 @@ app.get('/api/admin/export.csv', requireAdmin, asyncRoute(async (_req, res) => {
 
 app.get('/api/admin/audit', requireAdmin, asyncRoute(async (req, res) => {
   res.json({ entries: await getAuditLog(Number(req.query.limit) || 120) });
+}));
+
+app.get('/api/admin/play-sessions', requireAdmin, asyncRoute(async (_req, res) => {
+  res.json({ sessions: await listPlaySessions() });
+}));
+app.get('/api/admin/games-lookup', requireAdmin, asyncRoute(async (_req, res) => {
+  res.json({ games: await getGameLookup() });
+}));
+app.post('/api/admin/play-sessions', requireAdmin, asyncRoute(async (req, res) => {
+  res.status(201).json(await createPlaySession(req.body || {}, 'admin'));
+}));
+app.patch('/api/admin/play-sessions/:id', requireAdmin, asyncRoute(async (req, res) => {
+  res.json(await updatePlaySession(req.params.id, req.body || {}, 'admin'));
+}));
+app.delete('/api/admin/play-sessions/:id', requireAdmin, asyncRoute(async (req, res) => {
+  await deletePlaySession(req.params.id, 'admin');
+  res.json({ ok: true });
 }));
 
 // -------------------------------------------------------- Fehlerbehandlung

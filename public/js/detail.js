@@ -1,6 +1,6 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
 import { api, setArchiveToken } from './api.js';
-import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL } from './ui.js';
+import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, campaignSessionBadges } from './ui.js';
 
 // Deep-Link-Ziel im privaten "Schwarzen Regal" (separate PDF-Datenbank,
 // siehe handoff_archive_link.md). Format: #g=<archive_slug>.
@@ -56,6 +56,8 @@ export async function renderDetail(root, slug, ctx) {
 
   const products = g.products || [];
   const sessions = g.play_sessions || [];
+  const showParticipants = sessions.some((s) => s.participants != null);
+  const showCampaign = sessions.some((s) => s.campaign != null);
   const fmtDateOnly = (v) => (v ? new Date(v).toLocaleDateString('de-DE') : '–');
   const layout = el(`<div class="detail-layout">
     <div>
@@ -86,12 +88,12 @@ export async function renderDetail(root, slug, ctx) {
       <section class="section">
         <h2>Spielabende (${sessions.length})</h2>
         ${sessions.length ? `<div class="scroll-x"><table>
-          <thead><tr><th>Datum</th><th>Mitspieler:innen</th><th>Notiz</th><th>Bewertung</th></tr></thead>
+          <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}${showParticipants ? '<th>Mitspieler:innen</th>' : ''}<th>Notiz</th></tr></thead>
           <tbody>${sessions.map((s) => `<tr>
             <td>${esc(fmtDateOnly(s.played_on))}</td>
-            <td>${esc(s.participants || '–')}</td>
-            <td>${esc(s.note || '–')}</td>
-            <td>${s.rating ? '★'.repeat(s.rating) : '–'}</td>
+            ${showCampaign ? '<td class="session-campaign-cell">–</td>' : ''}
+            ${showParticipants ? `<td>${esc(s.participants || '–')}</td>` : ''}
+            <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
           </tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">Für dieses Spiel ist noch kein Spielabend protokolliert.</p>'}
       </section>
@@ -121,6 +123,13 @@ export async function renderDetail(root, slug, ctx) {
       </div>
     </aside>
   </div>`);
+  if (showCampaign) {
+    layout.querySelectorAll('.session-campaign-cell').forEach((cell, i) => {
+      const s = sessions[i];
+      const badges = campaignSessionBadges(s, sessions.filter((x) => x.campaign === s.campaign));
+      if (badges) { cell.textContent = ''; cell.appendChild(badges); }
+    });
+  }
   root.appendChild(layout);
   renderArchivePanel(layout.querySelector('#archive-panel'), g.slug);
 

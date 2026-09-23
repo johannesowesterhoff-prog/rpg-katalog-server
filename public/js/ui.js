@@ -42,6 +42,62 @@ export function scaleBadges(g) {
 }
 
 export const STATUS_LABEL = { published: 'Veröffentlicht', draft: 'Entwurf', archived: 'Archiviert' };
+export const CAMPAIGN_KIND_LABEL = {
+  'one-shot': 'One-Shot (Two-Shot)',
+  'few-shot': 'Few-Shot',
+  kampagne: 'Kampagne',
+  'epische-kampagne': 'Epische Kampagne',
+  'sandbox-szenarien': 'Sandbox-Szenarien',
+};
+
+// Bildet das Label "Kampagne (Art) · Session N[/M]" für einen Spielabend
+// innerhalb einer Gruppe (gleiche Kampagne). Eine manuell gesetzte
+// session_number ersetzt die chronologisch ermittelte Position -- z.B. um
+// eine bereits vor dem Protokoll begonnene Zählung fortzuführen. Das "/M"
+// erscheint nur bei abgeschlossenen Kampagnen (M = höchste vergebene Nummer,
+// sonst die Anzahl protokollierter Sessions).
+export function campaignSessionParts(s, group) {
+  if (!s.campaign) return null;
+  const sorted = [...group].sort((a, b) => a.played_on.localeCompare(b.played_on));
+  const idx = s.session_number ?? (sorted.indexOf(s) + 1);
+  let total = null;
+  if (s.campaign_status === 'abgeschlossen') {
+    const numbered = sorted.filter((x) => x.session_number != null).map((x) => x.session_number);
+    total = numbered.length ? Math.max(...numbered) : sorted.length;
+  }
+  return {
+    name: s.campaign,
+    kindLabel: CAMPAIGN_KIND_LABEL[s.campaign_kind] || null,
+    statusLabel: s.campaign_status === 'abgeschlossen' ? 'abgeschlossen' : 'laufend',
+    sessionLabel: `Session ${idx}${total ? '/' + total : ''}`,
+    announcementUrl: s.campaign_announcement_url || null,
+  };
+}
+
+export function campaignSessionLabel(s, group) {
+  const p = campaignSessionParts(s, group);
+  if (!p) return null;
+  return `${esc(p.name)}${p.kindLabel ? ` (${p.kindLabel})` : ''} · ${p.sessionLabel}`;
+}
+
+// Kompakte Badge-Darstellung: Name als Link-Button (für Klick-Filter),
+// darunter kleine Tags für Kampagnenart/-status/Session-Zähler.
+export function campaignSessionBadges(s, group, { onNameClick } = {}) {
+  const p = campaignSessionParts(s, group);
+  if (!p) return null;
+  const nameHtml = onNameClick ? `<button type="button" class="link-btn" id="cn-name">${esc(p.name)}</button>` : `<b>${esc(p.name)}</b>`;
+  const wrap = el(`<div class="campaign-badges">
+    ${nameHtml}
+    <div class="tag-row">
+      ${p.kindLabel ? `<span class="tag">${esc(p.kindLabel)}</span>` : ''}
+      <span class="tag">${esc(p.statusLabel)}</span>
+      <span class="tag">${esc(p.sessionLabel)}</span>
+      ${p.announcementUrl ? `<a href="${esc(p.announcementUrl)}" target="_blank" rel="noopener" class="tag tag-link">Aushang ↗</a>` : ''}
+    </div>
+  </div>`);
+  if (onNameClick) wrap.querySelector('#cn-name').addEventListener('click', onNameClick);
+  return wrap;
+}
 
 export const BINDING_LABEL = { hardcover: 'Hardcover', softcover: 'Softcover', heft: 'Heft', faltblatt: 'Faltblatt', box: 'Box', zubehoer: 'Spielhilfe & Zubehör', sonstiges: 'Sonstiges' };
 
@@ -104,7 +160,7 @@ export function autocomplete({ value = '', options = [], placeholder = '', onCha
   const open = () => {
     close();
     const q = input.value.trim().toLowerCase();
-    const hits = options.filter((o) => o.toLowerCase().includes(q)).slice(0, 8);
+    const hits = options.filter((o) => o.toLowerCase().includes(q));
     if (!hits.length) return;
     list = el(`<div class="ac-list">${hits.map((h) => `<button type="button">${esc(h)}</button>`).join('')}</div>`);
     list.querySelectorAll('button').forEach((b, i) => b.addEventListener('mousedown', (ev) => {

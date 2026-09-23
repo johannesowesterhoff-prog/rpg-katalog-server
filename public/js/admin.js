@@ -1,7 +1,7 @@
 // Adminbereich: Dashboard, Editor, Import/Export, Stammdaten und
 // Änderungsprotokoll.
 import { api, setToken } from './api.js';
-import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL } from './ui.js';
+import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, campaignSessionBadges } from './ui.js';
 
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 let master = null;
@@ -89,6 +89,7 @@ function openArchivePasswordDialog() {
 function tabs(active) {
   const items = [['#/admin', 'Übersicht', 'dashboard'],
     ['#/admin/liste', 'Einträge', 'liste'], ['#/admin/editor', 'Neuer Eintrag', 'editor'],
+    ['#/admin/spielabende', 'Spielabende', 'spielabende'],
     ['#/admin/import', 'Import & Export', 'import'], ['#/admin/stammdaten', 'Stammdaten', 'stammdaten'],
     ['#/admin/protokoll', 'Protokoll', 'protokoll']];
   return el(`<nav class="admin-tabs" aria-label="Adminbereich">${items.map(([href, label, key]) =>
@@ -397,19 +398,42 @@ export async function renderEditor(root, id) {
   form.appendChild(s5sessions.wrap);
   const sessionBox = s5sessions.wrap.querySelector('#sessions');
   const sessionRows = [];
-  function addSession(s = { played_on: '', participants: '', note: '', rating: '' }) {
-    const row = el(`<div class="session-row">
-      <div class="field" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
-      <div class="field" style="margin:0"><label>Mitspieler:innen</label><input type="text" class="s-participants" value="${esc(s.participants || '')}"></div>
-      <div class="field" style="margin:0"><label>Notiz</label><input type="text" class="s-note" value="${esc(s.note || '')}"></div>
-      <div class="field" style="margin:0"><label>Bewertung</label><select class="s-rating">
-        <option value="">–</option>
-        ${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${String(s.rating) === String(n) ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-      <button type="button" class="btn btn-sm btn-danger" title="Spielabend entfernen">Entfernen</button>
+  const existingCampaigns = [...new Set((state.play_sessions || []).map((s) => s.campaign).filter(Boolean))];
+  function addSession(s = { played_on: '', participants: '', note: '', summary_url: '', campaign: '', campaign_status: '', campaign_kind: '', campaign_announcement_url: '', session_number: '', role: '' }) {
+    const row = el(`<div class="session-entry" style="margin-bottom:var(--space-4);padding-bottom:var(--space-4);border-bottom:1px solid var(--border)">
+      <div class="session-row">
+        <div class="field narrow" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
+        <div class="field" style="margin:0"><label>Mitspieler:innen</label><input type="text" class="s-participants" value="${esc(s.participants || '')}"></div>
+        <div class="field" style="margin:0"><label>Kampagne</label><input type="text" class="s-campaign" list="campaign-names" value="${esc(s.campaign || '')}"></div>
+        <div class="field narrow" style="margin:0"><label>Session-Nr.</label><input type="number" min="1" class="s-session-number" value="${esc(s.session_number || '')}"></div>
+        <div class="field narrow" style="margin:0"><label>Kampagnenart</label><select class="s-campaign-kind">
+          <option value="">–</option>
+          ${Object.entries(CAMPAIGN_KIND_LABEL).map(([v, l]) => `<option value="${v}" ${s.campaign_kind === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select></div>
+        <div class="field narrow" style="margin:0"><label>Kampagnenstatus</label><select class="s-campaign-status">
+          <option value="">–</option>
+          <option value="laufend" ${s.campaign_status === 'laufend' ? 'selected' : ''}>laufend</option>
+          <option value="abgeschlossen" ${s.campaign_status === 'abgeschlossen' ? 'selected' : ''}>abgeschlossen</option>
+        </select></div>
+        <div class="field narrow" style="margin:0"><label>Rolle</label><select class="s-role">
+          <option value="">–</option>
+          <option value="spielleiter" ${s.role === 'spielleiter' ? 'selected' : ''}>Spielleiter:in</option>
+          <option value="spieler" ${s.role === 'spieler' ? 'selected' : ''}>Spieler:in</option>
+        </select></div>
+        <div class="field" style="margin:0"><label>Aushang (Link, pro Kampagne)</label><input type="url" class="s-campaign-announcement-url" value="${esc(s.campaign_announcement_url || '')}" placeholder="https://drive.google.com/…"></div>
+      </div>
+      <div class="field" style="margin:0 0 var(--space-3)"><label>Notiz</label><textarea class="s-note" rows="2" style="resize:vertical;min-height:2.4rem">${esc(s.note || '')}</textarea></div>
+      <div class="session-row">
+        <div class="field wide" style="margin:0"><label>Zusammenfassung (Link)</label><input type="url" class="s-summary-url" value="${esc(s.summary_url || '')}" placeholder="https://drive.google.com/…"></div>
+        <button type="button" class="btn btn-sm btn-danger" title="Spielabend entfernen">Entfernen</button>
+      </div>
     </div>`);
-    row.querySelector('button').addEventListener('click', () => { row.remove(); sessionRows.splice(sessionRows.indexOf(row), 1); });
+    row.querySelector('.btn-danger').addEventListener('click', () => { row.remove(); sessionRows.splice(sessionRows.indexOf(row), 1); });
     sessionRows.push(row);
     sessionBox.appendChild(row);
+  }
+  if (!sessionBox.querySelector('#campaign-names')) {
+    sessionBox.parentElement.appendChild(el(`<datalist id="campaign-names">${existingCampaigns.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>`));
   }
   (state.play_sessions || []).forEach(addSession);
   s5sessions.wrap.querySelector('#add-session').addEventListener('click', () => addSession());
@@ -465,8 +489,14 @@ export async function renderEditor(root, id) {
       play_sessions: sessionRows.map((r) => ({
         played_on: r.querySelector('.s-date').value || null,
         participants: r.querySelector('.s-participants').value.trim() || null,
+        campaign: r.querySelector('.s-campaign').value.trim() || null,
+        campaign_status: r.querySelector('.s-campaign-status').value || null,
+        campaign_kind: r.querySelector('.s-campaign-kind').value || null,
+        campaign_announcement_url: r.querySelector('.s-campaign-announcement-url').value.trim() || null,
+        session_number: r.querySelector('.s-session-number').value || null,
+        role: r.querySelector('.s-role').value || null,
         note: r.querySelector('.s-note').value.trim() || null,
-        rating: r.querySelector('.s-rating').value || null,
+        summary_url: r.querySelector('.s-summary-url').value.trim() || null,
       })).filter((s) => s.played_on),
     };
   }
@@ -747,6 +777,239 @@ export async function renderMasterData(root) {
     });
     body.appendChild(sec);
   }
+}
+
+// ----------------------------------------------------------- Spielabende
+export async function renderPlaySessions(root) {
+  const body = mount(root, 'spielabende', 'Spielabende',
+    'Protokoll aller gespielten Runden -- auch zu Systemen außerhalb des Katalogs. Mitspieler:innen sind nur hier im Adminbereich sichtbar, nie öffentlich.');
+  body.innerHTML = '<div class="skeleton" style="height:260px"></div>';
+  const [{ sessions }, { games }] = await Promise.all([
+    api('/api/admin/play-sessions'),
+    api('/api/admin/games-lookup'),
+  ]);
+  body.innerHTML = '';
+
+  const titleToGame = new Map(games.map((g) => [g.title.toLowerCase(), g]));
+
+  const formSection = el(`<section class="section">
+    <h2>Neuer Spielabend</h2>
+    <form id="ps-form">
+      <div class="session-row">
+        <div class="field narrow" style="margin:0"><label for="ps-date">Datum *</label><input type="date" id="ps-date" required></div>
+        <div class="field" id="ps-game-field" style="margin:0"><label for="ps-game">Spiel (Katalog-Titel oder frei)</label></div>
+        <div class="field" style="margin:0"><label for="ps-participants">Mitspieler:innen</label><input type="text" id="ps-participants"></div>
+        <div class="field" style="margin:0"><label for="ps-campaign">Kampagne</label><input type="text" id="ps-campaign" list="ps-campaign-names"></div>
+        <div class="field narrow" style="margin:0"><label for="ps-session-number">Session-Nr.</label><input type="number" min="1" id="ps-session-number"></div>
+        <div class="field narrow" style="margin:0"><label for="ps-campaign-kind">Kampagnenart</label><select id="ps-campaign-kind">
+          <option value="">–</option>
+          ${Object.entries(CAMPAIGN_KIND_LABEL).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
+        </select></div>
+        <div class="field narrow" style="margin:0"><label for="ps-campaign-status">Kampagnenstatus</label><select id="ps-campaign-status">
+          <option value="">–</option>
+          <option value="laufend">laufend</option>
+          <option value="abgeschlossen">abgeschlossen</option>
+        </select></div>
+        <div class="field narrow" style="margin:0"><label for="ps-role">Rolle</label><select id="ps-role">
+          <option value="">–</option>
+          <option value="spielleiter">Spielleiter:in</option>
+          <option value="spieler">Spieler:in</option>
+        </select></div>
+        <div class="field" style="margin:0"><label for="ps-campaign-announcement-url">Aushang (Link, pro Kampagne)</label><input type="url" id="ps-campaign-announcement-url" placeholder="https://drive.google.com/…"></div>
+      </div>
+      <div class="field" style="margin:0 0 var(--space-3)"><label for="ps-note">Notiz</label><textarea id="ps-note" rows="2" style="resize:vertical;min-height:2.4rem"></textarea></div>
+      <div class="session-row">
+        <div class="field wide" style="margin:0"><label for="ps-summary-url">Zusammenfassung (Link)</label><input type="url" id="ps-summary-url" placeholder="https://drive.google.com/…"></div>
+        <button type="submit" class="btn btn-primary">Hinzufügen</button>
+      </div>
+    </form>
+    <datalist id="ps-campaign-names"></datalist>
+    <div id="ps-form-msg"></div>
+  </section>`);
+  const gameAc = autocomplete({ options: games.map((g) => g.title), placeholder: 'Titel tippen …', id: 'ps-game' });
+  formSection.querySelector('#ps-game-field').appendChild(gameAc.wrap);
+  body.appendChild(formSection);
+
+  const listSection = el(`<section class="section"><h2>Bisherige Einträge (<span id="ps-count">${sessions.length}</span>)</h2>
+    <div id="ps-filter-banner"></div>
+    <div class="scroll-x"><table>
+      <thead><tr><th>Datum</th><th>Spiel</th><th>Kampagne</th><th>Mitspieler:innen</th><th>Rolle</th><th>Notiz</th><th></th></tr></thead>
+      <tbody id="ps-rows"></tbody>
+    </table></div>
+  </section>`);
+  body.appendChild(listSection);
+
+  function groupKey(s) { return (s.game_id ?? `x:${s.external_title}`) + '|' + s.campaign; }
+  const ROLE_LABEL = { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' };
+
+  let allSessions = sessions;
+  let campaignFilter = null;
+
+  function openEditRow(tr, s) {
+    const editRow = el(`<tr><td colspan="7">
+      <div class="session-row">
+        <div class="field narrow" style="margin:0"><label>Datum *</label><input type="date" class="e-date" value="${esc(s.played_on)}" required></div>
+        <div class="field" id="e-game-field" style="margin:0"><label>Spiel (Katalog-Titel oder frei)</label></div>
+        <div class="field" style="margin:0"><label>Mitspieler:innen</label><input type="text" class="e-participants" value="${esc(s.participants || '')}"></div>
+        <div class="field" style="margin:0"><label>Kampagne</label><input type="text" class="e-campaign" list="ps-campaign-names" value="${esc(s.campaign || '')}"></div>
+        <div class="field narrow" style="margin:0"><label>Session-Nr.</label><input type="number" min="1" class="e-session-number" value="${esc(s.session_number || '')}"></div>
+        <div class="field narrow" style="margin:0"><label>Kampagnenart</label><select class="e-campaign-kind">
+          <option value="">–</option>
+          ${Object.entries(CAMPAIGN_KIND_LABEL).map(([v, l]) => `<option value="${v}" ${s.campaign_kind === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select></div>
+        <div class="field narrow" style="margin:0"><label>Kampagnenstatus</label><select class="e-campaign-status">
+          <option value="">–</option>
+          <option value="laufend" ${s.campaign_status === 'laufend' ? 'selected' : ''}>laufend</option>
+          <option value="abgeschlossen" ${s.campaign_status === 'abgeschlossen' ? 'selected' : ''}>abgeschlossen</option>
+        </select></div>
+        <div class="field narrow" style="margin:0"><label>Rolle</label><select class="e-role">
+          <option value="">–</option>
+          <option value="spielleiter" ${s.role === 'spielleiter' ? 'selected' : ''}>Spielleiter:in</option>
+          <option value="spieler" ${s.role === 'spieler' ? 'selected' : ''}>Spieler:in</option>
+        </select></div>
+        <div class="field" style="margin:0"><label>Aushang (Link, pro Kampagne)</label><input type="url" class="e-campaign-announcement-url" value="${esc(s.campaign_announcement_url || '')}" placeholder="https://drive.google.com/…"></div>
+      </div>
+      <div class="field" style="margin:0 0 var(--space-3)"><label>Notiz</label><textarea class="e-note" rows="2" style="resize:vertical;min-height:2.4rem">${esc(s.note || '')}</textarea></div>
+      <div class="session-row">
+        <div class="field wide" style="margin:0"><label>Zusammenfassung (Link)</label><input type="url" class="e-summary-url" value="${esc(s.summary_url || '')}" placeholder="https://drive.google.com/…"></div>
+        <button type="button" class="btn btn-sm btn-primary e-save">Speichern</button>
+        <button type="button" class="btn btn-sm e-cancel">Abbrechen</button>
+      </div>
+      <div class="e-msg"></div>
+    </td></tr>`);
+    const editGameAc = autocomplete({ value: s.game_title || s.external_title || '', options: games.map((g) => g.title), placeholder: 'Titel tippen …' });
+    editRow.querySelector('#e-game-field').appendChild(editGameAc.wrap);
+    tr.replaceWith(editRow);
+
+    editRow.querySelector('.e-cancel').addEventListener('click', () => editRow.replaceWith(tr));
+    editRow.querySelector('.e-save').addEventListener('click', async () => {
+      const msg = editRow.querySelector('.e-msg');
+      msg.innerHTML = '';
+      const gameText = editGameAc.value;
+      if (!gameText) { msg.appendChild(el('<div class="error-box">Bitte ein Spiel oder einen Titel angeben.</div>')); return; }
+      const matched = titleToGame.get(gameText.toLowerCase());
+      const payload = {
+        played_on: editRow.querySelector('.e-date').value,
+        participants: editRow.querySelector('.e-participants').value.trim() || null,
+        campaign: editRow.querySelector('.e-campaign').value.trim() || null,
+        campaign_status: editRow.querySelector('.e-campaign-status').value || null,
+        campaign_kind: editRow.querySelector('.e-campaign-kind').value || null,
+        campaign_announcement_url: editRow.querySelector('.e-campaign-announcement-url').value.trim() || null,
+        session_number: editRow.querySelector('.e-session-number').value || null,
+        role: editRow.querySelector('.e-role').value || null,
+        note: editRow.querySelector('.e-note').value.trim() || null,
+        summary_url: editRow.querySelector('.e-summary-url').value.trim() || null,
+      };
+      if (matched) payload.game_id = matched.id; else payload.external_title = gameText;
+      try {
+        await api(`/api/admin/play-sessions/${s.id}`, { method: 'PATCH', body: payload });
+        Object.assign(s, {
+          game_id: matched?.id || null, game_slug: matched?.slug || null, game_title: matched?.title || null,
+          external_title: matched ? null : gameText,
+          played_on: payload.played_on, participants: payload.participants, campaign: payload.campaign,
+          campaign_status: payload.campaign_status, campaign_kind: payload.campaign_kind,
+          campaign_announcement_url: payload.campaign_announcement_url,
+          session_number: payload.session_number ? Number(payload.session_number) : null,
+          role: payload.role, note: payload.note, summary_url: payload.summary_url,
+        });
+        renderRows();
+        toast('Gespeichert.');
+      } catch (e) { msg.appendChild(el(`<div class="error-box">${esc(e.message)}</div>`)); }
+    });
+  }
+
+  function renderRows() {
+    const tb = listSection.querySelector('#ps-rows');
+    tb.innerHTML = '';
+    listSection.querySelector('#ps-count').textContent = allSessions.length;
+    const campaignNames = [...new Set(allSessions.map((s) => s.campaign).filter(Boolean))];
+    formSection.querySelector('#ps-campaign-names').innerHTML = campaignNames.map((c) => `<option value="${esc(c)}">`).join('');
+
+    const banner = listSection.querySelector('#ps-filter-banner');
+    banner.innerHTML = '';
+    if (campaignFilter) {
+      const sample = allSessions.find((s) => groupKey(s) === campaignFilter);
+      const chip = el(`<p class="muted" style="margin:0 0 var(--space-3)">Gefiltert nach Kampagne „${esc(sample?.campaign || '')}" <button type="button" class="btn btn-sm" id="ps-clear-filter">× Filter aufheben</button></p>`);
+      chip.querySelector('#ps-clear-filter').addEventListener('click', () => { campaignFilter = null; renderRows(); });
+      banner.appendChild(chip);
+    }
+
+    const visible = campaignFilter ? allSessions.filter((s) => groupKey(s) === campaignFilter) : allSessions;
+    if (!visible.length) { tb.appendChild(el('<tr><td colspan="7" class="muted">Noch keine Spielabende erfasst.</td></tr>')); return; }
+    visible.forEach((s) => {
+      const title = s.game_title || s.external_title;
+      const titleHtml = s.game_slug
+        ? `<a href="#/spiele/${esc(s.game_slug)}" target="_blank" rel="noopener">${esc(title)}</a>`
+        : `${esc(title)} <span class="faint" style="font-size:var(--text-xs)">(extern)</span>`;
+      const tr = el(`<tr>
+        <td>${esc(s.played_on)}</td>
+        <td>${titleHtml}</td>
+        <td class="campaign-cell">–</td>
+        <td>${esc(s.participants || '–')}</td>
+        <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
+        <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
+        <td class="row-actions">
+          <button type="button" class="btn btn-sm ps-edit">Bearbeiten</button>
+          <button type="button" class="btn btn-sm btn-danger">Löschen</button>
+        </td>
+      </tr>`);
+      const group = allSessions.filter((x) => x.campaign && groupKey(x) === groupKey(s));
+      const badges = campaignSessionBadges(s, group, { onNameClick: () => { campaignFilter = groupKey(s); renderRows(); } });
+      if (badges) { const cell = tr.querySelector('.campaign-cell'); cell.textContent = ''; cell.appendChild(badges); }
+      tr.querySelector('.ps-edit').addEventListener('click', () => openEditRow(tr, s));
+      tr.querySelector('.btn-danger').addEventListener('click', async () => {
+        if (!confirmDialog(`Spielabend „${title}" vom ${s.played_on} wirklich löschen?`)) return;
+        try {
+          await api(`/api/admin/play-sessions/${s.id}`, { method: 'DELETE' });
+          allSessions = allSessions.filter((x) => x.id !== s.id);
+          renderRows();
+          toast('Gelöscht.');
+        } catch (e) { toast(e.message, 'err'); }
+      });
+      tb.appendChild(tr);
+    });
+  }
+  renderRows();
+
+  formSection.querySelector('#ps-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = formSection.querySelector('#ps-form-msg');
+    msg.innerHTML = '';
+    const gameText = gameAc.value;
+    if (!gameText) { msg.appendChild(el('<div class="error-box">Bitte ein Spiel oder einen Titel angeben.</div>')); return; }
+    const matched = titleToGame.get(gameText.toLowerCase());
+    const payload = {
+      played_on: formSection.querySelector('#ps-date').value,
+      participants: formSection.querySelector('#ps-participants').value.trim() || null,
+      campaign: formSection.querySelector('#ps-campaign').value.trim() || null,
+      campaign_status: formSection.querySelector('#ps-campaign-status').value || null,
+      campaign_kind: formSection.querySelector('#ps-campaign-kind').value || null,
+      campaign_announcement_url: formSection.querySelector('#ps-campaign-announcement-url').value.trim() || null,
+      session_number: formSection.querySelector('#ps-session-number').value || null,
+      role: formSection.querySelector('#ps-role').value || null,
+      note: formSection.querySelector('#ps-note').value.trim() || null,
+      summary_url: formSection.querySelector('#ps-summary-url').value.trim() || null,
+    };
+    if (matched) payload.game_id = matched.id; else payload.external_title = gameText;
+    try {
+      const r = await api('/api/admin/play-sessions', { method: 'POST', body: payload });
+      allSessions = [{
+        id: r.id, game_id: matched?.id || null, game_slug: matched?.slug || null,
+        game_title: matched?.title || null, external_title: matched ? null : gameText,
+        played_on: payload.played_on, participants: payload.participants, campaign: payload.campaign,
+        campaign_status: payload.campaign_status, campaign_kind: payload.campaign_kind,
+        campaign_announcement_url: payload.campaign_announcement_url,
+        session_number: payload.session_number ? Number(payload.session_number) : null,
+        role: payload.role, note: payload.note, summary_url: payload.summary_url,
+      }, ...allSessions];
+      renderRows();
+      formSection.querySelector('#ps-form').reset();
+      gameAc.input.value = '';
+      toast('Spielabend hinzugefügt.');
+    } catch (err) {
+      msg.appendChild(el(`<div class="error-box">${esc(err.message)}</div>`));
+    }
+  });
 }
 
 // -------------------------------------------------------------- Protokoll

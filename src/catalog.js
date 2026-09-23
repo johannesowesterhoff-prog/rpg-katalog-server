@@ -109,7 +109,6 @@ export function validateGamePayload(payload, { forPublish }) {
   }
   for (const s of payload.play_sessions || []) {
     if (s.played_on && Number.isNaN(new Date(s.played_on).getTime())) push('play_sessions', `Ungültiges Datum „${s.played_on}".`);
-    if (s.rating && (Number(s.rating) < 1 || Number(s.rating) > 5)) push('play_sessions', 'Bewertung muss zwischen 1 und 5 liegen.');
   }
   return errors;
 }
@@ -175,12 +174,12 @@ export async function getWahlomatData() {
 // Dashboard: Verteilungen, Skalen-Durchschnitte sowie Spielabend-Auswertung.
 export async function getStats() {
   const cte = gameDetailCte(false);
-  const [totals, genreDist, toneDist, langDist, scales, systemDist, campaignDist, mostPlayed, recentSessions] = await Promise.all([
+  const [totals, genreDist, toneDist, langDist, scales, scatter, systemDist, campaignDist, mostPlayed, recentSessions, roleStats, campaigns] = await Promise.all([
     pool.query(`SELECT
       (SELECT count(*) FROM katalog.games WHERE status = 'published')::int AS games,
       (SELECT count(*) FROM katalog.products pr JOIN katalog.games g ON g.id = pr.game_id WHERE g.status = 'published')::int AS products,
       (SELECT count(DISTINCT gp.publisher_id) FROM katalog.game_publishers gp JOIN katalog.games g ON g.id = gp.game_id WHERE g.status = 'published')::int AS publishers,
-      (SELECT count(*) FROM katalog.play_sessions ps JOIN katalog.games g ON g.id = ps.game_id WHERE g.status = 'published')::int AS sessions`),
+      (SELECT count(*) FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id WHERE g.id IS NULL OR g.status = 'published')::int AS sessions`),
     pool.query(`WITH ${cte}
       SELECT value, count(*)::int AS count FROM gd, unnest(gd.genre_setting_top) AS value
       WHERE gd.status = 'published' GROUP BY value ORDER BY count DESC, value`),
@@ -194,19 +193,33 @@ export async function getStats() {
       SELECT round(avg(crunch)::numeric, 1) AS crunch, round(avg(narrative)::numeric, 1) AS narrativ, round(avg(fluff)::numeric, 1) AS fluff
       FROM gd WHERE gd.status = 'published'`),
     pool.query(`WITH ${cte}
+      SELECT slug, title, crunch, narrative, fluff FROM gd
+      WHERE gd.status = 'published' AND gd.crunch IS NOT NULL AND gd.narrative IS NOT NULL
+      ORDER BY title`),
+    pool.query(`WITH ${cte}
       SELECT system_family AS value, count(*)::int AS count FROM gd
       WHERE gd.status = 'published' GROUP BY system_family ORDER BY count DESC, value LIMIT 8`),
     pool.query(`WITH ${cte}
       SELECT value, count(*)::int AS count FROM gd, unnest(gd.campaign_type) AS value
       WHERE gd.status = 'published' GROUP BY value ORDER BY count DESC, value`),
-    pool.query(`SELECT g.slug, g.title, count(ps.id)::int AS sessions, to_char(max(ps.played_on), 'YYYY-MM-DD') AS last_played
-      FROM katalog.play_sessions ps JOIN katalog.games g ON g.id = ps.game_id
-      WHERE g.status = 'published'
-      GROUP BY g.id, g.slug, g.title ORDER BY sessions DESC, last_played DESC LIMIT 5`),
-    pool.query(`SELECT g.slug, g.title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.participants, ps.note, ps.rating
-      FROM katalog.play_sessions ps JOIN katalog.games g ON g.id = ps.game_id
-      WHERE g.status = 'published'
+    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, count(ps.id)::int AS sessions, to_char(max(ps.played_on), 'YYYY-MM-DD') AS last_played
+      FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+      WHERE g.id IS NULL OR g.status = 'published'
+      GROUP BY g.id, g.slug, g.title, ps.external_title ORDER BY sessions DESC, last_played DESC`),
+    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.note
+      FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+      WHERE g.id IS NULL OR g.status = 'published'
       ORDER BY ps.played_on DESC, ps.id DESC LIMIT 8`),
+    pool.query(`SELECT ps.role AS value, count(*)::int AS count
+      FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+      WHERE (g.id IS NULL OR g.status = 'published') AND ps.role IS NOT NULL
+      GROUP BY ps.role`),
+    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url,
+        count(*)::int AS sessions, to_char(max(ps.played_on), 'YYYY-MM-DD') AS last_played
+      FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+      WHERE ps.campaign IS NOT NULL AND (g.id IS NULL OR g.status = 'published')
+      GROUP BY g.slug, g.title, ps.external_title, ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url
+      ORDER BY sessions DESC, ps.campaign`),
   ]);
 
   return {
@@ -215,10 +228,13 @@ export async function getStats() {
     toneDist: toneDist.rows,
     langDist: langDist.rows,
     scales: scales.rows[0],
+    scatter: scatter.rows,
     systemDist: systemDist.rows,
     campaignDist: campaignDist.rows,
     mostPlayed: mostPlayed.rows,
     recentSessions: recentSessions.rows,
+    roleStats: roleStats.rows,
+    campaigns: campaigns.rows,
   };
 }
 
@@ -320,7 +336,7 @@ export async function getGameBySlug(slug, isAdmin) {
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
     pool.query(
-      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, note, rating FROM katalog.play_sessions
+      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, ${isAdmin ? 'participants, role,' : 'NULL::text AS participants, NULL::text AS role,'} note, summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number FROM katalog.play_sessions
        WHERE game_id = $1 ORDER BY played_on DESC, id DESC`, [g.id],
     ),
   ]);
@@ -364,7 +380,7 @@ export async function getGameById(id) {
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
     pool.query(
-      `SELECT id, to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, note, rating FROM katalog.play_sessions
+      `SELECT id, to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, note, summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number, role FROM katalog.play_sessions
        WHERE game_id = $1 ORDER BY played_on DESC, id DESC`, [g.id],
     ),
   ]);
@@ -411,6 +427,85 @@ export async function getDashboard() {
     getAuditLog(20),
   ]);
   return { counts: counts.rows[0], productCount: productCount.rows[0].n, audit };
+}
+
+// ------------------------------------------------- Spielabende (Verwaltung)
+// Eigenständige Verwaltung aller Spielabende (nicht an einen Spiel-Editor
+// gebunden) -- u.a. für Sessions zu Systemen außerhalb des eigenen Katalogs
+// (external_title statt game_id).
+export async function listPlaySessions() {
+  const r = await pool.query(`
+    SELECT ps.id, ps.game_id, g.slug AS game_slug, g.title AS game_title, ps.external_title,
+      to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.participants, ps.note, ps.summary_url, ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url, ps.session_number, ps.role
+    FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+    ORDER BY ps.played_on DESC, ps.id DESC`);
+  return r.rows;
+}
+
+export async function getGameLookup() {
+  const r = await pool.query('SELECT id, slug, title FROM katalog.games ORDER BY title');
+  return r.rows;
+}
+
+function validatePlaySessionPayload(payload) {
+  const errors = [];
+  const push = (field, message) => errors.push({ field, message });
+  if (!payload.played_on || Number.isNaN(new Date(payload.played_on).getTime())) push('played_on', 'Gültiges Datum ist Pflicht.');
+  const hasGame = payload.game_id !== undefined && payload.game_id !== null && payload.game_id !== '';
+  const hasExternal = !!(payload.external_title && String(payload.external_title).trim());
+  if (hasGame === hasExternal) push('game', 'Entweder ein Katalog-Spiel oder ein externer Titel -- nicht beides, nicht keins.');
+  if (payload.campaign_status && !['laufend', 'abgeschlossen'].includes(payload.campaign_status)) push('campaign_status', 'Ungültiger Kampagnenstatus.');
+  if (payload.campaign_kind && !['one-shot', 'few-shot', 'kampagne', 'epische-kampagne', 'sandbox-szenarien'].includes(payload.campaign_kind)) push('campaign_kind', 'Ungültige Kampagnenart.');
+  if (payload.session_number && (!Number.isInteger(Number(payload.session_number)) || Number(payload.session_number) < 1)) push('session_number', 'Sessionnummer muss eine positive Ganzzahl sein.');
+  if (payload.role && !['spielleiter', 'spieler'].includes(payload.role)) push('role', 'Ungültige Rolle.');
+  return errors;
+}
+
+export async function createPlaySession(payload, actor) {
+  const errors = validatePlaySessionPayload(payload);
+  if (errors.length) throw httpError(422, 'Bitte die markierten Felder prüfen.', { errors });
+  const r = await pool.query(
+    `INSERT INTO katalog.play_sessions (game_id, external_title, played_on, participants, note, summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number, role)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+    [payload.game_id || null, payload.external_title ? String(payload.external_title).trim() : null, payload.played_on,
+      payload.participants ? String(payload.participants).trim() : null, payload.note ? String(payload.note).trim() : null,
+      payload.summary_url ? String(payload.summary_url).trim() : null,
+      payload.campaign ? String(payload.campaign).trim() : null,
+      payload.campaign_status || null, payload.campaign_kind || null,
+      payload.campaign_announcement_url ? String(payload.campaign_announcement_url).trim() : null,
+      payload.session_number ? Number(payload.session_number) : null,
+      payload.role || null],
+  );
+  await logAudit(pool, { actor, action: 'insert', entity: 'play_sessions', entityId: r.rows[0].id, diff: { played_on: payload.played_on } });
+  return { id: r.rows[0].id };
+}
+
+export async function updatePlaySession(id, payload, actor) {
+  const errors = validatePlaySessionPayload(payload);
+  if (errors.length) throw httpError(422, 'Bitte die markierten Felder prüfen.', { errors });
+  const r = await pool.query(
+    `UPDATE katalog.play_sessions SET
+       game_id = $1, external_title = $2, played_on = $3, participants = $4, note = $5,
+       summary_url = $6, campaign = $7, campaign_status = $8, campaign_kind = $9, campaign_announcement_url = $10, session_number = $11, role = $12
+     WHERE id = $13 RETURNING id`,
+    [payload.game_id || null, payload.external_title ? String(payload.external_title).trim() : null, payload.played_on,
+      payload.participants ? String(payload.participants).trim() : null, payload.note ? String(payload.note).trim() : null,
+      payload.summary_url ? String(payload.summary_url).trim() : null,
+      payload.campaign ? String(payload.campaign).trim() : null,
+      payload.campaign_status || null, payload.campaign_kind || null,
+      payload.campaign_announcement_url ? String(payload.campaign_announcement_url).trim() : null,
+      payload.session_number ? Number(payload.session_number) : null,
+      payload.role || null, id],
+  );
+  if (!r.rowCount) throw httpError(404, 'Eintrag nicht gefunden.');
+  await logAudit(pool, { actor, action: 'update', entity: 'play_sessions', entityId: id, diff: { played_on: payload.played_on } });
+  return { id };
+}
+
+export async function deletePlaySession(id, actor) {
+  const r = await pool.query('DELETE FROM katalog.play_sessions WHERE id = $1 RETURNING id', [id]);
+  if (!r.rowCount) throw httpError(404, 'Eintrag nicht gefunden.');
+  await logAudit(pool, { actor, action: 'delete', entity: 'play_sessions', entityId: id });
 }
 
 // --------------------------------------------------------- Anlegen/Ändern
@@ -460,9 +555,11 @@ async function upsertRelations(client, gameId, payload) {
   for (const s of payload.play_sessions || []) {
     if (!s.played_on) continue;
     await client.query(
-      `INSERT INTO katalog.play_sessions (game_id, played_on, participants, note, rating)
-       VALUES ($1,$2,$3,$4,$5)`,
-      [gameId, s.played_on, s.participants || null, s.note || null, s.rating ? Number(s.rating) : null],
+      `INSERT INTO katalog.play_sessions (game_id, played_on, participants, note, summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number, role)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [gameId, s.played_on, s.participants || null, s.note || null, s.summary_url || null, s.campaign || null,
+        s.campaign_status || null, s.campaign_kind || null, s.campaign_announcement_url || null,
+        s.session_number ? Number(s.session_number) : null, s.role || null],
     );
   }
 }
