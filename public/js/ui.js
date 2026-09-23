@@ -70,6 +70,7 @@ export function campaignSessionParts(s, group) {
     kindLabel: CAMPAIGN_KIND_LABEL[s.campaign_kind] || null,
     statusLabel: s.campaign_status === 'abgeschlossen' ? 'abgeschlossen' : 'laufend',
     sessionLabel: `Session ${idx}${total ? '/' + total : ''}`,
+    announcementUrl: s.campaign_announcement_url || null,
   };
 }
 
@@ -91,6 +92,7 @@ export function campaignSessionBadges(s, group, { onNameClick } = {}) {
       ${p.kindLabel ? `<span class="tag">${esc(p.kindLabel)}</span>` : ''}
       <span class="tag">${esc(p.statusLabel)}</span>
       <span class="tag">${esc(p.sessionLabel)}</span>
+      ${p.announcementUrl ? `<a href="${esc(p.announcementUrl)}" target="_blank" rel="noopener" class="tag tag-link">Aushang ↗</a>` : ''}
     </div>
   </div>`);
   if (onNameClick) wrap.querySelector('#cn-name').addEventListener('click', onNameClick);

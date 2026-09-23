@@ -361,7 +361,7 @@ export async function renderEditor(root, id) {
   const sessionBox = s5sessions.wrap.querySelector('#sessions');
   const sessionRows = [];
   const existingCampaigns = [...new Set((state.play_sessions || []).map((s) => s.campaign).filter(Boolean))];
-  function addSession(s = { played_on: '', participants: '', note: '', summary_url: '', campaign: '', campaign_status: '', campaign_kind: '', session_number: '', role: '' }) {
+  function addSession(s = { played_on: '', participants: '', note: '', summary_url: '', campaign: '', campaign_status: '', campaign_kind: '', campaign_announcement_url: '', session_number: '', role: '' }) {
     const row = el(`<div class="session-entry" style="margin-bottom:var(--space-4);padding-bottom:var(--space-4);border-bottom:1px solid var(--border)">
       <div class="session-row">
         <div class="field narrow" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
@@ -382,6 +382,7 @@ export async function renderEditor(root, id) {
           <option value="spielleiter" ${s.role === 'spielleiter' ? 'selected' : ''}>Spielleiter:in</option>
           <option value="spieler" ${s.role === 'spieler' ? 'selected' : ''}>Spieler:in</option>
         </select></div>
+        <div class="field" style="margin:0"><label>Aushang (Link, pro Kampagne)</label><input type="url" class="s-campaign-announcement-url" value="${esc(s.campaign_announcement_url || '')}" placeholder="https://drive.google.com/…"></div>
       </div>
       <div class="field" style="margin:0 0 var(--space-3)"><label>Notiz</label><textarea class="s-note" rows="2" style="resize:vertical;min-height:2.4rem">${esc(s.note || '')}</textarea></div>
       <div class="session-row">
@@ -453,6 +454,7 @@ export async function renderEditor(root, id) {
         campaign: r.querySelector('.s-campaign').value.trim() || null,
         campaign_status: r.querySelector('.s-campaign-status').value || null,
         campaign_kind: r.querySelector('.s-campaign-kind').value || null,
+        campaign_announcement_url: r.querySelector('.s-campaign-announcement-url').value.trim() || null,
         session_number: r.querySelector('.s-session-number').value || null,
         role: r.querySelector('.s-role').value || null,
         note: r.querySelector('.s-note').value.trim() || null,
@@ -775,6 +777,7 @@ export async function renderPlaySessions(root) {
           <option value="spielleiter">Spielleiter:in</option>
           <option value="spieler">Spieler:in</option>
         </select></div>
+        <div class="field" style="margin:0"><label for="ps-campaign-announcement-url">Aushang (Link, pro Kampagne)</label><input type="url" id="ps-campaign-announcement-url" placeholder="https://drive.google.com/…"></div>
       </div>
       <div class="field" style="margin:0 0 var(--space-3)"><label for="ps-note">Notiz</label><textarea id="ps-note" rows="2" style="resize:vertical;min-height:2.4rem"></textarea></div>
       <div class="session-row">
@@ -826,6 +829,7 @@ export async function renderPlaySessions(root) {
           <option value="spielleiter" ${s.role === 'spielleiter' ? 'selected' : ''}>Spielleiter:in</option>
           <option value="spieler" ${s.role === 'spieler' ? 'selected' : ''}>Spieler:in</option>
         </select></div>
+        <div class="field" style="margin:0"><label>Aushang (Link, pro Kampagne)</label><input type="url" class="e-campaign-announcement-url" value="${esc(s.campaign_announcement_url || '')}" placeholder="https://drive.google.com/…"></div>
       </div>
       <div class="field" style="margin:0 0 var(--space-3)"><label>Notiz</label><textarea class="e-note" rows="2" style="resize:vertical;min-height:2.4rem">${esc(s.note || '')}</textarea></div>
       <div class="session-row">
@@ -852,6 +856,7 @@ export async function renderPlaySessions(root) {
         campaign: editRow.querySelector('.e-campaign').value.trim() || null,
         campaign_status: editRow.querySelector('.e-campaign-status').value || null,
         campaign_kind: editRow.querySelector('.e-campaign-kind').value || null,
+        campaign_announcement_url: editRow.querySelector('.e-campaign-announcement-url').value.trim() || null,
         session_number: editRow.querySelector('.e-session-number').value || null,
         role: editRow.querySelector('.e-role').value || null,
         note: editRow.querySelector('.e-note').value.trim() || null,
@@ -865,6 +870,7 @@ export async function renderPlaySessions(root) {
           external_title: matched ? null : gameText,
           played_on: payload.played_on, participants: payload.participants, campaign: payload.campaign,
           campaign_status: payload.campaign_status, campaign_kind: payload.campaign_kind,
+          campaign_announcement_url: payload.campaign_announcement_url,
           session_number: payload.session_number ? Number(payload.session_number) : null,
           role: payload.role, note: payload.note, summary_url: payload.summary_url,
         });
@@ -940,6 +946,7 @@ export async function renderPlaySessions(root) {
       campaign: formSection.querySelector('#ps-campaign').value.trim() || null,
       campaign_status: formSection.querySelector('#ps-campaign-status').value || null,
       campaign_kind: formSection.querySelector('#ps-campaign-kind').value || null,
+      campaign_announcement_url: formSection.querySelector('#ps-campaign-announcement-url').value.trim() || null,
       session_number: formSection.querySelector('#ps-session-number').value || null,
       role: formSection.querySelector('#ps-role').value || null,
       note: formSection.querySelector('#ps-note').value.trim() || null,
@@ -953,6 +960,7 @@ export async function renderPlaySessions(root) {
         game_title: matched?.title || null, external_title: matched ? null : gameText,
         played_on: payload.played_on, participants: payload.participants, campaign: payload.campaign,
         campaign_status: payload.campaign_status, campaign_kind: payload.campaign_kind,
+        campaign_announcement_url: payload.campaign_announcement_url,
         session_number: payload.session_number ? Number(payload.session_number) : null,
         role: payload.role, note: payload.note, summary_url: payload.summary_url,
       }, ...allSessions];

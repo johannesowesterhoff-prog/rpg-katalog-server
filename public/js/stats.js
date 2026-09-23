@@ -173,6 +173,7 @@ export async function renderStats(root) {
     const kindTag = (c) => (CAMPAIGN_KIND_LABEL[c.campaign_kind] ? `, ${CAMPAIGN_KIND_LABEL[c.campaign_kind]}` : '');
     const campaignsHtml = `<ol class="stat-list">${s.campaigns.map((c) => `<li>
         <b>${esc(c.campaign)}</b> <span class="faint" style="font-size:var(--text-xs)">(${c.campaign_status === 'abgeschlossen' ? 'abgeschlossen' : 'laufend'}${kindTag(c)})</span>
+        ${c.campaign_announcement_url ? `<a href="${esc(c.campaign_announcement_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)"> · Aushang ↗</a>` : ''}
         <br>${titleLink(c.title, c.slug)}
         <span class="muted">${c.sessions}× gespielt, zuletzt ${fmtDateOnly(c.last_played)}</span>
       </li>`).join('')}</ol>`;
