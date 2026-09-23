@@ -89,7 +89,7 @@ export async function renderDetail(root, slug, ctx) {
             <td>${esc(fmtDateOnly(s.played_on))}</td>
             ${showCampaign ? '<td class="session-campaign-cell">–</td>' : ''}
             ${showParticipants ? `<td>${esc(s.participants || '–')}</td>` : ''}
-            <td>${esc(s.note || '–')}</td>
+            <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
           </tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">Für dieses Spiel ist noch kein Spielabend protokolliert.</p>'}
       </section>

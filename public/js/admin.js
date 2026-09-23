@@ -361,30 +361,35 @@ export async function renderEditor(root, id) {
   const sessionBox = s5sessions.wrap.querySelector('#sessions');
   const sessionRows = [];
   const existingCampaigns = [...new Set((state.play_sessions || []).map((s) => s.campaign).filter(Boolean))];
-  function addSession(s = { played_on: '', participants: '', note: '', campaign: '', campaign_status: '', campaign_kind: '', session_number: '', role: '' }) {
-    const row = el(`<div class="session-row">
-      <div class="field narrow" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
-      <div class="field" style="margin:0"><label>Mitspieler:innen</label><input type="text" class="s-participants" value="${esc(s.participants || '')}"></div>
-      <div class="field" style="margin:0"><label>Kampagne</label><input type="text" class="s-campaign" list="campaign-names" value="${esc(s.campaign || '')}"></div>
-      <div class="field narrow" style="margin:0"><label>Session-Nr.</label><input type="number" min="1" class="s-session-number" value="${esc(s.session_number || '')}"></div>
-      <div class="field narrow" style="margin:0"><label>Kampagnenart</label><select class="s-campaign-kind">
-        <option value="">–</option>
-        ${Object.entries(CAMPAIGN_KIND_LABEL).map(([v, l]) => `<option value="${v}" ${s.campaign_kind === v ? 'selected' : ''}>${l}</option>`).join('')}
-      </select></div>
-      <div class="field narrow" style="margin:0"><label>Kampagnenstatus</label><select class="s-campaign-status">
-        <option value="">–</option>
-        <option value="laufend" ${s.campaign_status === 'laufend' ? 'selected' : ''}>laufend</option>
-        <option value="abgeschlossen" ${s.campaign_status === 'abgeschlossen' ? 'selected' : ''}>abgeschlossen</option>
-      </select></div>
-      <div class="field narrow" style="margin:0"><label>Rolle</label><select class="s-role">
-        <option value="">–</option>
-        <option value="spielleiter" ${s.role === 'spielleiter' ? 'selected' : ''}>Spielleiter:in</option>
-        <option value="spieler" ${s.role === 'spieler' ? 'selected' : ''}>Spieler:in</option>
-      </select></div>
-      <div class="field wide" style="margin:0"><label>Notiz</label><input type="text" class="s-note" value="${esc(s.note || '')}"></div>
-      <button type="button" class="btn btn-sm btn-danger" title="Spielabend entfernen">Entfernen</button>
+  function addSession(s = { played_on: '', participants: '', note: '', summary_url: '', campaign: '', campaign_status: '', campaign_kind: '', session_number: '', role: '' }) {
+    const row = el(`<div class="session-entry" style="margin-bottom:var(--space-4);padding-bottom:var(--space-4);border-bottom:1px solid var(--border)">
+      <div class="session-row">
+        <div class="field narrow" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
+        <div class="field" style="margin:0"><label>Mitspieler:innen</label><input type="text" class="s-participants" value="${esc(s.participants || '')}"></div>
+        <div class="field" style="margin:0"><label>Kampagne</label><input type="text" class="s-campaign" list="campaign-names" value="${esc(s.campaign || '')}"></div>
+        <div class="field narrow" style="margin:0"><label>Session-Nr.</label><input type="number" min="1" class="s-session-number" value="${esc(s.session_number || '')}"></div>
+        <div class="field narrow" style="margin:0"><label>Kampagnenart</label><select class="s-campaign-kind">
+          <option value="">–</option>
+          ${Object.entries(CAMPAIGN_KIND_LABEL).map(([v, l]) => `<option value="${v}" ${s.campaign_kind === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select></div>
+        <div class="field narrow" style="margin:0"><label>Kampagnenstatus</label><select class="s-campaign-status">
+          <option value="">–</option>
+          <option value="laufend" ${s.campaign_status === 'laufend' ? 'selected' : ''}>laufend</option>
+          <option value="abgeschlossen" ${s.campaign_status === 'abgeschlossen' ? 'selected' : ''}>abgeschlossen</option>
+        </select></div>
+        <div class="field narrow" style="margin:0"><label>Rolle</label><select class="s-role">
+          <option value="">–</option>
+          <option value="spielleiter" ${s.role === 'spielleiter' ? 'selected' : ''}>Spielleiter:in</option>
+          <option value="spieler" ${s.role === 'spieler' ? 'selected' : ''}>Spieler:in</option>
+        </select></div>
+      </div>
+      <div class="field" style="margin:0 0 var(--space-3)"><label>Notiz</label><textarea class="s-note" rows="2" style="resize:vertical;min-height:2.4rem">${esc(s.note || '')}</textarea></div>
+      <div class="session-row">
+        <div class="field wide" style="margin:0"><label>Zusammenfassung (Link)</label><input type="url" class="s-summary-url" value="${esc(s.summary_url || '')}" placeholder="https://drive.google.com/…"></div>
+        <button type="button" class="btn btn-sm btn-danger" title="Spielabend entfernen">Entfernen</button>
+      </div>
     </div>`);
-    row.querySelector('button').addEventListener('click', () => { row.remove(); sessionRows.splice(sessionRows.indexOf(row), 1); });
+    row.querySelector('.btn-danger').addEventListener('click', () => { row.remove(); sessionRows.splice(sessionRows.indexOf(row), 1); });
     sessionRows.push(row);
     sessionBox.appendChild(row);
   }
@@ -451,6 +456,7 @@ export async function renderEditor(root, id) {
         session_number: r.querySelector('.s-session-number').value || null,
         role: r.querySelector('.s-role').value || null,
         note: r.querySelector('.s-note').value.trim() || null,
+        summary_url: r.querySelector('.s-summary-url').value.trim() || null,
       })).filter((s) => s.played_on),
     };
   }
@@ -769,7 +775,10 @@ export async function renderPlaySessions(root) {
           <option value="spielleiter">Spielleiter:in</option>
           <option value="spieler">Spieler:in</option>
         </select></div>
-        <div class="field wide" style="margin:0"><label for="ps-note">Notiz</label><input type="text" id="ps-note"></div>
+      </div>
+      <div class="field" style="margin:0 0 var(--space-3)"><label for="ps-note">Notiz</label><textarea id="ps-note" rows="2" style="resize:vertical;min-height:2.4rem"></textarea></div>
+      <div class="session-row">
+        <div class="field wide" style="margin:0"><label for="ps-summary-url">Zusammenfassung (Link)</label><input type="url" id="ps-summary-url" placeholder="https://drive.google.com/…"></div>
         <button type="submit" class="btn btn-primary">Hinzufügen</button>
       </div>
     </form>
@@ -817,7 +826,10 @@ export async function renderPlaySessions(root) {
           <option value="spielleiter" ${s.role === 'spielleiter' ? 'selected' : ''}>Spielleiter:in</option>
           <option value="spieler" ${s.role === 'spieler' ? 'selected' : ''}>Spieler:in</option>
         </select></div>
-        <div class="field wide" style="margin:0"><label>Notiz</label><input type="text" class="e-note" value="${esc(s.note || '')}"></div>
+      </div>
+      <div class="field" style="margin:0 0 var(--space-3)"><label>Notiz</label><textarea class="e-note" rows="2" style="resize:vertical;min-height:2.4rem">${esc(s.note || '')}</textarea></div>
+      <div class="session-row">
+        <div class="field wide" style="margin:0"><label>Zusammenfassung (Link)</label><input type="url" class="e-summary-url" value="${esc(s.summary_url || '')}" placeholder="https://drive.google.com/…"></div>
         <button type="button" class="btn btn-sm btn-primary e-save">Speichern</button>
         <button type="button" class="btn btn-sm e-cancel">Abbrechen</button>
       </div>
@@ -843,6 +855,7 @@ export async function renderPlaySessions(root) {
         session_number: editRow.querySelector('.e-session-number').value || null,
         role: editRow.querySelector('.e-role').value || null,
         note: editRow.querySelector('.e-note').value.trim() || null,
+        summary_url: editRow.querySelector('.e-summary-url').value.trim() || null,
       };
       if (matched) payload.game_id = matched.id; else payload.external_title = gameText;
       try {
@@ -853,7 +866,7 @@ export async function renderPlaySessions(root) {
           played_on: payload.played_on, participants: payload.participants, campaign: payload.campaign,
           campaign_status: payload.campaign_status, campaign_kind: payload.campaign_kind,
           session_number: payload.session_number ? Number(payload.session_number) : null,
-          role: payload.role, note: payload.note,
+          role: payload.role, note: payload.note, summary_url: payload.summary_url,
         });
         renderRows();
         toast('Gespeichert.');
@@ -890,7 +903,7 @@ export async function renderPlaySessions(root) {
         <td class="campaign-cell">–</td>
         <td>${esc(s.participants || '–')}</td>
         <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
-        <td>${esc(s.note || '–')}</td>
+        <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
         <td class="row-actions">
           <button type="button" class="btn btn-sm ps-edit">Bearbeiten</button>
           <button type="button" class="btn btn-sm btn-danger">Löschen</button>
@@ -930,7 +943,7 @@ export async function renderPlaySessions(root) {
       session_number: formSection.querySelector('#ps-session-number').value || null,
       role: formSection.querySelector('#ps-role').value || null,
       note: formSection.querySelector('#ps-note').value.trim() || null,
-      rating: formSection.querySelector('#ps-rating').value || null,
+      summary_url: formSection.querySelector('#ps-summary-url').value.trim() || null,
     };
     if (matched) payload.game_id = matched.id; else payload.external_title = gameText;
     try {
@@ -941,8 +954,7 @@ export async function renderPlaySessions(root) {
         played_on: payload.played_on, participants: payload.participants, campaign: payload.campaign,
         campaign_status: payload.campaign_status, campaign_kind: payload.campaign_kind,
         session_number: payload.session_number ? Number(payload.session_number) : null,
-        role: payload.role, note: payload.note,
-        rating: payload.rating ? Number(payload.rating) : null,
+        role: payload.role, note: payload.note, summary_url: payload.summary_url,
       }, ...allSessions];
       renderRows();
       formSection.querySelector('#ps-form').reset();

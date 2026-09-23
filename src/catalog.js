@@ -336,7 +336,7 @@ export async function getGameBySlug(slug, isAdmin) {
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
     pool.query(
-      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, ${isAdmin ? 'participants, role,' : 'NULL::text AS participants, NULL::text AS role,'} note, campaign, campaign_status, campaign_kind, session_number FROM katalog.play_sessions
+      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, ${isAdmin ? 'participants, role,' : 'NULL::text AS participants, NULL::text AS role,'} note, summary_url, campaign, campaign_status, campaign_kind, session_number FROM katalog.play_sessions
        WHERE game_id = $1 ORDER BY played_on DESC, id DESC`, [g.id],
     ),
   ]);
@@ -370,7 +370,7 @@ export async function getGameById(id) {
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
     pool.query(
-      `SELECT id, to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, note, campaign, campaign_status, campaign_kind, session_number, role FROM katalog.play_sessions
+      `SELECT id, to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, note, summary_url, campaign, campaign_status, campaign_kind, session_number, role FROM katalog.play_sessions
        WHERE game_id = $1 ORDER BY played_on DESC, id DESC`, [g.id],
     ),
   ]);
@@ -426,7 +426,7 @@ export async function getDashboard() {
 export async function listPlaySessions() {
   const r = await pool.query(`
     SELECT ps.id, ps.game_id, g.slug AS game_slug, g.title AS game_title, ps.external_title,
-      to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.participants, ps.note, ps.campaign, ps.campaign_status, ps.campaign_kind, ps.session_number, ps.role
+      to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.participants, ps.note, ps.summary_url, ps.campaign, ps.campaign_status, ps.campaign_kind, ps.session_number, ps.role
     FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
     ORDER BY ps.played_on DESC, ps.id DESC`);
   return r.rows;
@@ -455,10 +455,11 @@ export async function createPlaySession(payload, actor) {
   const errors = validatePlaySessionPayload(payload);
   if (errors.length) throw httpError(422, 'Bitte die markierten Felder prüfen.', { errors });
   const r = await pool.query(
-    `INSERT INTO katalog.play_sessions (game_id, external_title, played_on, participants, note, campaign, campaign_status, campaign_kind, session_number, role)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+    `INSERT INTO katalog.play_sessions (game_id, external_title, played_on, participants, note, summary_url, campaign, campaign_status, campaign_kind, session_number, role)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
     [payload.game_id || null, payload.external_title ? String(payload.external_title).trim() : null, payload.played_on,
       payload.participants ? String(payload.participants).trim() : null, payload.note ? String(payload.note).trim() : null,
+      payload.summary_url ? String(payload.summary_url).trim() : null,
       payload.campaign ? String(payload.campaign).trim() : null,
       payload.campaign_status || null, payload.campaign_kind || null, payload.session_number ? Number(payload.session_number) : null,
       payload.role || null],
@@ -473,10 +474,11 @@ export async function updatePlaySession(id, payload, actor) {
   const r = await pool.query(
     `UPDATE katalog.play_sessions SET
        game_id = $1, external_title = $2, played_on = $3, participants = $4, note = $5,
-       campaign = $6, campaign_status = $7, campaign_kind = $8, session_number = $9, role = $10
-     WHERE id = $11 RETURNING id`,
+       summary_url = $6, campaign = $7, campaign_status = $8, campaign_kind = $9, session_number = $10, role = $11
+     WHERE id = $12 RETURNING id`,
     [payload.game_id || null, payload.external_title ? String(payload.external_title).trim() : null, payload.played_on,
       payload.participants ? String(payload.participants).trim() : null, payload.note ? String(payload.note).trim() : null,
+      payload.summary_url ? String(payload.summary_url).trim() : null,
       payload.campaign ? String(payload.campaign).trim() : null,
       payload.campaign_status || null, payload.campaign_kind || null, payload.session_number ? Number(payload.session_number) : null,
       payload.role || null, id],
@@ -539,9 +541,9 @@ async function upsertRelations(client, gameId, payload) {
   for (const s of payload.play_sessions || []) {
     if (!s.played_on) continue;
     await client.query(
-      `INSERT INTO katalog.play_sessions (game_id, played_on, participants, note, campaign, campaign_status, campaign_kind, session_number, role)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [gameId, s.played_on, s.participants || null, s.note || null, s.campaign || null,
+      `INSERT INTO katalog.play_sessions (game_id, played_on, participants, note, summary_url, campaign, campaign_status, campaign_kind, session_number, role)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [gameId, s.played_on, s.participants || null, s.note || null, s.summary_url || null, s.campaign || null,
         s.campaign_status || null, s.campaign_kind || null, s.session_number ? Number(s.session_number) : null, s.role || null],
     );
   }
