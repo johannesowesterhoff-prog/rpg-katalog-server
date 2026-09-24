@@ -126,7 +126,10 @@ export function gameCard(g, { onTag, onToneTag, showStatus = false } = {}) {
       <div><span>Verlag</span><span>${esc(g.primary_publisher || '–')}</span></div>
     </div>
     <div class="gc-foot">
-      <span>${g.product_count === 1 ? '1 Produkt' : `${g.product_count || 0} Produkte`}</span>
+      <div class="gc-foot-counts">
+        <span>${g.product_count === 1 ? '1 Produkt' : `${g.product_count || 0} Produkte`}</span>
+        ${g.session_count ? `<span>${g.session_count === 1 ? '1 Spielabend' : `${g.session_count} Spielabende`}</span>` : ''}
+      </div>
       <a href="#/spiele/${esc(g.slug)}">Details →</a>
     </div>
   </article>`);
