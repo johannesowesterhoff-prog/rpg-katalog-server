@@ -175,7 +175,8 @@ export function gameDetailCte(isAdmin) {
           FROM katalog.game_tags gt JOIN katalog.tags t ON t.id = gt.tag_id
           WHERE gt.game_id = g.id AND t.kind = 'tone_theme'::katalog.tag_kind
         ) AS tone_theme,
-        (SELECT count(*) FROM katalog.products pr WHERE pr.game_id = g.id)::int AS product_count
+        (SELECT count(*) FROM katalog.products pr WHERE pr.game_id = g.id)::int AS product_count,
+        (SELECT count(*) FROM katalog.play_sessions ps WHERE ps.game_id = g.id)::int AS session_count
       FROM katalog.games g
       JOIN katalog.languages l ON l.id = g.language_id
       JOIN katalog.system_families sf ON sf.id = g.system_family_id
@@ -185,4 +186,4 @@ export function gameDetailCte(isAdmin) {
 export const CARD_COLUMNS = `
   id, slug, title, language_code, system_family, short_description,
   genre_setting_top, genre_setting, play_focus, campaign_type, tone_theme_top, tone_theme, crunch, narrative, fluff,
-  primary_publisher, product_count, status`;
+  primary_publisher, product_count, session_count, status`;

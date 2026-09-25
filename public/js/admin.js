@@ -512,7 +512,7 @@ export async function renderEditor(root, id) {
       genre_setting_top: d.genre_setting_top, genre_setting: d.genre_setting, play_focus: d.play_focus, campaign_type: d.campaign_type, tone_theme_top: d.tone_theme_top, tone_theme: d.tone_theme,
       crunch: d.crunch ? Number(d.crunch) : null, narrative: d.narrative ? Number(d.narrative) : null,
       fluff: d.fluff ? Number(d.fluff) : null, primary_publisher: d.publishers[0] || null,
-      product_count: d.products.length, status: d.status,
+      product_count: d.products.length, session_count: d.play_sessions.length, status: d.status,
     }, { showStatus: true }));
   }
   form.querySelectorAll('input,select,textarea').forEach((i) => i.addEventListener('input', updatePreview));

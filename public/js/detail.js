@@ -173,7 +173,7 @@ function renderArchiveUnlocked(container, data) {
     container.appendChild(el('<p class="faint" style="font-size:var(--text-xs)">Kein Eintrag im Schwarzen Regal gefunden.</p>'));
     return;
   }
-  const url = `${ARCHIVE_URL}#g=${encodeURIComponent(data.archive_slug)}`;
+  const url = `${ARCHIVE_URL}#${encodeURIComponent(data.archive_slug)}`;
   container.appendChild(el(`<a class="btn btn-sm" target="_blank" rel="noopener" href="${esc(url)}">Im Schwarzen Regal öffnen ↗</a>`));
 }
 
