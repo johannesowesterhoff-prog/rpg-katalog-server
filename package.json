@@ -12,9 +12,10 @@
     "node": ">=20"
   },
   "dependencies": {
+    "cookie": "^1.0.2",
+    "dotenv": "^16.4.7",
     "express": "^5.1.0",
     "pg": "^8.13.1",
-    "cookie": "^1.0.2",
-    "dotenv": "^16.4.7"
+    "sharp": "^0.34.5"
   }
 }

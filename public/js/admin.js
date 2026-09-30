@@ -1,7 +1,7 @@
 // Adminbereich: Dashboard, Editor, Import/Export, Stammdaten und
 // Änderungsprotokoll.
 import { api, setToken } from './api.js';
-import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, campaignSessionBadges } from './ui.js';
+import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, campaignSessionBadges, coverFrame, COVER_FIT_LABEL } from './ui.js';
 
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 let master = null;
@@ -317,8 +317,82 @@ export async function renderEditor(root, id) {
     </div>
     <div class="field"><label for="f-desc">Kurzbeschreibung * <span class="faint">(10–400 Zeichen)</span></label>
       <textarea id="f-desc">${esc(state.short_description)}</textarea></div>
-    <div class="field"><label for="f-long">Ausführliche Beschreibung</label><textarea id="f-long">${esc(state.long_description || '')}</textarea></div>`);
+    <div class="field"><label for="f-long">Ausführliche Beschreibung</label><textarea id="f-long">${esc(state.long_description || '')}</textarea></div>
+    <div class="field"><label>Coverbild</label><div id="cover-slot"></div></div>`);
   form.appendChild(s1.wrap);
+
+  // Cover wird unabhängig vom Formular sofort gespeichert (eigene Route).
+  let cover = null;
+  const coverSlot = s1.wrap.querySelector('#cover-slot');
+  const toCardCover = (m) => (m && (m.stored || !m.fetch_error)
+    ? { v: m.v, w: m.width, h: m.height, fit: m.fit, y: m.focus_y } : null);
+  function renderCoverEditor() {
+    if (!id) {
+      coverSlot.innerHTML = '<div class="hint">Nach dem ersten Speichern kannst du hier ein Coverbild hinterlegen.</div>';
+      return;
+    }
+    const cc = toCardCover(cover);
+    coverSlot.innerHTML = '';
+    const box = el(`<div class="cover-editor">
+      <div class="cover-editor-preview">${coverFrame({ slug: state.slug, title: state.title || 'Ohne Titel', cover: cc })}</div>
+      <div class="cover-editor-controls">
+        <div class="cover-url-row">
+          <input type="url" id="f-cover-url" placeholder="Bildadresse, z. B. https://…/cover.jpg" value="${esc(cover?.source_url || '')}">
+          <button type="button" class="btn btn-sm" id="cover-from-url">Übernehmen</button>
+        </div>
+        <div class="hint">Rechtsklick aufs Bild im Netz → „Bildadresse kopieren“. Das Bild wird verkleinert gespeichert.</div>
+        <div class="row-actions">
+          <label class="btn btn-sm" for="f-cover-file">Datei hochladen</label>
+          <input type="file" id="f-cover-file" accept="image/*" hidden>
+          ${cover ? '<button type="button" class="btn btn-sm btn-danger" id="cover-remove">Cover entfernen</button>' : ''}
+        </div>
+        ${cc ? `<div class="grid-2">
+          <div class="field" style="margin:0"><label for="f-cover-fit">Darstellung</label><select id="f-cover-fit">
+            ${Object.entries(COVER_FIT_LABEL).map(([v, l]) => `<option value="${v}" ${cover.fit === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select></div>
+          <div class="field" style="margin:0"><label for="f-cover-y">Ausschnitt oben ↔ unten</label>
+            <input type="range" id="f-cover-y" min="0" max="100" step="1" value="${Number(cover.focus_y ?? 50)}"></div>
+        </div>` : ''}
+        ${cover?.fetch_error && !cover.stored ? `<div class="warn-box">Bild konnte nicht geladen werden: ${esc(cover.fetch_error)}</div>` : ''}
+      </div>
+    </div>`);
+    coverSlot.appendChild(box);
+    const busy = (on) => box.querySelectorAll('button,input,select').forEach((n) => { n.disabled = on; });
+    const apply = async (req, okMsg) => {
+      busy(true);
+      try { cover = (await req()).cover; toast(okMsg); }
+      catch (err) { toast(err.message, 'err'); busy(false); return; }
+      renderCoverEditor();
+      updatePreview();
+    };
+    box.querySelector('#cover-from-url').addEventListener('click', () => {
+      const url = box.querySelector('#f-cover-url').value.trim();
+      if (!url) { toast('Bitte eine Bildadresse eintragen.', 'err'); return; }
+      apply(() => api(`/api/admin/games/${id}/cover`, { method: 'POST', body: { url } }), 'Cover übernommen.');
+    });
+    box.querySelector('#f-cover-url').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); box.querySelector('#cover-from-url').click(); }
+    });
+    box.querySelector('#f-cover-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 12 * 1024 * 1024) { toast('Das Bild ist größer als 12 MB.', 'err'); return; }
+      apply(() => api(`/api/admin/games/${id}/cover`, { method: 'PUT', body: file }), 'Cover hochgeladen.');
+    });
+    box.querySelector('#cover-remove')?.addEventListener('click', () => {
+      apply(() => api(`/api/admin/games/${id}/cover`, { method: 'DELETE' }), 'Cover entfernt.');
+    });
+    const fitSel = box.querySelector('#f-cover-fit');
+    const ySlider = box.querySelector('#f-cover-y');
+    const frame = () => box.querySelector('.cover-frame');
+    fitSel?.addEventListener('change', () => apply(() => api(`/api/admin/games/${id}/cover`, { method: 'PATCH', body: { fit: fitSel.value } }), 'Darstellung gespeichert.'));
+    ySlider?.addEventListener('input', () => frame()?.style.setProperty('--focus-y', ySlider.value + '%'));
+    ySlider?.addEventListener('change', () => apply(() => api(`/api/admin/games/${id}/cover`, { method: 'PATCH', body: { focus_y: Number(ySlider.value) } }), 'Ausschnitt gespeichert.'));
+  }
+  if (id) {
+    try { cover = (await api(`/api/admin/games/${id}/cover`)).cover; } catch { cover = null; }
+  }
+  renderCoverEditor();
 
   // ---- 2. Einordnung
   const s2 = step(2, 'Einordnung', '<div id="slot-einordnung"></div>');
@@ -513,6 +587,7 @@ export async function renderEditor(root, id) {
       crunch: d.crunch ? Number(d.crunch) : null, narrative: d.narrative ? Number(d.narrative) : null,
       fluff: d.fluff ? Number(d.fluff) : null, primary_publisher: d.publishers[0] || null,
       product_count: d.products.length, session_count: d.play_sessions.length, status: d.status,
+      cover: toCardCover(cover),
     }, { showStatus: true }));
   }
   form.querySelectorAll('input,select,textarea').forEach((i) => i.addEventListener('input', updatePreview));

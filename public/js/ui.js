@@ -102,10 +102,56 @@ export function campaignSessionBadges(s, group, { onNameClick } = {}) {
 export const BINDING_LABEL = { hardcover: 'Hardcover', softcover: 'Softcover', heft: 'Heft', faltblatt: 'Faltblatt', box: 'Box', zubehoer: 'Spielhilfe & Zubehör', sonstiges: 'Sonstiges' };
 
 /** Öffentliche Katalogkarte – Reihenfolge exakt wie im Auftrag. */
+// ------------------------------------------------------------ Coverbilder
+// Alle Cover erscheinen im selben Rahmen (Seitenverhältnis --cover-ratio).
+// "cover" füllt den Rahmen und schneidet zu (vertikaler Ausschnitt über
+// focus_y), "contain" zeigt das ganze Bild vor einer unscharfen Kopie
+// seiner selbst. "auto" wählt: Hochformat → ganz zeigen, sonst füllen.
+export const COVER_FIT_LABEL = { auto: 'Automatisch', cover: 'Rahmen füllen (zuschneiden)', contain: 'Ganzes Bild zeigen' };
+const PORTRAIT_LIMIT = 1.15;
+
+export function coverUrl(slug, cover) {
+  return `/api/games/${encodeURIComponent(slug)}/cover?v=${cover.v}`;
+}
+
+function resolveFit(c) {
+  if (c.fit && c.fit !== 'auto') return c.fit;
+  if (!c.w || !c.h) return 'auto';
+  return c.w / c.h < PORTRAIT_LIMIT ? 'contain' : 'cover';
+}
+
+export function coverFrame(g, { src } = {}) {
+  const c = g.cover;
+  if (!c) return `<div class="cover-frame cover-empty" aria-hidden="true"><span>${esc(g.title)}</span></div>`;
+  const url = src || coverUrl(g.slug, c);
+  return `<div class="cover-frame fit-${resolveFit(c)}" style="--focus-y:${Number(c.y ?? 50)}%">
+    <img class="cover-bg" src="${esc(url)}" alt="" aria-hidden="true" loading="lazy" decoding="async">
+    <img class="cover-img" src="${esc(url)}" alt="Cover: ${esc(g.title)}" data-title="${esc(g.title)}" loading="lazy" decoding="async">
+  </div>`;
+}
+
+// load/error blubbern nicht -- daher einmalig in der Capture-Phase lauschen.
+document.addEventListener('load', (e) => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.classList.contains('cover-img')) return;
+  const frame = img.closest('.cover-frame.fit-auto');
+  if (!frame || !img.naturalHeight) return;
+  frame.classList.replace('fit-auto', img.naturalWidth / img.naturalHeight < PORTRAIT_LIMIT ? 'fit-contain' : 'fit-cover');
+}, true);
+document.addEventListener('error', (e) => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.classList.contains('cover-img')) return;
+  const frame = img.closest('.cover-frame');
+  if (!frame) return;
+  frame.className = 'cover-frame cover-empty';
+  frame.innerHTML = `<span>${esc(img.dataset.title || '')}</span>`;
+}, true);
+
 export function gameCard(g, { onTag, onToneTag, showStatus = false } = {}) {
   const tags = (g.genre_setting_top || []).map((t) => `<button class="tag" data-tag="${esc(t)}" type="button">${esc(t)}</button>`).join('');
   const toneTags = (g.tone_theme_top || []).map((t) => `<button class="tag tag-tone" data-tone="${esc(t)}" type="button">${esc(t)}</button>`).join('');
   const card = el(`<article class="card game-card">
+    <a class="gc-cover" href="#/spiele/${esc(g.slug)}" tabindex="-1" aria-hidden="true">${coverFrame(g)}</a>
     <div>
       <div class="gc-title">
         <h3><a href="#/spiele/${esc(g.slug)}">${esc(g.title)}</a></h3>
