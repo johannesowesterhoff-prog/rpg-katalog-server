@@ -1,9 +1,10 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
 import { api, setArchiveToken } from './api.js';
-import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, campaignSessionBadges } from './ui.js';
+import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, campaignSessionBadges, coverUrl } from './ui.js';
 
 // Deep-Link-Ziel im privaten "Schwarzen Regal" (separate PDF-Datenbank,
-// siehe handoff_archive_link.md). Format: #g=<archive_slug>.
+// siehe handoff_archive_link.md). Format: #<archive_slug> -- das Regal läuft in
+// einem Rahmen, der nur einfache Anker ohne "=" durchreicht.
 const ARCHIVE_URL = 'https://claude.ai/artifact/T9PsrHThnX4oiZU6CnYSdm';
 
 export async function renderDetail(root, slug, ctx) {
@@ -22,7 +23,8 @@ export async function renderDetail(root, slug, ctx) {
   document.title = `${g.title} – RPG-Katalog`;
   root.innerHTML = '';
 
-  const head = el(`<section class="detail-head">
+  const head = el(`<section class="detail-head${g.cover ? ' has-cover' : ''}">
+    <div>
     <div class="crumb"><a href="#/">Katalog</a> <span class="faint">/</span> ${esc(g.title)}</div>
     <div class="detail-title-row">
       <h1>${esc(g.title)}</h1>
@@ -35,7 +37,10 @@ export async function renderDetail(root, slug, ctx) {
       <button type="button" class="btn btn-sm" id="share">Link kopieren</button>
       <a class="btn btn-sm btn-ghost" href="#/?systemFamily=${encodeURIComponent(g.system_family)}">Mehr aus dieser Systemfamilie</a>
     </div>
+    </div>
+    ${g.cover ? `<img class="detail-cover" src="${esc(coverUrl(g.slug, g.cover))}" alt="Cover: ${esc(g.title)}">` : ''}
   </section>`);
+  head.querySelector('.detail-cover')?.addEventListener('error', (e) => { e.target.remove(); head.classList.remove('has-cover'); });
   head.querySelector('#share').addEventListener('click', async () => {
     const url = location.origin + location.pathname + '#/spiele/' + g.slug;
     try { await navigator.clipboard.writeText(url); toast('Link kopiert.'); }

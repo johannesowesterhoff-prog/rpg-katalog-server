@@ -19,12 +19,14 @@ export function hasArchiveToken() { return !!archiveToken; }
 
 export async function api(path, { method = 'GET', body, raw = false } = {}) {
   const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // Dateien (z. B. Cover-Upload) gehen unverändert als Request-Body raus.
+  const isFile = typeof Blob !== 'undefined' && body instanceof Blob;
+  if (body !== undefined) headers['Content-Type'] = isFile ? (body.type || 'application/octet-stream') : 'application/json';
   const bearer = token || archiveToken;
   if (bearer) headers.Authorization = 'Bearer ' + bearer;
   const res = await fetch(API + path, {
     method, headers, credentials: 'include',
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : (isFile ? body : JSON.stringify(body)),
   });
   if (raw) return res;
   let data = null;

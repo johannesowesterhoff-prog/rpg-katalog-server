@@ -21,6 +21,9 @@ import {
   listPlaySessions, getGameLookup, createPlaySession, updatePlaySession, deletePlaySession,
 } from './src/catalog.js';
 import { stagingPreview, getImportRun, commitImport } from './src/importer.js';
+import {
+  getCoverImage, getCoverMeta, setCoverFromUrl, setCoverFromUpload, updateCoverSettings, deleteCover,
+} from './src/covers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -56,7 +59,7 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Vary', 'Origin');
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(204).end();
   next();
@@ -76,7 +79,7 @@ app.use((req, res, next) => {
 // CSRF-Schutz (Origin-Allowlist) für alle mutierenden Methoden.
 const allOrigins = { has: (o) => isAllowedOrigin(o, { headers: { host: null } }) || extraOrigins.has(o) };
 app.use((req, res, next) => {
-  if (!['POST', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
   return csrfGuard({ has: (o) => isAllowedOrigin(o, req) })(req, res, next);
 });
 
@@ -107,6 +110,16 @@ app.get('/api/games/:slug/archive-link', requireArchiveAccess, asyncRoute(async 
   const archiveSlug = await getArchiveSlug(req.params.slug);
   if (archiveSlug === undefined) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
   res.json({ archive_slug: archiveSlug || null });
+}));
+
+// Coverbild eines Spiels. Mit ?v=<version> (so verlinken Karte und
+// Detailseite) darf der Browser das Bild dauerhaft zwischenspeichern.
+app.get('/api/games/:slug/cover', attachAdminFlag, asyncRoute(async (req, res) => {
+  const img = await getCoverImage(req.params.slug, req.isAdmin);
+  if (!img) return res.status(404).json({ error: 'Kein Coverbild vorhanden.' });
+  res.setHeader('Content-Type', img.mime);
+  res.setHeader('Cache-Control', req.query.v ? 'public, max-age=31536000, immutable' : 'public, max-age=300');
+  res.end(img.data);
 }));
 
 app.get('/api/wahlomat.json', asyncRoute(async (_req, res) => {
@@ -327,6 +340,25 @@ app.post('/api/admin/play-sessions', requireAdmin, asyncRoute(async (req, res) =
 app.patch('/api/admin/play-sessions/:id', requireAdmin, asyncRoute(async (req, res) => {
   res.json(await updatePlaySession(req.params.id, req.body || {}, 'admin'));
 }));
+app.get('/api/admin/games/:id/cover', requireAdmin, asyncRoute(async (req, res) => {
+  res.json({ cover: await getCoverMeta(req.params.id) });
+}));
+app.post('/api/admin/games/:id/cover', requireAdmin, asyncRoute(async (req, res) => {
+  res.json({ cover: await setCoverFromUrl(req.params.id, req.body?.url, 'admin') });
+}));
+// Upload: Bilddatei direkt als Request-Body (Content-Type image/*) --
+// umgeht das 2-MB-Limit des globalen JSON-Parsers.
+app.put('/api/admin/games/:id/cover', requireAdmin, express.raw({ type: ['image/*', 'application/octet-stream'], limit: '13mb' }), asyncRoute(async (req, res) => {
+  res.json({ cover: await setCoverFromUpload(req.params.id, Buffer.isBuffer(req.body) ? req.body : null, 'admin') });
+}));
+app.patch('/api/admin/games/:id/cover', requireAdmin, asyncRoute(async (req, res) => {
+  res.json({ cover: await updateCoverSettings(req.params.id, req.body || {}, 'admin') });
+}));
+app.delete('/api/admin/games/:id/cover', requireAdmin, asyncRoute(async (req, res) => {
+  await deleteCover(req.params.id, 'admin');
+  res.json({ cover: null });
+}));
+
 app.delete('/api/admin/play-sessions/:id', requireAdmin, asyncRoute(async (req, res) => {
   await deletePlaySession(req.params.id, 'admin');
   res.json({ ok: true });
@@ -337,7 +369,7 @@ app.use('/api', (err, req, res, _next) => {
   // eslint-disable-next-line no-console
   console.error(err);
   const status = err.status || 500;
-  const body = { error: err.message || 'Serverfehler.' };
+  const body = { error: err.type === 'entity.too.large' ? 'Die Datei ist zu groß.' : (err.message || 'Serverfehler.') };
   if (err.errors) body.errors = err.errors;
   if (err.duplicates) { body.duplicates = err.duplicates; body.blocking = !!err.blocking; }
   res.status(status).json(body);
@@ -369,6 +401,7 @@ app.get('/spiele/:slug', asyncRoute(async (req, res) => {
   const meta = `
     <meta property="og:title" content="${esc(g.title)}">
     <meta property="og:description" content="${esc(g.short_description)}">
+    ${g.cover ? `<meta property="og:image" content="${esc(`${req.protocol}://${req.headers.host}/api/games/${g.slug}/cover?v=${g.cover.v}`)}">` : ''}
     <title>${esc(g.title)} – RPG-Katalog</title>`;
   res.type('html').send(INDEX_HTML.replace('<!--SSR_META-->', meta));
 }));
