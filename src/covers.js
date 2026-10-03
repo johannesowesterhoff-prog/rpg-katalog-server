@@ -78,10 +78,36 @@ export async function fetchImage(rawUrl) {
   throw new CoverError('Zu viele Weiterleitungen.', 502);
 }
 
+// Viele Shop-Bilder zeigen das Buch klein auf einer quadratischen weißen
+// Fläche. Solche einfarbigen Ränder schneiden wir ab, damit der Rahmen
+// das eigentliche Cover zeigt. Kleine Ränder (Logo auf Weiß, Freisteller)
+// bleiben, ebenso Bilder, die fast nur aus "Rand" bestehen (Schrift auf
+// einfarbigem Grund) -- dort ist der Rand das Cover.
+const TRIM_THRESHOLD = 18;
+const TRIM_MIN_BORDER = 0.15;
+const TRIM_MIN_KEEP = 0.4;
+
+async function trimBorders(buffer) {
+  const { data, info } = await sharp(buffer, { limitInputPixels: 60_000_000 })
+    .rotate()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const raw = { raw: { width: info.width, height: info.height, channels: info.channels } };
+  try {
+    const { info: t } = await sharp(data, raw).trim({ threshold: TRIM_THRESHOLD }).toBuffer({ resolveWithObject: true });
+    const kept = (t.width * t.height) / (info.width * info.height);
+    if (kept <= 1 - TRIM_MIN_BORDER && kept >= TRIM_MIN_KEEP) {
+      return sharp(data, raw).extract({ left: -t.trimOffsetLeft, top: -t.trimOffsetTop, width: t.width, height: t.height });
+    }
+  } catch {
+    // Kein erkennbarer Rand -- Bild unverändert verwenden.
+  }
+  return sharp(data, raw);
+}
+
 export async function processImage(buffer) {
   try {
-    const { data, info } = await sharp(buffer, { limitInputPixels: 60_000_000 })
-      .rotate()
+    const { data, info } = await (await trimBorders(buffer))
       .resize({ width: MAX_EDGE, height: MAX_EDGE, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer({ resolveWithObject: true });
