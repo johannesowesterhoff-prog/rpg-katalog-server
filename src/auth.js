@@ -122,8 +122,20 @@ function verifyAnyToken(token) {
   return kind;
 }
 
+// Optionaler fester API-Schlüssel (Umgebungsvariable ADMIN_API_KEY) für
+// Werkzeuge wie Claude, die ohne Passwort-Login Admin-Routen nutzen sollen.
+// Ungesetzt (oder kürzer als 32 Zeichen) ist er wirkungslos; zum Sperren
+// die Variable löschen oder ändern.
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY && process.env.ADMIN_API_KEY.length >= 32
+  ? crypto.createHash('sha256').update(process.env.ADMIN_API_KEY).digest() : null;
+
+function isAdminApiKey(token) {
+  if (!ADMIN_API_KEY || !token) return false;
+  return crypto.timingSafeEqual(crypto.createHash('sha256').update(token).digest(), ADMIN_API_KEY);
+}
+
 export function verifyToken(token) {
-  return verifyAnyToken(token) === 'admin';
+  return isAdminApiKey(token) || verifyAnyToken(token) === 'admin';
 }
 
 // --------------------------------------------------------------- Cookie
