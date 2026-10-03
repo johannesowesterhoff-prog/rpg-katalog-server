@@ -1,7 +1,7 @@
 // Adminbereich: Dashboard, Editor, Import/Export, Stammdaten und
 // Änderungsprotokoll.
 import { api, setToken } from './api.js';
-import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, campaignSessionBadges, coverFrame, COVER_FIT_LABEL } from './ui.js';
+import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, campaignSessionBadges, coverFrame, coverFocusY, COVER_FIT_LABEL } from './ui.js';
 
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 let master = null;
@@ -351,7 +351,7 @@ export async function renderEditor(root, id) {
             ${Object.entries(COVER_FIT_LABEL).map(([v, l]) => `<option value="${v}" ${cover.fit === v ? 'selected' : ''}>${l}</option>`).join('')}
           </select></div>
           <div class="field" style="margin:0"><label for="f-cover-y">Ausschnitt oben ↔ unten</label>
-            <input type="range" id="f-cover-y" min="0" max="100" step="1" value="${Number(cover.focus_y ?? 50)}"></div>
+            <input type="range" id="f-cover-y" min="0" max="100" step="1" value="${coverFocusY(cc)}"></div>
         </div>` : ''}
         ${cover?.fetch_error && !cover.stored ? `<div class="warn-box">Bild konnte nicht geladen werden: ${esc(cover.fetch_error)}</div>` : ''}
       </div>

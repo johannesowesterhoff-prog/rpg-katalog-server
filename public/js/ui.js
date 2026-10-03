@@ -106,38 +106,40 @@ export const BINDING_LABEL = { hardcover: 'Hardcover', softcover: 'Softcover', h
 // Alle Cover erscheinen im selben Rahmen (Seitenverhältnis --cover-ratio).
 // "cover" füllt den Rahmen und schneidet zu (vertikaler Ausschnitt über
 // focus_y), "contain" zeigt das ganze Bild vor einer unscharfen Kopie
-// seiner selbst. "auto" wählt: Hochformat → ganz zeigen, sonst füllen.
+// seiner selbst. "auto" füllt den Rahmen immer; bei Hochformat-Covern
+// zeigt es den oberen Teil (dort steht meist der Titel), solange der
+// Ausschnitt nicht von Hand verschoben wurde (focus_y ≠ 50).
 export const COVER_FIT_LABEL = { auto: 'Automatisch', cover: 'Rahmen füllen (zuschneiden)', contain: 'Ganzes Bild zeigen' };
 const PORTRAIT_LIMIT = 1.15;
+const DEFAULT_FOCUS_Y = 50;
+const PORTRAIT_FOCUS_Y = 12;
 
 export function coverUrl(slug, cover) {
   return `/api/games/${encodeURIComponent(slug)}/cover?v=${cover.v}`;
 }
 
 function resolveFit(c) {
-  if (c.fit && c.fit !== 'auto') return c.fit;
-  if (!c.w || !c.h) return 'auto';
-  return c.w / c.h < PORTRAIT_LIMIT ? 'contain' : 'cover';
+  return c.fit === 'contain' ? 'contain' : 'cover';
+}
+
+/** Tatsächlich verwendeter vertikaler Ausschnitt in Prozent. */
+export function coverFocusY(c) {
+  const y = Number(c.y ?? DEFAULT_FOCUS_Y);
+  const portrait = c.w && c.h && c.w / c.h < PORTRAIT_LIMIT;
+  return (c.fit || 'auto') === 'auto' && portrait && y === DEFAULT_FOCUS_Y ? PORTRAIT_FOCUS_Y : y;
 }
 
 export function coverFrame(g, { src } = {}) {
   const c = g.cover;
   if (!c) return `<div class="cover-frame cover-empty" aria-hidden="true"><span>${esc(g.title)}</span></div>`;
   const url = src || coverUrl(g.slug, c);
-  return `<div class="cover-frame fit-${resolveFit(c)}" style="--focus-y:${Number(c.y ?? 50)}%">
+  return `<div class="cover-frame fit-${resolveFit(c)}" style="--focus-y:${coverFocusY(c)}%">
     <img class="cover-bg" src="${esc(url)}" alt="" aria-hidden="true" loading="lazy" decoding="async">
     <img class="cover-img" src="${esc(url)}" alt="Cover: ${esc(g.title)}" data-title="${esc(g.title)}" loading="lazy" decoding="async">
   </div>`;
 }
 
 // load/error blubbern nicht -- daher einmalig in der Capture-Phase lauschen.
-document.addEventListener('load', (e) => {
-  const img = e.target;
-  if (!(img instanceof HTMLImageElement) || !img.classList.contains('cover-img')) return;
-  const frame = img.closest('.cover-frame.fit-auto');
-  if (!frame || !img.naturalHeight) return;
-  frame.classList.replace('fit-auto', img.naturalWidth / img.naturalHeight < PORTRAIT_LIMIT ? 'fit-contain' : 'fit-cover');
-}, true);
 document.addEventListener('error', (e) => {
   const img = e.target;
   if (!(img instanceof HTMLImageElement) || !img.classList.contains('cover-img')) return;
