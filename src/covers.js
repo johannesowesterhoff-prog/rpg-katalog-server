@@ -90,19 +90,29 @@ const TRIM_MIN_KEEP = 0.4;
 async function trimBorders(buffer) {
   const { data, info } = await sharp(buffer, { limitInputPixels: 60_000_000 })
     .rotate()
+    .resize({ width: 2 * MAX_EDGE, height: 2 * MAX_EDGE, fit: 'inside', withoutEnlargement: true })
     .raw()
     .toBuffer({ resolveWithObject: true });
   const raw = { raw: { width: info.width, height: info.height, channels: info.channels } };
-  try {
-    const { info: t } = await sharp(data, raw).trim({ threshold: TRIM_THRESHOLD }).toBuffer({ resolveWithObject: true });
-    const kept = (t.width * t.height) / (info.width * info.height);
-    if (kept <= 1 - TRIM_MIN_BORDER && kept >= TRIM_MIN_KEEP) {
-      return sharp(data, raw).extract({ left: -t.trimOffsetLeft, top: -t.trimOffsetTop, width: t.width, height: t.height });
+  const full = info.width * info.height;
+  // Mehrere Durchgänge für verschachtelte Ränder (weiße Fläche um ein Foto
+  // mit grauem Hintergrund). Danach ändert ein erneuter Aufruf nichts mehr.
+  let box = { left: 0, top: 0, width: info.width, height: info.height };
+  for (let pass = 0; pass < 3; pass++) {
+    let t;
+    try {
+      // extract und trim getrennt: in einer Pipeline trimmt sharp vor dem Ausschneiden.
+      const part = await sharp(data, raw).extract(box).raw().toBuffer();
+      const partRaw = { raw: { width: box.width, height: box.height, channels: info.channels } };
+      ({ info: t } = await sharp(part, partRaw).trim({ threshold: TRIM_THRESHOLD }).toBuffer({ resolveWithObject: true }));
+    } catch {
+      break; // Kein erkennbarer Rand.
     }
-  } catch {
-    // Kein erkennbarer Rand -- Bild unverändert verwenden.
+    const area = t.width * t.height;
+    if (area > (1 - TRIM_MIN_BORDER) * box.width * box.height || area < TRIM_MIN_KEEP * full) break;
+    box = { left: box.left - t.trimOffsetLeft, top: box.top - t.trimOffsetTop, width: t.width, height: t.height };
   }
-  return sharp(data, raw);
+  return sharp(data, raw).extract(box);
 }
 
 export async function processImage(buffer) {
@@ -170,6 +180,27 @@ export async function updateCoverSettings(gameId, { fit, focus_y: focusY }, acto
   if (!r.rowCount) throw new CoverError('Für diesen Eintrag ist noch kein Cover hinterlegt.', 404);
   await logAudit(pool, { actor, action: 'update', entity: 'game_covers', entityId: gameId, diff: { fit, focus_y: y } });
   return getCoverMeta(gameId);
+}
+
+// Wendet trimBorders nachträglich auf bereits gespeicherte Cover an.
+// Wiederholbar: ein schon zugeschnittenes Bild ändert sich nicht mehr.
+export async function trimStoredCovers(actor) {
+  const { rows } = await pool.query('SELECT game_id, width, height FROM katalog.game_covers WHERE data IS NOT NULL');
+  let trimmed = 0;
+  for (const r of rows) {
+    const { rows: [c] } = await pool.query('SELECT data FROM katalog.game_covers WHERE game_id = $1', [r.game_id]);
+    if (!c?.data) continue;
+    const img = await processImage(c.data);
+    if (img.width === r.width && img.height === r.height) continue;
+    await pool.query(
+      `UPDATE katalog.game_covers SET data = $2, width = $3, height = $4, mime = $5, updated_at = now()
+       WHERE game_id = $1`,
+      [r.game_id, img.data, img.width, img.height, img.mime],
+    );
+    await logAudit(pool, { actor, action: 'update', entity: 'game_covers', entityId: r.game_id, diff: { trimmed: true } });
+    trimmed++;
+  }
+  return { checked: rows.length, trimmed };
 }
 
 export async function deleteCover(gameId, actor) {
