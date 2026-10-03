@@ -700,6 +700,23 @@ export function renderImport(root) {
       toast('Export erstellt.');
     } catch (e) { toast(e.message, 'err'); }
   };
+  const trimSec = el(`<section class="section">
+    <h2>Cover-Ränder zuschneiden</h2>
+    <div class="panel">
+      <p class="muted">Schneidet bei allen gespeicherten Covern breite einfarbige Ränder ab (z. B. Buchfoto auf weißer Fläche). Neue Cover werden beim Speichern automatisch so bearbeitet; mehrfaches Ausführen schadet nicht.</p>
+      <div class="row-actions"><button type="button" class="btn btn-sm" id="trim-covers">Cover jetzt zuschneiden</button></div>
+    </div>
+  </section>`);
+  body.appendChild(trimSec);
+  trimSec.querySelector('#trim-covers').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try {
+      const r = await api('/api/admin/covers/trim', { method: 'POST' });
+      toast(`${r.trimmed} von ${r.checked} Covern zugeschnitten.`);
+    } catch (err) { toast(err.message, 'err'); }
+    e.target.disabled = false;
+  });
+
   body.querySelector('#dl-json').addEventListener('click', () => dl('json'));
   body.querySelector('#dl-csv').addEventListener('click', () => dl('csv'));
 

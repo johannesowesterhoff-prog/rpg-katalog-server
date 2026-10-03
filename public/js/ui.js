@@ -105,8 +105,8 @@ export const BINDING_LABEL = { hardcover: 'Hardcover', softcover: 'Softcover', h
 // ------------------------------------------------------------ Coverbilder
 // Alle Cover erscheinen im selben Rahmen (Seitenverhältnis --cover-ratio).
 // "cover" füllt den Rahmen und schneidet zu (vertikaler Ausschnitt über
-// focus_y), "contain" zeigt das ganze Bild vor einer unscharfen Kopie
-// seiner selbst. "auto" wählt: Hochformat → ganz zeigen, sonst füllen.
+// focus_y), "contain" zeigt das ganze Bild auf ruhigem Grund in der
+// Kartenfarbe. "auto" wählt: Hochformat → ganz zeigen, sonst füllen.
 export const COVER_FIT_LABEL = { auto: 'Automatisch', cover: 'Rahmen füllen (zuschneiden)', contain: 'Ganzes Bild zeigen' };
 const PORTRAIT_LIMIT = 1.15;
 

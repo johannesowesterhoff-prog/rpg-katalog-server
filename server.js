@@ -23,6 +23,7 @@ import {
 import { stagingPreview, getImportRun, commitImport } from './src/importer.js';
 import {
   getCoverImage, getCoverMeta, setCoverFromUrl, setCoverFromUpload, updateCoverSettings, deleteCover,
+  trimStoredCovers,
 } from './src/covers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -357,6 +358,9 @@ app.patch('/api/admin/games/:id/cover', requireAdmin, asyncRoute(async (req, res
 app.delete('/api/admin/games/:id/cover', requireAdmin, asyncRoute(async (req, res) => {
   await deleteCover(req.params.id, 'admin');
   res.json({ cover: null });
+}));
+app.post('/api/admin/covers/trim', requireAdmin, asyncRoute(async (_req, res) => {
+  res.json(await trimStoredCovers('admin'));
 }));
 
 app.delete('/api/admin/play-sessions/:id', requireAdmin, asyncRoute(async (req, res) => {
