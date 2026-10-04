@@ -441,7 +441,7 @@ export async function renderEditor(root, id) {
   const prodBox = s4.wrap.querySelector('#products');
   const productRows = [];
   const productTypeOptions = md.productTypes.map((p) => p.name);
-  function addProduct(p = { title: '', product_type: 'Grundregelwerk', binding: '', edition: '', language: '' }) {
+  function addProduct(p = { title: '', product_type: 'Grundregelwerk', binding: '', edition: '', language: '', isbn: '' }) {
     const row = el(`<div class="product-row">
       <div class="field" style="margin:0"><label>Titel</label><input type="text" class="p-title" value="${esc(p.title || '')}"></div>
       <div class="field" style="margin:0"><label>Typ</label><select class="p-type">
@@ -452,6 +452,7 @@ export async function renderEditor(root, id) {
       <div class="field" style="margin:0"><label>Be- &amp; Anmerkungen</label><input type="text" class="p-edition" value="${esc(p.edition || '')}"></div>
       <div class="field" style="margin:0"><label>Sprache</label><select class="p-lang"><option value="">wie Spiel</option>
         ${md.languages.map((l) => `<option value="${l.code}" ${p.language === l.code ? 'selected' : ''}>${l.code.toUpperCase()}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label>ISBN</label><input type="text" class="p-isbn" inputmode="numeric" placeholder="978-…" value="${esc(p.isbn || '')}"></div>
       <button type="button" class="btn btn-sm btn-danger" title="Produkt entfernen">Entfernen</button>
     </div>`);
     row.querySelector('button').addEventListener('click', () => { row.remove(); productRows.splice(productRows.indexOf(row), 1); updatePreview(); });
@@ -559,6 +560,7 @@ export async function renderEditor(root, id) {
         binding: r.querySelector('.p-binding').value || null,
         edition: r.querySelector('.p-edition').value.trim() || null,
         language: r.querySelector('.p-lang').value || null,
+        isbn: r.querySelector('.p-isbn').value.trim() || null,
       })).filter((p) => p.title),
       play_sessions: sessionRows.map((r) => ({
         played_on: r.querySelector('.s-date').value || null,

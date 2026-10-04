@@ -358,7 +358,7 @@ tbody tr:hover { background: var(--surface-2); }
 .step[open] > summary { border-bottom: 1px solid var(--border); }
 .step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: var(--text-xs); font-family: var(--font-body); font-weight: 700; display: grid; place-items: center; flex: none; }
 .step-body { padding: var(--space-5); }
-.product-row { display: grid; grid-template-columns: 1.6fr 1fr .9fr .9fr .7fr auto; gap: var(--space-2); align-items: end; margin-bottom: var(--space-3); }
+.product-row { display: grid; grid-template-columns: 1.6fr 1fr .9fr .9fr .7fr 1fr auto; gap: var(--space-2); align-items: end; margin-bottom: var(--space-3); }
 .session-row { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: end; margin-bottom: var(--space-3); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .session-row .field { flex: 1 1 130px; }
 .session-row .field.narrow { flex: 0 1 100px; }
