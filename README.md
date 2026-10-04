@@ -40,6 +40,23 @@ npm start
 
 Der Server läuft dann unter **http://localhost:8140**.
 
+## Deployen (Railway)
+
+Railway ist nicht mit GitHub verbunden – ein Merge auf `main` geht also
+nicht von selbst live. Nach jedem Merge einmal:
+
+```bash
+npm run deploy
+```
+
+Das Skript (`scripts/deploy.sh`) prüft, dass du auf einem sauberen `main`
+stehst, holt den neuesten Stand und lädt ihn per `railway up` auf den
+Dienst **RPG_Katalog** (Umgebung production) hoch. Voraussetzungen:
+
+- Railway-CLI: `npm i -g @railway/cli`
+- Anmeldung: einmal `railway login`, oder die Umgebungsvariable
+  `RAILWAY_API_TOKEN` mit einem Konto-Token setzen.
+
 ## Admin-Login
 
 Falls in `app_settings` noch kein Passwort hinterlegt ist, fragt
