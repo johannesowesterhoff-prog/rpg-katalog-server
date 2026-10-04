@@ -79,13 +79,14 @@ export async function renderDetail(root, slug, ctx) {
       <section class="section">
         <h2>Vorhandene Produkte (${products.length})</h2>
         ${products.length ? `<div class="scroll-x"><table>
-          <thead><tr><th>Titel</th><th>Typ</th><th>Format</th><th>Be- &amp; Anmerkungen</th><th>Sprache</th></tr></thead>
+          <thead><tr><th>Titel</th><th>Typ</th><th>Format</th><th>Be- &amp; Anmerkungen</th><th>Sprache</th><th>ISBN</th></tr></thead>
           <tbody>${products.map((p) => `<tr>
             <td>${esc(p.title)}</td>
             <td>${esc(p.product_type)}</td>
             <td>${esc(BINDING_LABEL[p.binding] || '–')}</td>
             <td>${esc(p.edition || '–')}</td>
             <td>${esc((p.language || g.language_code).toUpperCase())}</td>
+            <td>${esc(p.isbn || '–')}</td>
           </tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">Für dieses Spiel ist derzeit kein Produkt im Bestand erfasst.</p>'}
       </section>
