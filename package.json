@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "deploy": "bash scripts/deploy.sh"
   },
   "engines": {
     "node": ">=20"
