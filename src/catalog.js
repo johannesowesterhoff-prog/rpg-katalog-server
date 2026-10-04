@@ -622,13 +622,16 @@ export async function updateGame(id, payload, actor) {
   }
 
   return withTransaction(async (client) => {
-    const before = await client.query('SELECT title, status FROM katalog.games WHERE id = $1', [id]);
+    const before = await client.query('SELECT title, slug, status FROM katalog.games WHERE id = $1', [id]);
     if (!before.rowCount) throw httpError(404, 'Eintrag nicht gefunden.');
 
     const languageId = await languageIdByCode(client, payload.language || 'de');
     const systemFamilyId = await resolveOrCreate(client, 'system_families', payload.system_family);
-    const baseSlug = slugify(payload.title) || 'eintrag';
-    const slug = await uniqueSlug(client, baseSlug, id);
+    // Slug nur bei geändertem Titel neu bilden – sonst brechen bestehende Links.
+    const titleChanged = before.rows[0].title !== payload.title.trim();
+    const slug = titleChanged
+      ? await uniqueSlug(client, slugify(payload.title) || 'eintrag', id)
+      : before.rows[0].slug;
     const wasPublished = before.rows[0].status === 'published';
     const willPublish = payload.status === 'published';
 
