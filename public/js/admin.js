@@ -4,6 +4,14 @@ import { api, setToken } from './api.js';
 import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, campaignSessionBadges, coverFrame, COVER_FIT_LABEL } from './ui.js';
 
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+// Interne Wahlomat-Achsen (siehe wahlomat.js); werden nur im Editor gezeigt.
+const WAHLOMAT_FIELDS = [
+  ['welt_fremdheit', 'Welt-Fremdheit', '1 = wie unsere Realität · 5 = völlig fremdartig'],
+  ['gefahr', 'Bedrohung & Druck', '1 = entspannt und sicher · 5 = existenziell bedrohlich'],
+  ['letalitaet', 'Folgen des Scheiterns', '1 = Handlung geht immer weiter · 5 = echter Verlust bis Charaktertod'],
+  ['figurenkompetenz', 'Figurenkompetenz', '1,5 = Alltagsmenschen · 3 = fähige Abenteurer:innen · 5 = große Held:innen'],
+  ['handlungsfreiheit', 'Handlungsfreiheit', '1 = klarer Auftrag · 5 = Gruppe setzt Ziele und Richtung'],
+];
 let master = null;
 
 async function loadMaster(force = false) {
@@ -429,7 +437,16 @@ export async function renderEditor(root, id) {
         <p><strong>Crunch:</strong> ${SCALE_LABELS.crunch.join(' · ')}</p>
         <p><strong>Narrativ:</strong> ${SCALE_LABELS.narrative.join(' · ')}</p>
         <p><strong>Fluff:</strong> ${SCALE_LABELS.fluff.join(' · ')}</p>
-      </div></details>`);
+      </div></details>
+    <details class="wahlomat-internal" style="margin-top:var(--space-3)">
+      <summary class="muted" style="font-size:var(--text-sm);cursor:pointer">Wahlomat-Werte (intern)</summary>
+      <div class="help-box" style="margin-top:var(--space-2)">Nur für den RPG-Wahlomat, nirgends im Katalog sichtbar.
+        Leer lassen ist in Ordnung – dann schätzt der Wahlomat den Wert aus den Tags.</div>
+      <div class="grid-2">${WAHLOMAT_FIELDS.map(([key, label, hint]) => `<div class="field"><label for="f-wo-${key}">${esc(label)}</label>
+        <select id="f-wo-${key}"><option value="">– aus Tags schätzen –</option>
+          ${SCALE_STEPS.map((v) => `<option value="${v}" ${Number((state.wahlomat_profile || {})[key]) === v ? 'selected' : ''}>${String(v).replace('.', ',')}</option>`).join('')}
+        </select><div class="hint">${esc(hint)}</div></div>`).join('')}</div>
+    </details>`);
   form.appendChild(s3.wrap);
 
   // ---- 4. Produkte
@@ -552,6 +569,7 @@ export async function renderEditor(root, id) {
       crunch: val('#f-crunch') || null,
       narrative: val('#f-narrative') || null,
       fluff: val('#f-fluff') || null,
+      wahlomat_profile: Object.fromEntries(WAHLOMAT_FIELDS.map(([key]) => [key, val(`#f-wo-${key}`) || null]).filter(([, v]) => v)),
       status: val('#f-status') || state.status || 'draft',
       editorial_note: val('#f-note').trim() || null,
       products: productRows.map((r) => ({

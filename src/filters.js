@@ -136,6 +136,7 @@ export function gameDetailCte(isAdmin) {
         g.status, g.updated_at, g.created_at, g.published_at,
         g.search_vector,
         ${isAdmin ? 'g.editorial_note,' : 'NULL::text AS editorial_note,'}
+        ${isAdmin ? 'g.wahlomat_profile,' : ''}
         (
           SELECT p.name FROM katalog.game_publishers gp JOIN katalog.publishers p ON p.id = gp.publisher_id
           WHERE gp.game_id = g.id AND gp.is_primary LIMIT 1

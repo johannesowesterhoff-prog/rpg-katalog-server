@@ -9,8 +9,9 @@
 //    automatisch auf, nichts ist hartkodiert.
 //  - Spielstil/Aktivitäten: aus Spielfokus-Tags abgeleitet (play_focus).
 //  - Welt-Fremdheit, Bedrohung/Druck, Folgen des Scheiterns,
-//    Figurenkompetenz, Handlungsfreiheit: es gibt dafür KEIN eigenes
-//    Katalogfeld. Diese fünf Werte sind Schätzungen, die aus der vollen
+//    Figurenkompetenz, Handlungsfreiheit: kommen aus den internen
+//    Wahlomat-Werten (games.wahlomat_profile, nur im Admin sichtbar). Fehlt
+//    ein Wert, wird er wie früher geschätzt: aus der vollen
 //    Tag-Palette eines Spiels (Top+Sub-Genre, Top+Sub-Tone, Spielfokus)
 //    gezählt werden -- je mehr passende Signal-Tags ein Spiel trägt, desto
 //    weiter schlägt der Wert aus 3 (Mitte) aus. Das ist präziser als eine
@@ -144,6 +145,8 @@ function automaticProfile(game) {
   };
 }
 
+const WAHLOMAT_AXES = ['welt_fremdheit', 'gefahr', 'letalitaet', 'figurenkompetenz', 'handlungsfreiheit'];
+
 function buildGames(catalog) {
   if (!catalog || !Array.isArray(catalog.games) || !catalog.games.length) {
     throw new Error('Der Katalog enthält kein gültiges Spiele-Array.');
@@ -165,6 +168,10 @@ function buildGames(catalog) {
       fluff: Number(game.fluff ?? 3),
       weltwissen_einstieg: Math.min(5, Math.max(1, Number(game.fluff ?? 3) - 0.5)),
       ...automaticProfile(g),
+      // Im Admin gepflegte Werte haben Vorrang vor der Tag-Schätzung.
+      ...Object.fromEntries(Object.entries(game.wahlomat_profile || {})
+        .filter(([key, v]) => WAHLOMAT_AXES.includes(key) && Number.isFinite(Number(v)))
+        .map(([key, v]) => [key, Number(v)])),
     };
   });
 }
