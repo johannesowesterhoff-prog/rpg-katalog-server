@@ -93,6 +93,7 @@ const HELP = {
   narrativ: { text: 'Wie viel bestimmen die Spielenden über Handlung und Welt mit – über die eigene Figur hinaus? Niedrig: Die Spielleitung erzählt die Welt, ihr steuert eure Figuren. Hoch: Ihr erfindet Orte, Fakten und Wendungen gemeinsam.' },
   fluff: { text: 'Wie viel fertige Welt liefert das Spiel mit: Geschichte, Orte, Fraktionen, Abenteuer? Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
   weltwissen: { text: 'Wie viel Lesen und Einarbeiten ist vor der ersten Runde für euch in Ordnung? Niedrig: aufschlagen und losspielen.' },
+  priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was ihr hier ankreuzt, zählt stärker – etwa „Crunch“, wenn euch die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
 };
 
 // ---- Spielstil/Aktivitäten weiterhin aus Spielfokus-Tags abgeleitet.
@@ -432,6 +433,8 @@ export async function renderWahlomat(root) {
       <div class="wahlomat-choices"></div>
     </fieldset>`);
     const list = wrap.querySelector('.wahlomat-choices');
+    const help = helpBox('priorities');
+    if (help) wrap.querySelector('small').after(help);
     function refresh() {
       const atMax = state.priorities.length >= PRIORITY_MAX;
       list.querySelectorAll('input').forEach((cb) => { if (!cb.checked) cb.disabled = atMax; });
