@@ -21,10 +21,10 @@ import { api } from './api.js';
 import { el, esc, toast } from './ui.js';
 
 const B = {
-  genre: { total: 10, max: 4, key: 'genre', labels: {} },
-  ton: { total: 10, max: 4, key: 'ton', labels: {} },
+  genre: { total: 7, max: 4, key: 'genre', labels: {} },
+  ton: { total: 7, max: 4, key: 'ton', labels: {} },
   aktivitaeten: {
-    total: 10, max: 4, key: 'aktivitaeten',
+    total: 7, max: 4, key: 'aktivitaeten',
     labels: { kampf_taktik: 'Kämpfen & taktisch planen', erkundung: 'Erkunden & entdecken', ermittlung: 'Ermitteln & Rätsel lösen', soziale_szenen: 'Beziehungen & Rollenspiel', survival: 'Überleben & Ressourcen', weltgestaltung: 'Welt, Basis & Fraktionen' },
   },
 };
@@ -78,21 +78,21 @@ const STEPS = [
   { n: 7, title: 'Prioritäten', lede: 'Optional: Was soll im Ergebnis besonders stark zählen?' },
 ];
 
-// Kurze Erklärungen ("Was ist gemeint?") je Frage. axis = Spielfeld, aus dem
-// live Beispiele aus der eigenen Sammlung gezogen werden (niedrig/hoch).
+// Kurze Erklärungen ("Was ist gemeint?") je Frage – bewusst ohne Beispielspiele,
+// damit die Antworten nicht durch bekannte Titel vorgeprägt werden.
 const HELP = {
   genre: { text: 'Die Art Welt, in der eure Geschichten spielen. Mehr Punkte = reizt euch mehr, 0 = nicht gewünscht. Spiele, die mehrere eurer Wunschgenres verbinden (z. B. Sci-Fi und Horror), rutschen nach oben.' },
   ton: { text: 'Die Grundstimmung am Tisch – unabhängig vom Setting. Eine Fantasywelt kann gemütlich-humorvoll oder bitter-düster sein; hier geht es um das Gefühl, nicht um die Welt.' },
   aktivitaeten: { text: 'Womit verbringt ihr die meiste Spielzeit? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
-  welt_fremdheit: { axis: 'welt_fremdheit', text: 'Wie weit weicht die Spielwelt von unserem Alltag ab – Natur, Technik, Magie, Gesellschaft? Gemeint ist nicht, wie gefährlich sie ist, sondern wie viel ihr euch neu vorstellen müsst.' },
-  gefahr: { axis: 'gefahr', text: 'Wie viel Druck spüren die Figuren die ganze Zeit: Feinde, Hunger, eine feindliche Welt? Das ist unabhängig vom Genre – auch ein Fantasyspiel kann sehr behaglich sein.' },
-  handlungsfreiheit: { axis: 'handlungsfreiheit', text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die ihr löst? Oder entscheidet ihr selbst, wohin ihr geht und was ihr erreichen wollt (Sandbox)?' },
-  letalitaet: { axis: 'letalitaet', text: 'Was passiert, wenn etwas schiefgeht? Niedrig: Rückschläge und Komplikationen, die Geschichte läuft weiter. Hoch: Figuren können sterben oder dauerhaft verlieren – Vorsicht und Planung lohnen sich.' },
-  figurenkompetenz: { axis: 'figurenkompetenz', text: 'Wie fähig sind eure Figuren zu Beginn im Vergleich zur Welt? Kleine Leute, die über sich hinauswachsen – oder Profis und Held:innen, die von Anfang an glänzen?' },
-  crunch: { axis: 'crunch', text: 'Wie viele Regeln wollt ihr aktiv nutzen: Werte, Fertigkeiten, Sonderfähigkeiten, taktische Optionen? Niedrig heißt: in zehn Minuten erklärt, wenige Würfe.' },
-  narrativ: { axis: 'narrativ', text: 'Wie viel bestimmen die Spielenden über Handlung und Welt mit – über die eigene Figur hinaus? Niedrig: Die Spielleitung erzählt die Welt, ihr steuert eure Figuren. Hoch: Ihr erfindet Orte, Fakten und Wendungen gemeinsam.' },
-  fluff: { axis: 'fluff', text: 'Wie viel fertige Welt liefert das Spiel mit: Geschichte, Orte, Fraktionen, Abenteuer? Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
-  weltwissen: { axis: 'weltwissen_einstieg', text: 'Wie viel Lesen und Einarbeiten ist vor der ersten Runde für euch in Ordnung? Niedrig: aufschlagen und losspielen.' },
+  welt_fremdheit: { text: 'Wie weit weicht die Spielwelt von unserem Alltag ab – Natur, Technik, Magie, Gesellschaft? Gemeint ist nicht, wie gefährlich sie ist, sondern wie viel ihr euch neu vorstellen müsst.' },
+  gefahr: { text: 'Wie viel Druck spüren die Figuren die ganze Zeit: Feinde, Hunger, eine feindliche Welt? Das ist unabhängig vom Genre – auch ein Fantasyspiel kann sehr behaglich sein.' },
+  handlungsfreiheit: { text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die ihr löst? Oder entscheidet ihr selbst, wohin ihr geht und was ihr erreichen wollt (Sandbox)?' },
+  letalitaet: { text: 'Was passiert, wenn etwas schiefgeht? Niedrig: Rückschläge und Komplikationen, die Geschichte läuft weiter. Hoch: Figuren können sterben oder dauerhaft verlieren – Vorsicht und Planung lohnen sich.' },
+  figurenkompetenz: { text: 'Wie fähig sind eure Figuren zu Beginn im Vergleich zur Welt? Kleine Leute, die über sich hinauswachsen – oder Profis und Held:innen, die von Anfang an glänzen?' },
+  crunch: { text: 'Wie viele Regeln wollt ihr aktiv nutzen: Werte, Fertigkeiten, Sonderfähigkeiten, taktische Optionen? Niedrig heißt: in zehn Minuten erklärt, wenige Würfe.' },
+  narrativ: { text: 'Wie viel bestimmen die Spielenden über Handlung und Welt mit – über die eigene Figur hinaus? Niedrig: Die Spielleitung erzählt die Welt, ihr steuert eure Figuren. Hoch: Ihr erfindet Orte, Fakten und Wendungen gemeinsam.' },
+  fluff: { text: 'Wie viel fertige Welt liefert das Spiel mit: Geschichte, Orte, Fraktionen, Abenteuer? Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
+  weltwissen: { text: 'Wie viel Lesen und Einarbeiten ist vor der ersten Runde für euch in Ordnung? Niedrig: aufschlagen und losspielen.' },
 };
 
 // ---- Spielstil/Aktivitäten weiterhin aus Spielfokus-Tags abgeleitet.
@@ -324,7 +324,7 @@ export async function renderWahlomat(root) {
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat</h1>
     <p class="lede">Sieben kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln, Fluff und euren Prioritäten — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele).</p>
-    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht – mit Beispielen aus eurer Sammlung. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
+    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
   </section>`);
   root.appendChild(head);
 
@@ -339,21 +339,11 @@ export async function renderWahlomat(root) {
   root.appendChild(quizWrap);
   root.appendChild(resultsWrap);
 
-  // "Was ist gemeint?" mit Beispielen aus der eigenen Sammlung.
-  function shortTitle(t) { return t.split(/ – |: /)[0]; }
+  // "Was ist gemeint?" je Frage.
   function helpBox(key) {
     const h = HELP[key];
     if (!h) return null;
-    let examples = '';
-    if (h.axis) {
-      const sorted = games.filter((g) => Number.isFinite(g[h.axis])).sort((a, b) => a[h.axis] - b[h.axis] || a.title.localeCompare(b.title));
-      if (sorted.length >= 6) {
-        const low = sorted.slice(0, 3).map((g) => shortTitle(g.title));
-        const high = sorted.slice(-3).reverse().map((g) => shortTitle(g.title));
-        examples = `<p class="wahlomat-help-ex">Aus eurer Sammlung – eher niedrig: ${esc(low.join(', '))} · eher hoch: ${esc(high.join(', '))}</p>`;
-      }
-    }
-    return el(`<details class="wahlomat-help"><summary>Was ist gemeint?</summary><p>${esc(h.text)}</p>${examples}</details>`);
+    return el(`<details class="wahlomat-help"><summary>Was ist gemeint?</summary><p>${esc(h.text)}</p></details>`);
   }
 
   function freshBudget(key) { return Object.fromEntries(Object.keys(B[key].labels).map((k) => [k, 0])); }
