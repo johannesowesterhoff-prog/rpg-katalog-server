@@ -403,8 +403,9 @@ tbody tr:hover { background: var(--surface-2); }
 }
 .wahlomat-budget-row output { color: var(--accent); font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
 .wahlomat-range { display: grid; grid-template-columns: 1fr 44px auto; gap: var(--space-3); align-items: center; }
-.wahlomat-range input[type=range]:disabled { opacity: .35; }
-.wahlomat-range:has(.wahlomat-skip input:checked) output { opacity: .35; }
+.wahlomat-range.is-egal input[type=range], .wahlomat-range.is-egal output { opacity: .35; }
+.wahlomat-choices.is-egal .wahlomat-choice { opacity: .5; }
+.wahlomat-field > .wahlomat-skip { margin-top: var(--space-2); }
 .wahlomat-skip { display: inline-flex; align-items: center; gap: .35rem; font-size: var(--text-xs); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
 .wahlomat-skip input { width: auto; accent-color: var(--accent); }
 .wahlomat-choice.is-off { opacity: .5; cursor: not-allowed; }

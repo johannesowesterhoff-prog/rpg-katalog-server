@@ -57,7 +57,7 @@ const PRIORITY_OPTIONS = [
 const PRIORITY_MAX = 3;
 // Regler-Schlüssel -> internes Komponenten-Label (für "Egal": abgewählte Regler
 // im Prioritäten-Schritt sperren und im Ergebnis benennen).
-const SCALAR_TO_PRIORITY = { welt_fremdheit: 'Setting', gefahr: 'Bedrohung', handlungsfreiheit: 'Freiheit', letalitaet: 'Scheitern', crunch: 'Crunch', narrativ: 'Narrativ', fluff: 'Fluff' };
+const SCALAR_TO_PRIORITY = { welt_fremdheit: 'Setting', gefahr: 'Bedrohung', handlungsfreiheit: 'Freiheit', letalitaet: 'Scheitern', figurenkompetenz: 'Figurenbild', crunch: 'Crunch', narrativ: 'Narrativ', fluff: 'Fluff' };
 const PRIORITY_BOOST = 1.5;
 
 // Einzelfragen mit Regler 1-5, je Schritt zugeordnet.
@@ -99,7 +99,7 @@ const HELP = {
 
 // ---- Spielstil/Aktivitäten weiterhin aus Spielfokus-Tags abgeleitet.
 const AKTIVITAETEN_TAGS = {
-  kampf_taktik: new Set(['Superheldenabenteuer', 'Assassinen-Kampagnen', 'John-Wick-Style', 'Stadt- und Bandenkrieg', 'Missionen / Aufträge', 'Kampf / Taktik', 'Action', 'Pulp-Action', 'Cinematic Action', 'Duelle']),
+  kampf_taktik: new Set(['Superheldenabenteuer', 'Assassinen-Kampagnen', 'John-Wick-Style', 'Stadt- und Bandenkrieg', 'Missionen / Aufträge', 'Kampf / Taktik', 'Action', 'Pulp-Action', 'Cinematic Action', 'Duelle', 'Bändigen der Elemente', 'Zerstörung']),
   erkundung: new Set(['Schatzjagden', 'Indiana-Jones-Style', 'Galaktische Kampagnen', 'Erkundung', 'Dungeon-Crawls', 'Abenteuer', 'Episodische Insel-Abenteuer', 'Sword & Sorcery-Abenteuer', 'Raumfahrt', 'Hex-Crawl / Erkundung', 'Reise']),
   ermittlung: new Set(['Rätsel', 'Heist', 'Spionage', 'Konzernintrigen', 'Kultbekämpfung', 'Ermittlungen', 'Ermittlungen / Verschwörungen', 'Mystery', 'Intrigen', 'Intrigen / Politik', 'kreative Problemlösung', 'Investigation / Detektivarbeit']),
   soziale_szenen: new Set(['Konflikte zwischen Kulturen', 'Charakterentwicklung', 'Charakterspiel', 'Soziale Interaktionen', 'Soziale Konflikte', 'Erzählorientiert', 'kooperatives Storytelling', 'Diplomatie']),
@@ -226,9 +226,12 @@ function activityScore(activities, wishes) {
   const precision = own.length ? own.filter((key) => (wishes[key] || 0) > 0).length / own.length : 0;
   return 0.6 * coverage + 0.4 * precision;
 }
+// Figurenbild: Jede gewählte Stufe deckt ±0,5 ab. Die Katalogwerte liegen
+// oft auf 2,5/3,5/4,5, also zwischen den Optionen -- ohne Toleranz bekämen
+// 18 Spiele mit einer Auswahl nie volle Punkte.
 function figureScore(gameValue, selectedValues) {
   if (!selectedValues || !selectedValues.length) return 0;
-  return Math.max(...selectedValues.map((v) => proximity(gameValue, v)));
+  return Math.max(...selectedValues.map((v) => proximity(gameValue - Math.sign(gameValue - v) * Math.min(0.5, Math.abs(gameValue - v)), v)));
 }
 
 function scoreGame(game, profile) {
@@ -239,7 +242,7 @@ function scoreGame(game, profile) {
     ['Bedrohung', W.threat, profile.gefahr != null, profile.gefahr != null ? proximity(game.gefahr, profile.gefahr) : 0],
     ['Spielstil', W.activities, true, activityScore(game.aktivitaeten, profile.aktivitaeten)],
     ['Freiheit', W.agency, profile.handlungsfreiheit != null, profile.handlungsfreiheit != null ? proximity(game.handlungsfreiheit, profile.handlungsfreiheit) : 0],
-    ['Figurenbild', W.figures, true, figureScore(game.figurenkompetenz, profile.figurenkompetenz)],
+    ['Figurenbild', W.figures, profile.figurenkompetenz != null, figureScore(game.figurenkompetenz, profile.figurenkompetenz)],
     ['Scheitern', W.lethality, profile.letalitaet != null, profile.letalitaet != null ? proximity(game.letalitaet, profile.letalitaet) : 0],
     ['Crunch', W.crunch, profile.crunch != null, profile.crunch != null ? proximity(game.crunch, profile.crunch) : 0],
     ['Narrativ', W.narrativ, profile.narrativ != null, profile.narrativ != null ? proximity(game.narrativ, profile.narrativ) : 0],
@@ -331,7 +334,7 @@ export async function renderWahlomat(root) {
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat</h1>
     <p class="lede">Sieben kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln, Fluff und euren Prioritäten — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele).</p>
-    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Regler, die euch nicht wichtig sind, könnt ihr mit „Egal“ abwählen – sie zählen dann gar nicht. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
+    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Regler stehen anfangs auf „Egal“ und zählen erst, wenn ihr sie bewegt – was euch nicht wichtig ist, lasst ihr einfach stehen. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
   </section>`);
   root.appendChild(head);
 
@@ -360,9 +363,12 @@ export async function renderWahlomat(root) {
     genre: freshBudget('genre'),
     ton: freshBudget('ton'),
     aktivitaeten: freshBudget('aktivitaeten'),
-    figurenkompetenz: [],
-    welt_fremdheit: 3, gefahr: 3, handlungsfreiheit: 3, letalitaet: 3,
-    crunch: 3, narrativ: 3, fluff: 3,
+    // Regler und Figurenbild starten als "Egal" (null): Unberührt heißt
+    // "zählt nicht", nicht "Mittelmaß gewünscht". Wer einen Regler bewegt
+    // oder eine Figurenstufe anklickt, aktiviert die Frage damit.
+    figurenkompetenz: null,
+    welt_fremdheit: null, gefahr: null, handlungsfreiheit: null, letalitaet: null,
+    crunch: null, narrativ: null, fluff: null,
     priorities: [],
   };
 
@@ -408,13 +414,12 @@ export async function renderWahlomat(root) {
     // "Egal" setzt den Wert auf null -> die Komponente zählt in scoreGame()
     // weder im Zähler noch im Nenner. Vorher hieß ein unberührter Regler
     // "3 = Mittelmaß gewünscht" und bevorzugte mittige Spiele.
-    skip.checked = state[name] == null;
-    input.disabled = skip.checked;
-    input.addEventListener('input', () => { state[name] = Number(input.value); output.textContent = String(state[name]); });
-    skip.addEventListener('change', () => {
-      input.disabled = skip.checked;
-      state[name] = skip.checked ? null : Number(input.value);
-    });
+    const range = wrap.querySelector('.wahlomat-range');
+    const sync = () => { skip.checked = state[name] == null; range.classList.toggle('is-egal', skip.checked); };
+    sync();
+    // Bewegen des Reglers hebt "Egal" auf; der Regler bleibt dafür bedienbar.
+    input.addEventListener('input', () => { state[name] = Number(input.value); output.textContent = String(state[name]); sync(); });
+    skip.addEventListener('change', () => { state[name] = skip.checked ? null : Number(input.value); sync(); });
     const help = helpBox(name);
     if (help) wrap.querySelector('small').after(help);
     return wrap;
@@ -425,21 +430,32 @@ export async function renderWahlomat(root) {
       <legend>Welche Art Figuren möchtet ihr spielen?</legend>
       <small>Mehrfachauswahl möglich — wählt alle Kompetenzstufen, die für euch in Frage kommen.</small>
       <div class="wahlomat-choices"></div>
+      <label class="wahlomat-skip"><input type="checkbox"> Egal</label>
     </fieldset>`);
     const list = wrap.querySelector('.wahlomat-choices');
+    const skip = wrap.querySelector('.wahlomat-skip input');
     const help = helpBox('figurenkompetenz');
     if (help) wrap.querySelector('small').after(help);
+    const sync = () => { skip.checked = state.figurenkompetenz == null; list.classList.toggle('is-egal', skip.checked); };
     FIGURE_OPTIONS.forEach(([value, label]) => {
-      const item = el(`<label class="wahlomat-choice"><input type="checkbox" value="${value}"><span>${esc(label)}</span></label>`);
+      const checked = (state.figurenkompetenz || []).includes(value);
+      const item = el(`<label class="wahlomat-choice"><input type="checkbox" value="${value}" ${checked ? 'checked' : ''}><span>${esc(label)}</span></label>`);
       const cb = item.querySelector('input');
       cb.addEventListener('change', () => {
-        state.figurenkompetenz = cb.checked
-          ? [...state.figurenkompetenz, value]
-          : state.figurenkompetenz.filter((v) => v !== value);
+        const current = state.figurenkompetenz || [];
+        state.figurenkompetenz = cb.checked ? [...current, value] : current.filter((v) => v !== value);
+        sync();
         updateError();
       });
       list.appendChild(item);
     });
+    skip.addEventListener('change', () => {
+      state.figurenkompetenz = skip.checked ? null : [];
+      if (skip.checked) list.querySelectorAll('input').forEach((cb) => { cb.checked = false; });
+      sync();
+      updateError();
+    });
+    sync();
     return wrap;
   }
 
@@ -475,8 +491,11 @@ export async function renderWahlomat(root) {
   }
 
   let errorBox;
+  // Die Meldung erscheint erst, wenn jemand auf "Weiter" geklickt hat --
+  // vorher stand bei jedem Punkteschritt sofort rot "aktuell 0/7" da.
+  let attempted = false;
   function updateError() {
-    if (!errorBox) return;
+    if (!errorBox || !attempted) return;
     const s = STEPS[state.step - 1];
     let msg = '';
     if (s.budget) {
@@ -484,11 +503,12 @@ export async function renderWahlomat(root) {
       const sum = budgetSum(s.budget);
       if (sum !== cfg.total) msg = `Bitte verteilt genau ${cfg.total} Punkte (aktuell ${sum}/${cfg.total}).`;
     }
-    if (s.n === 4 && !state.figurenkompetenz.length) msg = 'Bitte wählt mindestens ein Figurenbild.';
+    if (s.n === 4 && state.figurenkompetenz && !state.figurenkompetenz.length) msg = 'Bitte wählt mindestens ein Figurenbild – oder hakt „Egal“ an.';
     errorBox.textContent = msg;
   }
 
   function stepValid() {
+    attempted = true;
     updateError();
     return !errorBox.textContent;
   }
@@ -531,7 +551,8 @@ export async function renderWahlomat(root) {
 
     quizWrap.innerHTML = '';
     quizWrap.appendChild(section);
-    updateError();
+    attempted = false;
+    errorBox.textContent = '';
 
     const pct = Math.round(state.step / STEPS.length * 100);
     progress.querySelector('#wProgressText').textContent = `Schritt ${state.step} von ${STEPS.length}`;
@@ -595,9 +616,8 @@ export async function renderWahlomat(root) {
       state.genre = freshBudget('genre');
       state.ton = freshBudget('ton');
       state.aktivitaeten = freshBudget('aktivitaeten');
-      state.figurenkompetenz = [];
       state.priorities = [];
-      Object.keys(SCALAR_TO_PRIORITY).forEach((axis) => { state[axis] = 3; });
+      Object.keys(SCALAR_TO_PRIORITY).forEach((axis) => { state[axis] = null; });
       quizWrap.hidden = false;
       progress.hidden = false;
       resultsWrap.hidden = true;
