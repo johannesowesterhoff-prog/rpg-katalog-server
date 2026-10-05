@@ -9,7 +9,9 @@
 export const PAGE_SIZE = 24;
 
 export const SORTS = {
-  title: 'gd.sort_title NULLS LAST, gd.title',
+  // lower+unaccent, sonst sortiert die DB byteweise: "FUK!" vor "Fantasy",
+  // "Mythic" vor "MÖRK", "Household" vor "HârnMaster".
+  title: 'lower(katalog.imm_unaccent(gd.sort_title)) NULLS LAST, lower(katalog.imm_unaccent(gd.title))',
   neu: 'gd.updated_at DESC',
   crunch: 'gd.crunch DESC NULLS LAST, gd.title',
   narrative: 'gd.narrative DESC NULLS LAST, gd.title',
@@ -29,8 +31,11 @@ const DEFAULTS = {
   ...Object.fromEntries(MODE_DIMS.map((k) => [k + 'Mode', 'OR'])),
 };
 
+// Mehrfachwerte sind mit | getrennt. Kommas trennen nicht, weil sie in
+// Werten vorkommen (vier Systemfamilien wie "Eigenständiges, würfelloses
+// Erzählspiel" waren vorher nicht filterbar).
 function splitCsv(v) {
-  return v ? String(v).split(',').filter(Boolean) : [];
+  return v ? String(v).split('|').map((s) => s.trim()).filter(Boolean) : [];
 }
 
 /** Liest Query-Parameter (aus req.query) in ein normalisiertes Filterobjekt. */

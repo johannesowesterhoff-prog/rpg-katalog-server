@@ -12,7 +12,9 @@ const SCALES = [['crunch', 'Crunch'], ['narrative', 'Narrativ'], ['fluff', 'Fluf
 
 export function stateFromQuery(params) {
   const s = structuredClone(DEFAULTS);
-  for (const k of MULTI) { const v = params.get(k); if (v) s[k] = v.split(',').filter(Boolean); }
+  // Mehrfachwerte sind mit | getrennt -- Kommas kommen in Werten vor
+  // (z.B. Systemfamilie "Eigenes System (regelleicht, kinderfreundlich)").
+  for (const k of MULTI) { const v = params.get(k); if (v) s[k] = v.split('|').filter(Boolean); }
   if (params.get('q')) s.q = params.get('q');
   for (const k of MODE_DIMS) if (params.get(k + 'Mode') === 'AND') s[k + 'Mode'] = 'AND';
   for (const [key] of SCALES) {
@@ -28,7 +30,7 @@ export function stateFromQuery(params) {
 export function queryFromState(s) {
   const p = new URLSearchParams();
   if (s.q) p.set('q', s.q);
-  for (const k of MULTI) if (s[k].length) p.set(k, s[k].join(','));
+  for (const k of MULTI) if (s[k].length) p.set(k, s[k].join('|'));
   for (const k of MODE_DIMS) if (s[k].length > 1 && s[k + 'Mode'] === 'AND') p.set(k + 'Mode', 'AND');
   for (const [key] of SCALES) {
     if (s[key + 'Min'] > 1) p.set(key + 'Min', String(s[key + 'Min']));

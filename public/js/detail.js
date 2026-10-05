@@ -1,5 +1,5 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
-import { api, setArchiveToken } from './api.js';
+import { api, setArchiveToken, hasArchiveToken, hasToken } from './api.js';
 import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, campaignSessionBadges, coverUrl } from './ui.js';
 
 // Deep-Link-Ziel im privaten "Schwarzen Regal" (separate PDF-Datenbank,
@@ -137,7 +137,7 @@ export async function renderDetail(root, slug, ctx) {
     });
   }
   root.appendChild(layout);
-  renderArchivePanel(layout.querySelector('#archive-panel'), g.slug);
+  renderArchivePanel(layout.querySelector('#archive-panel'), g.slug, ctx);
 
   if (data.similar?.length) {
     const sec = el('<section class="section"><h2>Ähnliche Spiele</h2><div class="similar-grid"></div></section>');
@@ -161,12 +161,16 @@ function scaleLabel(key, v) {
 // "Schwarzes Regal" (siehe handoff_archive_link.md). archive_slug wird nie
 // in der öffentlichen /api/games/:slug-Antwort mitgeliefert -- diese eigene,
 // separat authentifizierte Route ist die einzige Quelle dafür.
-async function renderArchivePanel(container, slug) {
+async function renderArchivePanel(container, slug, ctx) {
+  // Ohne Sitzung (laut /api/admin/session) und ohne Token im Speicher gleich
+  // das Passwortfeld zeigen -- vorher lief bei jedem Besuch eine Abfrage, die
+  // für normale Besucher:innen immer mit 401 endete.
+  if (!(ctx?.isAdmin || ctx?.hasArchiveAccess || hasArchiveToken() || hasToken())) return renderArchiveLocked(container, slug, ctx);
   let data;
   try {
     data = await api(`/api/games/${encodeURIComponent(slug)}/archive-link`);
   } catch (e) {
-    if (e.status === 401) return renderArchiveLocked(container, slug);
+    if (e.status === 401) return renderArchiveLocked(container, slug, ctx);
     container.innerHTML = '';
     return;
   }
@@ -183,7 +187,7 @@ function renderArchiveUnlocked(container, data) {
   container.appendChild(el(`<a class="btn btn-sm" target="_blank" rel="noopener" href="${esc(url)}">Im Schwarzen Regal öffnen ↗</a>`));
 }
 
-function renderArchiveLocked(container, slug) {
+function renderArchiveLocked(container, slug, ctx) {
   container.innerHTML = '';
   const form = el(`<form>
     <p class="faint" style="font-size:var(--text-xs);margin-bottom:.5rem">Privat, nur für dich – Passwort eingeben.</p>
@@ -201,7 +205,8 @@ function renderArchiveLocked(container, slug) {
     try {
       const r = await api('/api/archive/login', { method: 'POST', body: { password: input.value } });
       setArchiveToken(r.token);
-      await renderArchivePanel(container, slug);
+      if (ctx) ctx.hasArchiveAccess = true;
+      await renderArchivePanel(container, slug, ctx);
     } catch (err) {
       errBox.appendChild(el(`<p class="error-box" style="font-size:var(--text-xs);margin:.5rem 0 0">${esc(err.message)}</p>`));
     }

@@ -169,6 +169,13 @@ function tokenFromRequest(req) {
   return cookies[COOKIE_NAME] || cookies[COOKIE_NAME_ARCHIVE] || null;
 }
 
+/** Besteht eine gültige Archiv- oder Admin-Sitzung (Bearer oder Cookie)?
+ *  Nur eine Auskunft -- damit die Detailseite den Archiv-Link gar nicht erst
+ *  abfragt, wenn sie ohnehin nur ein 401 bekäme. */
+export function hasArchiveAccess(req) {
+  return !!verifyAnyToken(tokenFromRequest(req));
+}
+
 /** Ermittelt req.isAdmin, ohne die Route zu sperren -- für öffentliche Routen,
  *  die admin-abhängig andere Daten liefern (z.B. Entwürfe für Admins). */
 export function attachAdminFlag(req, _res, next) {
