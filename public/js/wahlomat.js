@@ -79,12 +79,12 @@ const STEPS = [
 
 // ---- Spielstil/Aktivitäten weiterhin aus Spielfokus-Tags abgeleitet.
 const AKTIVITAETEN_TAGS = {
-  kampf_taktik: new Set(['Kampf / Taktik', 'Action', 'Pulp-Action', 'Cinematic Action', 'Duelle']),
-  erkundung: new Set(['Erkundung', 'Dungeon-Crawls', 'Abenteuer', 'Episodische Insel-Abenteuer', 'Sword & Sorcery-Abenteuer', 'Raumfahrt', 'Hex-Crawl / Erkundung', 'Reise']),
-  ermittlung: new Set(['Ermittlungen', 'Ermittlungen / Verschwörungen', 'Mystery', 'Intrigen', 'Intrigen / Politik', 'kreative Problemlösung', 'Investigation / Detektivarbeit']),
-  soziale_szenen: new Set(['Charakterentwicklung', 'Charakterspiel', 'Soziale Interaktionen', 'Soziale Konflikte', 'Erzählorientiert', 'kooperatives Storytelling', 'Diplomatie']),
+  kampf_taktik: new Set(['Superheldenabenteuer', 'Assassinen-Kampagnen', 'John-Wick-Style', 'Stadt- und Bandenkrieg', 'Missionen / Aufträge', 'Kampf / Taktik', 'Action', 'Pulp-Action', 'Cinematic Action', 'Duelle']),
+  erkundung: new Set(['Schatzjagden', 'Indiana-Jones-Style', 'Galaktische Kampagnen', 'Erkundung', 'Dungeon-Crawls', 'Abenteuer', 'Episodische Insel-Abenteuer', 'Sword & Sorcery-Abenteuer', 'Raumfahrt', 'Hex-Crawl / Erkundung', 'Reise']),
+  ermittlung: new Set(['Rätsel', 'Heist', 'Spionage', 'Konzernintrigen', 'Kultbekämpfung', 'Ermittlungen', 'Ermittlungen / Verschwörungen', 'Mystery', 'Intrigen', 'Intrigen / Politik', 'kreative Problemlösung', 'Investigation / Detektivarbeit']),
+  soziale_szenen: new Set(['Konflikte zwischen Kulturen', 'Charakterentwicklung', 'Charakterspiel', 'Soziale Interaktionen', 'Soziale Konflikte', 'Erzählorientiert', 'kooperatives Storytelling', 'Diplomatie']),
   survival: new Set(['Überleben', 'Survival-Horror', 'Ressourcenmanagement', 'Old-School-Spiel', 'OSR']),
-  weltgestaltung: new Set(['Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Sandbox', 'Sandbox-Szenarien', 'Dorfleben', 'Adaptiv / Baukastensystem', 'Dungeonbau']),
+  weltgestaltung: new Set(['Gangspiel', 'Kreativität', 'Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Sandbox', 'Sandbox-Szenarien', 'Dorfleben', 'Adaptiv / Baukastensystem', 'Dungeonbau']),
 };
 
 // ---- Signal-Tagsets für die fünf nicht direkt im Katalog erfassten Achsen.
@@ -170,10 +170,31 @@ function buildGames(catalog) {
 }
 
 function proximity(gameValue, desiredValue) { return Math.max(0, 1 - Math.abs(Number(gameValue) - Number(desiredValue)) / 4); }
-function tagScore(tags, wishes) { return Math.max(0, ...tags.map((tag) => wishes[tag] || 0)) / 3; }
+// Genre/Ton: 70 % zählt der beste Treffer (relativ zum höchsten vergebenen
+// Wunschwert, damit 4 Punkte nicht über 100 % hinausschießen), 30 % wie gut
+// die Tags des Spiels insgesamt zu den Wünschen passen. So landet z.B. bei
+// "Sci-Fi + Horror" ein Spiel mit beiden Genres vor einem reinen Horrorspiel,
+// und ein Spiel mit vielen Tags gewinnt nicht allein durch Tag-Menge.
+function tagScore(tags, wishes) {
+  const given = Object.values(wishes).filter((v) => v > 0).sort((a, b) => b - a);
+  if (!tags.length || !given.length) return 0;
+  const hits = tags.map((tag) => wishes[tag] || 0);
+  const best = Math.max(...hits) / given[0];
+  const ideal = given.slice(0, tags.length).reduce((a, b) => a + b, 0);
+  const fit = hits.reduce((a, b) => a + b, 0) / ideal;
+  return 0.7 * best + 0.3 * fit;
+}
+// Spielstil: Anteil der Wunschpunkte, die das Spiel abdeckt (80 %), plus
+// wie viele seiner eigenen Schwerpunkte gewünscht sind (20 %). Vorher lag
+// der Wert immer zwischen 0,3 und 0,8, der Spielstil machte also kaum einen
+// Unterschied.
 function activityScore(activities, wishes) {
   const total = Object.values(wishes).reduce((sum, v) => sum + v, 0) || 1;
-  return Object.entries(wishes).reduce((sum, [key, points]) => sum + points * ((activities[key] || 1) / 5), 0) / total;
+  const has = (key) => (activities[key] || 0) >= 3;
+  const coverage = Object.entries(wishes).reduce((sum, [key, points]) => sum + points * (has(key) ? 1 : 0.15), 0) / total;
+  const own = Object.keys(activities).filter(has);
+  const precision = own.length ? own.filter((key) => (wishes[key] || 0) > 0).length / own.length : 0;
+  return 0.8 * coverage + 0.2 * precision;
 }
 function figureScore(gameValue, selectedValues) {
   if (!selectedValues || !selectedValues.length) return 0;
