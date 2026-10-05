@@ -12,6 +12,7 @@ import {
   loginRateLimit, csrfGuard,
   checkArchivePassword, setArchivePassword, hasArchivePassword,
   setArchiveCookie, clearArchiveCookie, requireArchiveAccess,
+  hasArchiveAccess,
 } from './src/auth.js';
 import {
   listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats,
@@ -33,6 +34,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 
 const app = express();
 app.set('trust proxy', true); // korrekte req.ip hinter einem Proxy/Load-Balancer
+app.disable('x-powered-by');
 app.use(express.json({ limit: '2mb' }));
 
 // ---------------------------------------------------------------- CORS
@@ -72,6 +74,16 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
+  // Skripte/Verbindungen nur von hier; Inline-Styles bleiben erlaubt (style=""
+  // wird im Frontend viel genutzt); Schriften von Fontshare; data:/blob: für
+  // Favicon und Cover-Vorschau. Nach Entfernen des Fremdskripts aus index.html
+  // gibt es kein Inline-JavaScript mehr.
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'", "script-src 'self'", "connect-src 'self'",
+    "style-src 'self' 'unsafe-inline' https://api.fontshare.com", "font-src 'self' https://cdn.fontshare.com",
+    "img-src 'self' data: blob:", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
+  ].join('; '));
+  if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   next();
@@ -165,7 +177,7 @@ app.post('/api/admin/logout', (req, res) => {
 });
 
 app.get('/api/admin/session', attachAdminFlag, (req, res) => {
-  res.json({ isAdmin: !!req.isAdmin, dbMode: 'postgres' });
+  res.json({ isAdmin: !!req.isAdmin, hasArchiveAccess: hasArchiveAccess(req), dbMode: 'postgres' });
 });
 
 app.post('/api/admin/password', requireAdmin, asyncRoute(async (req, res) => {
@@ -396,6 +408,13 @@ app.get('/sitemap.xml', asyncRoute(async (req, res) => {
 app.use(express.static(PUBLIC_DIR, { index: false }));
 
 const INDEX_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+// Für die Spiel-Detailseiten ohne die statischen Titel-/Beschreibungs-Tags:
+// Vorher kamen og:title und <title> doppelt vor, und Link-Vorschauen zeigten
+// "RPG-Katalog" statt des Spieltitels.
+const INDEX_HTML_SSR = INDEX_HTML
+  .replace(/<title>[\s\S]*?<\/title>\s*/, '')
+  .replace(/<meta name="description"[^>]*>\s*/, '')
+  .replace(/<meta property="og:(?:title|description)"[^>]*>\s*/g, '');
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // SSR-Meta für einzelne Spiel-Detailseiten (Open-Graph-Tags für Social-Previews).
@@ -403,12 +422,15 @@ app.get('/spiele/:slug', asyncRoute(async (req, res) => {
   const data = await getGameBySlug(req.params.slug, false);
   if (!data) return res.status(404).type('html').send(INDEX_HTML);
   const g = data.game;
+  const base = `${req.protocol}://${req.headers.host}`;
   const meta = `
+    <title>${esc(g.title)} – RPG-Katalog</title>
+    <meta name="description" content="${esc(g.short_description)}">
     <meta property="og:title" content="${esc(g.title)}">
     <meta property="og:description" content="${esc(g.short_description)}">
-    ${g.cover ? `<meta property="og:image" content="${esc(`${req.protocol}://${req.headers.host}/api/games/${g.slug}/cover?v=${g.cover.v}`)}">` : ''}
-    <title>${esc(g.title)} – RPG-Katalog</title>`;
-  res.type('html').send(INDEX_HTML.replace('<!--SSR_META-->', meta));
+    <meta property="og:url" content="${esc(`${base}/spiele/${g.slug}`)}">
+    ${g.cover ? `<meta property="og:image" content="${esc(`${base}/api/games/${g.slug}/cover?v=${g.cover.v}`)}">` : ''}`;
+  res.type('html').send(INDEX_HTML_SSR.replace('<!--SSR_META-->', meta));
 }));
 
 // Alle übrigen Adminbereich-/App-Routen liefern die SPA-Shell aus.

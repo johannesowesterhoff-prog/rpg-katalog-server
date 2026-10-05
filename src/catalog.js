@@ -313,8 +313,9 @@ export async function getFacets(query, isAdmin) {
     ['toneThemesTop', 'tone_theme_top', true],
     ['toneThemes', 'tone_theme', true],
   ];
-  const out = {};
-  for (const [key, column, isArray, tagKind] of dims) {
+  // Alle neun Zählungen parallel -- nacheinander dauerte der Aufruf ~600 ms
+  // und bremste jede Filteränderung im Katalog.
+  const results = await Promise.all(dims.map(async ([key, column, isArray, tagKind]) => {
     // Zähle jede Facette unter allen Filtern AUSSER dem eigenen Feld, damit
     // Nutzer:innen sehen, wie viele Treffer eine weitere Auswahl brächte.
     const fCopy = { ...f };
@@ -329,10 +330,10 @@ export async function getFacets(query, isAdmin) {
     if (column === 'tone_theme') fCopy.tone = [];
     const { whereSql, params } = buildWhere(fCopy, isAdmin, { excludeScales: false });
     const rows = await facetCounts(cte, whereSql, params, { column, isArray, tagKind });
-    out[key] = rows.map((r) => ({ value: r.value, label: r.value, count: r.count }));
-  }
+    return [key, rows.map((r) => ({ value: r.value, label: r.value, count: r.count }))];
+  }));
 
-  return out;
+  return Object.fromEntries(results);
 }
 
 export async function getGameBySlug(slug, isAdmin) {

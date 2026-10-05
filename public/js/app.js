@@ -8,7 +8,7 @@ import { renderLogin, renderDashboard, renderList, renderEditor, renderImport, r
 import { toast, emptyState } from './ui.js';
 
 const root = document.getElementById('app');
-const ctx = { isAdmin: false, dbMode: 'pglite' };
+const ctx = { isAdmin: false, hasArchiveAccess: false, dbMode: 'pglite' };
 
 // ---- Farbschema
 // Farbschema folgt der Systemeinstellung und lässt sich pro Sitzung umschalten.
@@ -84,6 +84,6 @@ async function route() {
 window.addEventListener('hashchange', route);
 
 api('/api/admin/session').then((s) => {
-  ctx.isAdmin = s.isAdmin; ctx.dbMode = s.dbMode;
+  ctx.isAdmin = s.isAdmin; ctx.hasArchiveAccess = !!s.hasArchiveAccess; ctx.dbMode = s.dbMode;
   document.getElementById('db-hint').textContent = `Datenbank: ${s.dbMode === 'postgres' ? 'PostgreSQL-Server (DATABASE_URL)' : 'PostgreSQL über PGlite (lokale Datei)'}`;
 }).catch(() => {}).finally(route);
