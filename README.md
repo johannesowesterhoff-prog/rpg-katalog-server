@@ -57,6 +57,15 @@ Dienst **RPG_Katalog** (Umgebung production) hoch. Voraussetzungen:
 - Anmeldung: einmal `railway login`, oder die Umgebungsvariable
   `RAILWAY_API_TOKEN` mit einem Konto-Token setzen.
 
+### Ohne Terminal: Deploy über GitHub
+
+`.github/workflows/deploy.yml` deployt automatisch nach jedem Merge auf
+`main`, oder per Hand unter **Actions → „Deploy auf Railway“ → Run workflow**.
+Einmalig nötig: In Railway unter Projekt → Settings → Tokens einen
+Projekt-Token für die Umgebung *production* anlegen und ihn in GitHub unter
+Settings → Secrets and variables → Actions als Secret `RAILWAY_TOKEN`
+speichern.
+
 ## Admin-Login
 
 Falls in `app_settings` noch kein Passwort hinterlegt ist, fragt
