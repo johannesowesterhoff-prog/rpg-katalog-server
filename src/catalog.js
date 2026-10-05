@@ -261,20 +261,21 @@ export async function listGames(query, isAdmin) {
   const f = parseFilters(query, isAdmin);
   const { whereSql, params } = buildWhere(f, isAdmin);
   const cte = gameDetailCte(isAdmin);
-  const offset = (f.page - 1) * PAGE_SIZE;
+  const pageSize = f.pageSize || PAGE_SIZE;
+  const offset = (f.page - 1) * pageSize;
 
   const countSql = `WITH ${cte} SELECT count(*)::int AS total FROM gd ${whereSql}`;
   const totalR = await pool.query(countSql, params);
   const total = totalR.rows[0].total;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pages = Math.max(1, Math.ceil(total / pageSize));
 
   const listSql = `WITH ${cte}
     SELECT ${CARD_COLUMNS} FROM gd ${whereSql}
     ORDER BY ${SORTS[f.sort]}
-    LIMIT ${PAGE_SIZE} OFFSET ${offset}`;
+    LIMIT ${pageSize} OFFSET ${offset}`;
   const listR = await pool.query(listSql, params);
 
-  return { games: listR.rows, total, page: f.page, pages, pageSize: PAGE_SIZE };
+  return { games: listR.rows, total, page: f.page, pages, pageSize };
 }
 
 async function facetCounts(cte, whereSql, params, { column, isArray, tagKind }) {
@@ -337,6 +338,7 @@ export async function getFacets(query, isAdmin) {
 }
 
 export async function getGameBySlug(slug, isAdmin) {
+  if (typeof slug !== 'string' || !slug || slug.length > 200 || /\u0000/.test(slug)) return null;
   const cte = gameDetailCte(isAdmin);
   const r = await pool.query(`WITH ${cte} SELECT * FROM gd WHERE slug = $1`, [slug]);
   if (!r.rowCount) return null;

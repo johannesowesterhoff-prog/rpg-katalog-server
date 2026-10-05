@@ -38,7 +38,7 @@ export async function renderDetail(root, slug, ctx) {
       <a class="btn btn-sm btn-ghost" href="#/?systemFamily=${encodeURIComponent(g.system_family)}">Mehr aus dieser Systemfamilie</a>
     </div>
     </div>
-    ${g.cover ? `<img class="detail-cover" src="${esc(coverUrl(g.slug, g.cover))}" alt="Cover: ${esc(g.title)}">` : ''}
+    ${g.cover ? `<img class="detail-cover" src="${esc(coverUrl(g.slug, g.cover))}" alt="Cover: ${esc(g.title)}"${g.cover.w && g.cover.h ? ` width="${Number(g.cover.w)}" height="${Number(g.cover.h)}" style="aspect-ratio:${Number(g.cover.w)}/${Number(g.cover.h)}"` : ''}>` : ''}
   </section>`);
   head.querySelector('.detail-cover')?.addEventListener('error', (e) => { e.target.remove(); head.classList.remove('has-cover'); });
   head.querySelector('#share').addEventListener('click', async () => {

@@ -439,6 +439,15 @@ app.get(['/admin', '/admin/*splat', '/spiele'], (_req, res) => {
 });
 app.get('/', (_req, res) => res.type('html').send(INDEX_HTML));
 
+// Letzter Fehlerfänger für Seitenrouten: knappe HTML-Seite statt Express-
+// Standardseite, nichts aus der Fehlermeldung nach außen.
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  // eslint-disable-next-line no-console
+  console.error(err);
+  res.status(err.status || 500).type('html').send('<!doctype html><html lang="de"><meta charset="utf-8"><title>Fehler – RPG-Katalog</title><body style="font-family:system-ui;padding:2rem"><h1>Da ist etwas schiefgelaufen.</h1><p><a href="/">Zurück zum Katalog</a></p></body></html>');
+});
+
 app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`RPG-Katalog-Server läuft auf http://localhost:${PORT} (${NODE_ENV})`);
