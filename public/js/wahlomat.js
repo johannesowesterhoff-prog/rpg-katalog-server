@@ -29,7 +29,7 @@ const B = {
   },
 };
 
-const W = { genre: 15, setting: 7, tone: 12, threat: 8, activities: 15, agency: 6, figures: 7, lethality: 8, crunch: 7, narrativ: 8, fluff: 7, world: 3 };
+const W = { genre: 15, setting: 7, tone: 12, threat: 8, activities: 15, agency: 6, figures: 7, lethality: 8, crunch: 7, narrativ: 8, fluff: 10 };
 
 const FIGURE_OPTIONS = [
   [1.5, 'Alltagsmenschen in einer außergewöhnlichen Lage'],
@@ -53,9 +53,11 @@ const PRIORITY_OPTIONS = [
   ['Crunch', 'Crunch (Regelstruktur)'],
   ['Narrativ', 'Narrative Mitgestaltung'],
   ['Fluff', 'Welt-Ausarbeitung (Fluff)'],
-  ['Weltwissen', 'Weltwissen-Einstieg'],
 ];
 const PRIORITY_MAX = 3;
+// Regler-Schlüssel -> internes Komponenten-Label (für "Egal": abgewählte Regler
+// im Prioritäten-Schritt sperren und im Ergebnis benennen).
+const SCALAR_TO_PRIORITY = { welt_fremdheit: 'Setting', gefahr: 'Bedrohung', handlungsfreiheit: 'Freiheit', letalitaet: 'Scheitern', crunch: 'Crunch', narrativ: 'Narrativ', fluff: 'Fluff' };
 const PRIORITY_BOOST = 1.5;
 
 // Einzelfragen mit Regler 1-5, je Schritt zugeordnet.
@@ -65,7 +67,7 @@ const RANGES = {
   3: [['handlungsfreiheit', 'Wie offen soll die Handlung sein?', '1 = klarer Auftrag · 5 = Gruppe setzt Ziele und Richtung']],
   4: [['letalitaet', 'Wie folgenreich darf Scheitern sein?', '1 = Auch bei Fehlschlägen geht die Handlung weiter · 5 = Scheitern ist scheitern – echter Verlust (bis hin zum Charaktertod) ist möglich']],
   5: [['crunch', 'Wie viel Regelstruktur möchtet ihr aktiv nutzen?', '1 = sehr leicht, kaum Optionen · 5 = viele Regeln, Optionen und taktische Tiefe (z.B. Charakterbau, Builds)'], ['narrativ', 'Wie stark gestaltet ihr Handlung und Welt direkt mit?', '1 = Spielleitung führt klar · 5 = Welt gemeinsam gestalten']],
-  6: [['fluff', 'Wie stark soll die Spielwelt bereits ausgearbeitet sein?', '1 = offen, wenig vorgegeben, viel selbst ausdenken · 5 = stark ausgearbeitete Welt mit viel Hintergrundmaterial'], ['weltwissen', 'Wie viel wollt ihr euch vor dem Spielen in die Spielwelt einlesen?', '1 = nur das Nötigste zum Loslegen · 5 = vorher ausführlich eintauchen']],
+  6: [['fluff', 'Wie stark soll die Spielwelt bereits ausgearbeitet sein?', '1 = offen, wenig vorgegeben, viel selbst ausdenken · 5 = stark ausgearbeitete Welt mit viel Hintergrundmaterial']],
 };
 
 const STEPS = [
@@ -92,7 +94,6 @@ const HELP = {
   crunch: { text: 'Wie viele Regeln wollt ihr aktiv nutzen: Werte, Fertigkeiten, Sonderfähigkeiten, taktische Optionen? Niedrig heißt: in zehn Minuten erklärt, wenige Würfe.' },
   narrativ: { text: 'Wie viel bestimmen die Spielenden über Handlung und Welt mit – über die eigene Figur hinaus? Niedrig: Die Spielleitung erzählt die Welt, ihr steuert eure Figuren. Hoch: Ihr erfindet Orte, Fakten und Wendungen gemeinsam.' },
   fluff: { text: 'Wie viel fertige Welt liefert das Spiel mit: Geschichte, Orte, Fraktionen, Abenteuer? Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
-  weltwissen: { text: 'Wie viel Lesen und Einarbeiten ist vor der ersten Runde für euch in Ordnung? Niedrig: aufschlagen und losspielen.' },
   priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was ihr hier ankreuzt, zählt stärker – etwa „Crunch“, wenn euch die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
 };
 
@@ -184,7 +185,6 @@ function buildGames(catalog) {
       crunch: Number(game.crunch ?? 3),
       narrativ: Number(game.narrative ?? 3),
       fluff: Number(game.fluff ?? 3),
-      weltwissen_einstieg: Math.min(5, Math.max(1, Number(game.fluff ?? 3) - 0.5)),
       ...automaticProfile(g),
       // Im Admin gepflegte Werte haben Vorrang vor der Tag-Schätzung.
       ...Object.fromEntries(Object.entries(game.wahlomat_profile || {})
@@ -194,12 +194,17 @@ function buildGames(catalog) {
   });
 }
 
-function proximity(gameValue, desiredValue) { return Math.max(0, 1 - Math.abs(Number(gameValue) - Number(desiredValue)) / 4); }
-// Genre/Ton: 70 % zählt der beste Treffer (relativ zum höchsten vergebenen
-// Wunschwert, damit 4 Punkte nicht über 100 % hinausschießen), 30 % wie gut
-// die Tags des Spiels insgesamt zu den Wünschen passen. So landet z.B. bei
-// "Sci-Fi + Horror" ein Spiel mit beiden Genres vor einem reinen Horrorspiel,
-// und ein Spiel mit vielen Tags gewinnt nicht allein durch Tag-Menge.
+// Nähe auf den 1-5-Skalen: ab 3 Punkten Abstand gibt es nichts mehr. Vorher
+// lief die Gerade bis Abstand 4, dadurch unterschied ein Regler kaum zwischen
+// 2,5 und 3 -- alle acht Regler zusammen machten nur ein Fünftel der
+// Score-Unterschiede aus, Genre/Ton/Spielstil den Rest.
+function proximity(gameValue, desiredValue) { return Math.max(0, 1 - Math.abs(Number(gameValue) - Number(desiredValue)) / 3); }
+// Genre/Ton: je zur Hälfte der beste Treffer (relativ zum höchsten vergebenen
+// Wunschwert, damit 4 Punkte nicht über 100 % hinausschießen) und wie gut die
+// Tags des Spiels insgesamt zu den Wünschen passen. So landet z.B. bei
+// "Sci-Fi + Horror" ein Spiel mit beiden Genres vor einem reinen Horrorspiel.
+// Bei 70/30 gewannen Spiele mit drei Genres fast immer: Sie trafen dreimal so
+// oft irgendeinen Wunsch und verloren für die Beliebigkeit kaum etwas.
 function tagScore(tags, wishes) {
   const given = Object.values(wishes).filter((v) => v > 0).sort((a, b) => b - a);
   if (!tags.length || !given.length) return 0;
@@ -207,19 +212,19 @@ function tagScore(tags, wishes) {
   const best = Math.max(...hits) / given[0];
   const ideal = given.slice(0, tags.length).reduce((a, b) => a + b, 0);
   const fit = hits.reduce((a, b) => a + b, 0) / ideal;
-  return 0.7 * best + 0.3 * fit;
+  return 0.5 * best + 0.5 * fit;
 }
-// Spielstil: Anteil der Wunschpunkte, die das Spiel abdeckt (80 %), plus
-// wie viele seiner eigenen Schwerpunkte gewünscht sind (20 %). Vorher lag
-// der Wert immer zwischen 0,3 und 0,8, der Spielstil machte also kaum einen
-// Unterschied.
+// Spielstil: Anteil der Wunschpunkte, die das Spiel abdeckt (60 %), plus
+// wie viele seiner eigenen Schwerpunkte gewünscht sind (40 %). Der zweite
+// Teil bremst Spiele mit vier Schwerpunkten, die sonst jede Kombination
+// abdecken; bei 20 % kostete ein überzähliger Schwerpunkt fast nichts.
 function activityScore(activities, wishes) {
   const total = Object.values(wishes).reduce((sum, v) => sum + v, 0) || 1;
   const has = (key) => (activities[key] || 0) >= 3;
   const coverage = Object.entries(wishes).reduce((sum, [key, points]) => sum + points * (has(key) ? 1 : 0.15), 0) / total;
   const own = Object.keys(activities).filter(has);
   const precision = own.length ? own.filter((key) => (wishes[key] || 0) > 0).length / own.length : 0;
-  return 0.8 * coverage + 0.2 * precision;
+  return 0.6 * coverage + 0.4 * precision;
 }
 function figureScore(gameValue, selectedValues) {
   if (!selectedValues || !selectedValues.length) return 0;
@@ -239,7 +244,6 @@ function scoreGame(game, profile) {
     ['Crunch', W.crunch, profile.crunch != null, profile.crunch != null ? proximity(game.crunch, profile.crunch) : 0],
     ['Narrativ', W.narrativ, profile.narrativ != null, profile.narrativ != null ? proximity(game.narrativ, profile.narrativ) : 0],
     ['Fluff', W.fluff, profile.fluff != null, profile.fluff != null ? proximity(game.fluff, profile.fluff) : 0],
-    ['Weltwissen', W.world, profile.weltwissen != null, profile.weltwissen != null ? proximity(game.weltwissen_einstieg, profile.weltwissen) : 0],
   ];
   // Bis zu drei per "Prioritäten"-Schritt gewählte Dimensionen zählen stärker.
   const priorities = profile.priorities || [];
@@ -247,7 +251,9 @@ function scoreGame(game, profile) {
   const activeWeight = components.reduce((sum, [label, weight, active]) => sum + (active ? weightOf(label, weight) : 0), 0) || 1;
   const breakdown = {};
   let raw = 0;
-  components.forEach(([label, weight, active, value]) => { const c = active ? weightOf(label, weight) * value : 0; breakdown[label] = c; raw += c; });
+  // Mit "Egal" abgewählte Regler (Wert null) sind inaktiv: Sie zählen weder
+  // im Zähler noch im Nenner und tauchen in der Aufschlüsselung nicht auf.
+  components.forEach(([label, weight, active, value]) => { if (!active) return; const c = weightOf(label, weight) * value; breakdown[label] = c; raw += c; });
   return { ...game, score: (raw / activeWeight) * 100, breakdown };
 }
 
@@ -325,7 +331,7 @@ export async function renderWahlomat(root) {
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat</h1>
     <p class="lede">Sieben kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln, Fluff und euren Prioritäten — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele).</p>
-    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
+    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Regler, die euch nicht wichtig sind, könnt ihr mit „Egal“ abwählen – sie zählen dann gar nicht. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
   </section>`);
   root.appendChild(head);
 
@@ -356,7 +362,7 @@ export async function renderWahlomat(root) {
     aktivitaeten: freshBudget('aktivitaeten'),
     figurenkompetenz: [],
     welt_fremdheit: 3, gefahr: 3, handlungsfreiheit: 3, letalitaet: 3,
-    crunch: 3, narrativ: 3, fluff: 3, weltwissen: 3,
+    crunch: 3, narrativ: 3, fluff: 3,
     priorities: [],
   };
 
@@ -391,13 +397,24 @@ export async function renderWahlomat(root) {
       <legend>${esc(label)}</legend>
       <small>${esc(hint)}</small>
       <div class="wahlomat-range">
-        <input type="range" min="1" max="5" step=".5" value="${state[name]}">
-        <output>${state[name]}</output>
+        <input type="range" min="1" max="5" step=".5" value="${state[name] ?? 3}">
+        <output>${state[name] ?? 3}</output>
+        <label class="wahlomat-skip"><input type="checkbox"> Egal</label>
       </div>
     </fieldset>`);
     const input = wrap.querySelector('input[type=range]');
     const output = wrap.querySelector('output');
+    const skip = wrap.querySelector('.wahlomat-skip input');
+    // "Egal" setzt den Wert auf null -> die Komponente zählt in scoreGame()
+    // weder im Zähler noch im Nenner. Vorher hieß ein unberührter Regler
+    // "3 = Mittelmaß gewünscht" und bevorzugte mittige Spiele.
+    skip.checked = state[name] == null;
+    input.disabled = skip.checked;
     input.addEventListener('input', () => { state[name] = Number(input.value); output.textContent = String(state[name]); });
+    skip.addEventListener('change', () => {
+      input.disabled = skip.checked;
+      state[name] = skip.checked ? null : Number(input.value);
+    });
     const help = helpBox(name);
     if (help) wrap.querySelector('small').after(help);
     return wrap;
@@ -437,10 +454,12 @@ export async function renderWahlomat(root) {
     if (help) wrap.querySelector('small').after(help);
     function refresh() {
       const atMax = state.priorities.length >= PRIORITY_MAX;
-      list.querySelectorAll('input').forEach((cb) => { if (!cb.checked) cb.disabled = atMax; });
+      list.querySelectorAll('input').forEach((cb) => { if (!cb.checked) cb.disabled = atMax || cb.closest('.is-off') !== null; });
     }
+    const skipped = new Set(Object.entries(SCALAR_TO_PRIORITY).filter(([axis]) => state[axis] == null).map(([, label]) => label));
     PRIORITY_OPTIONS.forEach(([key, label]) => {
-      const item = el(`<label class="wahlomat-choice"><input type="checkbox" value="${esc(key)}" ${state.priorities.includes(key) ? 'checked' : ''}><span>${esc(label)}</span></label>`);
+      const off = skipped.has(key);
+      const item = el(`<label class="wahlomat-choice${off ? ' is-off' : ''}" ${off ? 'title="Als „Egal“ abgewählt – zählt nicht"' : ''}><input type="checkbox" value="${esc(key)}" ${state.priorities.includes(key) && !off ? 'checked' : ''} ${off ? 'disabled' : ''}><span>${esc(label)}${off ? ' (egal)' : ''}</span></label>`);
       const cb = item.querySelector('input');
       cb.addEventListener('change', () => {
         state.priorities = cb.checked
@@ -450,6 +469,7 @@ export async function renderWahlomat(root) {
       });
       list.appendChild(item);
     });
+    state.priorities = state.priorities.filter((p) => !skipped.has(p));
     refresh();
     return wrap;
   }
@@ -525,13 +545,16 @@ export async function renderWahlomat(root) {
       genre: state.genre, ton: state.ton, aktivitaeten: state.aktivitaeten,
       welt_fremdheit: state.welt_fremdheit, gefahr: state.gefahr, handlungsfreiheit: state.handlungsfreiheit,
       figurenkompetenz: state.figurenkompetenz, letalitaet: state.letalitaet,
-      crunch: state.crunch, narrativ: state.narrativ, fluff: state.fluff, weltwissen: state.weltwissen,
+      crunch: state.crunch, narrativ: state.narrativ, fluff: state.fluff,
       priorities: state.priorities,
     };
   }
 
   function renderResults() {
     const profile = groupProfile();
+    const skippedLabels = Object.entries(SCALAR_TO_PRIORITY).filter(([axis]) => profile[axis] == null)
+      .map(([, key]) => PRIORITY_OPTIONS.find(([k]) => k === key)[1]);
+    const skippedNote = skippedLabels.length ? ` Nicht gewertet (als „Egal“ abgewählt): ${esc(skippedLabels.join(', '))}.` : '';
     const results = games.map((g) => scoreGame(g, profile)).sort((a, b) => b.score - a.score);
 
     quizWrap.hidden = true;
@@ -564,7 +587,7 @@ export async function renderWahlomat(root) {
         <div><p class="faint" style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.07em;margin:0 0 .2rem">Euer Ergebnis</p><h2>Passende Spiele</h2></div>
         <button type="button" class="btn" id="wRestart">Neu starten</button>
       </div>
-      <div class="help-box">Bewertet wurden alle ${results.length} veröffentlichten Spiele aus dem Katalog.</div>
+      <div class="help-box">Bewertet wurden alle ${results.length} veröffentlichten Spiele aus dem Katalog.${skippedNote}</div>
       <div class="wahlomat-results">${listHtml}</div>
     </section>`);
     section.querySelector('#wRestart').addEventListener('click', () => {
@@ -574,6 +597,7 @@ export async function renderWahlomat(root) {
       state.aktivitaeten = freshBudget('aktivitaeten');
       state.figurenkompetenz = [];
       state.priorities = [];
+      Object.keys(SCALAR_TO_PRIORITY).forEach((axis) => { state[axis] = 3; });
       quizWrap.hidden = false;
       progress.hidden = false;
       resultsWrap.hidden = true;

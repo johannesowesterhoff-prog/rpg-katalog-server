@@ -402,7 +402,12 @@ tbody tr:hover { background: var(--surface-2); }
   font-size: var(--text-sm); font-weight: 400;
 }
 .wahlomat-budget-row output { color: var(--accent); font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
-.wahlomat-range { display: grid; grid-template-columns: 1fr 44px; gap: var(--space-3); align-items: center; }
+.wahlomat-range { display: grid; grid-template-columns: 1fr 44px auto; gap: var(--space-3); align-items: center; }
+.wahlomat-range input[type=range]:disabled { opacity: .35; }
+.wahlomat-range:has(.wahlomat-skip input:checked) output { opacity: .35; }
+.wahlomat-skip { display: inline-flex; align-items: center; gap: .35rem; font-size: var(--text-xs); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+.wahlomat-skip input { width: auto; accent-color: var(--accent); }
+.wahlomat-choice.is-off { opacity: .5; cursor: not-allowed; }
 .wahlomat-range output { padding: .3rem; border-radius: var(--radius-full); background: var(--accent-soft); color: var(--accent); font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
 .wahlomat-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap: var(--space-2); }
 .wahlomat-choice {
