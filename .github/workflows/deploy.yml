@@ -1,0 +1,36 @@
+# Deployt den aktuellen Stand von main auf Railway (Dienst RPG_Katalog,
+# Umgebung production) – automatisch nach jedem Merge auf main oder per Knopf
+# unter „Actions → Deploy auf Railway → Run workflow“.
+#
+# Voraussetzung: Repository-Secret RAILWAY_TOKEN mit einem Railway-
+# Projekt-Token (Railway → Projekt → Settings → Tokens).
+name: Deploy auf Railway
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: railway-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Railway-CLI installieren
+        run: npm install -g @railway/cli
+      - name: Deployen
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::Secret RAILWAY_TOKEN fehlt (GitHub → Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          railway up --ci --project 13b23b21-1386-4ccc-b00b-f1db1a5c2588 --service c620bd45-4cd0-49d2-8a80-56939c75a7f3 --environment ea880c05-ccf5-4ff8-aeeb-2c8f661aff6f
