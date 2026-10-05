@@ -9,8 +9,9 @@
 //    automatisch auf, nichts ist hartkodiert.
 //  - Spielstil/Aktivitäten: aus Spielfokus-Tags abgeleitet (play_focus).
 //  - Welt-Fremdheit, Bedrohung/Druck, Folgen des Scheiterns,
-//    Figurenkompetenz, Handlungsfreiheit: es gibt dafür KEIN eigenes
-//    Katalogfeld. Diese fünf Werte sind Schätzungen, die aus der vollen
+//    Figurenkompetenz, Handlungsfreiheit: kommen aus den internen
+//    Wahlomat-Werten (games.wahlomat_profile, nur im Admin sichtbar). Fehlt
+//    ein Wert, wird er wie früher geschätzt: aus der vollen
 //    Tag-Palette eines Spiels (Top+Sub-Genre, Top+Sub-Tone, Spielfokus)
 //    gezählt werden -- je mehr passende Signal-Tags ein Spiel trägt, desto
 //    weiter schlägt der Wert aus 3 (Mitte) aus. Das ist präziser als eine
@@ -77,14 +78,31 @@ const STEPS = [
   { n: 7, title: 'Prioritäten', lede: 'Optional: Was soll im Ergebnis besonders stark zählen?' },
 ];
 
+// Kurze Erklärungen ("Was ist gemeint?") je Frage. axis = Spielfeld, aus dem
+// live Beispiele aus der eigenen Sammlung gezogen werden (niedrig/hoch).
+const HELP = {
+  genre: { text: 'Die Art Welt, in der eure Geschichten spielen. Mehr Punkte = reizt euch mehr, 0 = nicht gewünscht. Spiele, die mehrere eurer Wunschgenres verbinden (z. B. Sci-Fi und Horror), rutschen nach oben.' },
+  ton: { text: 'Die Grundstimmung am Tisch – unabhängig vom Setting. Eine Fantasywelt kann gemütlich-humorvoll oder bitter-düster sein; hier geht es um das Gefühl, nicht um die Welt.' },
+  aktivitaeten: { text: 'Womit verbringt ihr die meiste Spielzeit? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
+  welt_fremdheit: { axis: 'welt_fremdheit', text: 'Wie weit weicht die Spielwelt von unserem Alltag ab – Natur, Technik, Magie, Gesellschaft? Gemeint ist nicht, wie gefährlich sie ist, sondern wie viel ihr euch neu vorstellen müsst.' },
+  gefahr: { axis: 'gefahr', text: 'Wie viel Druck spüren die Figuren die ganze Zeit: Feinde, Hunger, eine feindliche Welt? Das ist unabhängig vom Genre – auch ein Fantasyspiel kann sehr behaglich sein.' },
+  handlungsfreiheit: { axis: 'handlungsfreiheit', text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die ihr löst? Oder entscheidet ihr selbst, wohin ihr geht und was ihr erreichen wollt (Sandbox)?' },
+  letalitaet: { axis: 'letalitaet', text: 'Was passiert, wenn etwas schiefgeht? Niedrig: Rückschläge und Komplikationen, die Geschichte läuft weiter. Hoch: Figuren können sterben oder dauerhaft verlieren – Vorsicht und Planung lohnen sich.' },
+  figurenkompetenz: { axis: 'figurenkompetenz', text: 'Wie fähig sind eure Figuren zu Beginn im Vergleich zur Welt? Kleine Leute, die über sich hinauswachsen – oder Profis und Held:innen, die von Anfang an glänzen?' },
+  crunch: { axis: 'crunch', text: 'Wie viele Regeln wollt ihr aktiv nutzen: Werte, Fertigkeiten, Sonderfähigkeiten, taktische Optionen? Niedrig heißt: in zehn Minuten erklärt, wenige Würfe.' },
+  narrativ: { axis: 'narrativ', text: 'Wie viel bestimmen die Spielenden über Handlung und Welt mit – über die eigene Figur hinaus? Niedrig: Die Spielleitung erzählt die Welt, ihr steuert eure Figuren. Hoch: Ihr erfindet Orte, Fakten und Wendungen gemeinsam.' },
+  fluff: { axis: 'fluff', text: 'Wie viel fertige Welt liefert das Spiel mit: Geschichte, Orte, Fraktionen, Abenteuer? Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
+  weltwissen: { axis: 'weltwissen_einstieg', text: 'Wie viel Lesen und Einarbeiten ist vor der ersten Runde für euch in Ordnung? Niedrig: aufschlagen und losspielen.' },
+};
+
 // ---- Spielstil/Aktivitäten weiterhin aus Spielfokus-Tags abgeleitet.
 const AKTIVITAETEN_TAGS = {
-  kampf_taktik: new Set(['Kampf / Taktik', 'Action', 'Pulp-Action', 'Cinematic Action', 'Duelle']),
-  erkundung: new Set(['Erkundung', 'Dungeon-Crawls', 'Abenteuer', 'Episodische Insel-Abenteuer', 'Sword & Sorcery-Abenteuer', 'Raumfahrt', 'Hex-Crawl / Erkundung', 'Reise']),
-  ermittlung: new Set(['Ermittlungen', 'Ermittlungen / Verschwörungen', 'Mystery', 'Intrigen', 'Intrigen / Politik', 'kreative Problemlösung', 'Investigation / Detektivarbeit']),
-  soziale_szenen: new Set(['Charakterentwicklung', 'Charakterspiel', 'Soziale Interaktionen', 'Soziale Konflikte', 'Erzählorientiert', 'kooperatives Storytelling', 'Diplomatie']),
+  kampf_taktik: new Set(['Superheldenabenteuer', 'Assassinen-Kampagnen', 'John-Wick-Style', 'Stadt- und Bandenkrieg', 'Missionen / Aufträge', 'Kampf / Taktik', 'Action', 'Pulp-Action', 'Cinematic Action', 'Duelle']),
+  erkundung: new Set(['Schatzjagden', 'Indiana-Jones-Style', 'Galaktische Kampagnen', 'Erkundung', 'Dungeon-Crawls', 'Abenteuer', 'Episodische Insel-Abenteuer', 'Sword & Sorcery-Abenteuer', 'Raumfahrt', 'Hex-Crawl / Erkundung', 'Reise']),
+  ermittlung: new Set(['Rätsel', 'Heist', 'Spionage', 'Konzernintrigen', 'Kultbekämpfung', 'Ermittlungen', 'Ermittlungen / Verschwörungen', 'Mystery', 'Intrigen', 'Intrigen / Politik', 'kreative Problemlösung', 'Investigation / Detektivarbeit']),
+  soziale_szenen: new Set(['Konflikte zwischen Kulturen', 'Charakterentwicklung', 'Charakterspiel', 'Soziale Interaktionen', 'Soziale Konflikte', 'Erzählorientiert', 'kooperatives Storytelling', 'Diplomatie']),
   survival: new Set(['Überleben', 'Survival-Horror', 'Ressourcenmanagement', 'Old-School-Spiel', 'OSR']),
-  weltgestaltung: new Set(['Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Sandbox', 'Sandbox-Szenarien', 'Dorfleben', 'Adaptiv / Baukastensystem', 'Dungeonbau']),
+  weltgestaltung: new Set(['Gangspiel', 'Kreativität', 'Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Sandbox', 'Sandbox-Szenarien', 'Dorfleben', 'Adaptiv / Baukastensystem', 'Dungeonbau']),
 };
 
 // ---- Signal-Tagsets für die fünf nicht direkt im Katalog erfassten Achsen.
@@ -144,6 +162,8 @@ function automaticProfile(game) {
   };
 }
 
+const WAHLOMAT_AXES = ['welt_fremdheit', 'gefahr', 'letalitaet', 'figurenkompetenz', 'handlungsfreiheit'];
+
 function buildGames(catalog) {
   if (!catalog || !Array.isArray(catalog.games) || !catalog.games.length) {
     throw new Error('Der Katalog enthält kein gültiges Spiele-Array.');
@@ -165,15 +185,40 @@ function buildGames(catalog) {
       fluff: Number(game.fluff ?? 3),
       weltwissen_einstieg: Math.min(5, Math.max(1, Number(game.fluff ?? 3) - 0.5)),
       ...automaticProfile(g),
+      // Im Admin gepflegte Werte haben Vorrang vor der Tag-Schätzung.
+      ...Object.fromEntries(Object.entries(game.wahlomat_profile || {})
+        .filter(([key, v]) => WAHLOMAT_AXES.includes(key) && Number.isFinite(Number(v)))
+        .map(([key, v]) => [key, Number(v)])),
     };
   });
 }
 
 function proximity(gameValue, desiredValue) { return Math.max(0, 1 - Math.abs(Number(gameValue) - Number(desiredValue)) / 4); }
-function tagScore(tags, wishes) { return Math.max(0, ...tags.map((tag) => wishes[tag] || 0)) / 3; }
+// Genre/Ton: 70 % zählt der beste Treffer (relativ zum höchsten vergebenen
+// Wunschwert, damit 4 Punkte nicht über 100 % hinausschießen), 30 % wie gut
+// die Tags des Spiels insgesamt zu den Wünschen passen. So landet z.B. bei
+// "Sci-Fi + Horror" ein Spiel mit beiden Genres vor einem reinen Horrorspiel,
+// und ein Spiel mit vielen Tags gewinnt nicht allein durch Tag-Menge.
+function tagScore(tags, wishes) {
+  const given = Object.values(wishes).filter((v) => v > 0).sort((a, b) => b - a);
+  if (!tags.length || !given.length) return 0;
+  const hits = tags.map((tag) => wishes[tag] || 0);
+  const best = Math.max(...hits) / given[0];
+  const ideal = given.slice(0, tags.length).reduce((a, b) => a + b, 0);
+  const fit = hits.reduce((a, b) => a + b, 0) / ideal;
+  return 0.7 * best + 0.3 * fit;
+}
+// Spielstil: Anteil der Wunschpunkte, die das Spiel abdeckt (80 %), plus
+// wie viele seiner eigenen Schwerpunkte gewünscht sind (20 %). Vorher lag
+// der Wert immer zwischen 0,3 und 0,8, der Spielstil machte also kaum einen
+// Unterschied.
 function activityScore(activities, wishes) {
   const total = Object.values(wishes).reduce((sum, v) => sum + v, 0) || 1;
-  return Object.entries(wishes).reduce((sum, [key, points]) => sum + points * ((activities[key] || 1) / 5), 0) / total;
+  const has = (key) => (activities[key] || 0) >= 3;
+  const coverage = Object.entries(wishes).reduce((sum, [key, points]) => sum + points * (has(key) ? 1 : 0.15), 0) / total;
+  const own = Object.keys(activities).filter(has);
+  const precision = own.length ? own.filter((key) => (wishes[key] || 0) > 0).length / own.length : 0;
+  return 0.8 * coverage + 0.2 * precision;
 }
 function figureScore(gameValue, selectedValues) {
   if (!selectedValues || !selectedValues.length) return 0;
@@ -279,7 +324,7 @@ export async function renderWahlomat(root) {
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat</h1>
     <p class="lede">Sieben kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln, Fluff und euren Prioritäten — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele).</p>
-    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Genre, Ton, Crunch/Narrativ/Fluff kommen 1:1 aus den recherchierten Katalogdaten. Für Welt-Fremdheit, Bedrohung, Scheitern-Folgen, Figurenkompetenz und Handlungsfreiheit gibt es kein eigenes Katalogfeld -- sie werden aus der vollen, recherchierten Tag-Palette jedes Spiels (Genre, Ton inkl. Sub-Tone, Spielfokus) gezählt und geschätzt. Präziser als eine grobe Genre-Schublade, aber weiterhin eine Näherung. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
+    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht – mit Beispielen aus eurer Sammlung. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
   </section>`);
   root.appendChild(head);
 
@@ -293,6 +338,23 @@ export async function renderWahlomat(root) {
   const resultsWrap = el('<div id="wResults" hidden></div>');
   root.appendChild(quizWrap);
   root.appendChild(resultsWrap);
+
+  // "Was ist gemeint?" mit Beispielen aus der eigenen Sammlung.
+  function shortTitle(t) { return t.split(/ – |: /)[0]; }
+  function helpBox(key) {
+    const h = HELP[key];
+    if (!h) return null;
+    let examples = '';
+    if (h.axis) {
+      const sorted = games.filter((g) => Number.isFinite(g[h.axis])).sort((a, b) => a[h.axis] - b[h.axis] || a.title.localeCompare(b.title));
+      if (sorted.length >= 6) {
+        const low = sorted.slice(0, 3).map((g) => shortTitle(g.title));
+        const high = sorted.slice(-3).reverse().map((g) => shortTitle(g.title));
+        examples = `<p class="wahlomat-help-ex">Aus eurer Sammlung – eher niedrig: ${esc(low.join(', '))} · eher hoch: ${esc(high.join(', '))}</p>`;
+      }
+    }
+    return el(`<details class="wahlomat-help"><summary>Was ist gemeint?</summary><p>${esc(h.text)}</p>${examples}</details>`);
+  }
 
   function freshBudget(key) { return Object.fromEntries(Object.keys(B[key].labels).map((k) => [k, 0])); }
 
@@ -345,6 +407,8 @@ export async function renderWahlomat(root) {
     const input = wrap.querySelector('input[type=range]');
     const output = wrap.querySelector('output');
     input.addEventListener('input', () => { state[name] = Number(input.value); output.textContent = String(state[name]); });
+    const help = helpBox(name);
+    if (help) wrap.querySelector('small').after(help);
     return wrap;
   }
 
@@ -355,6 +419,8 @@ export async function renderWahlomat(root) {
       <div class="wahlomat-choices"></div>
     </fieldset>`);
     const list = wrap.querySelector('.wahlomat-choices');
+    const help = helpBox('figurenkompetenz');
+    if (help) wrap.querySelector('small').after(help);
     FIGURE_OPTIONS.forEach(([value, label]) => {
       const item = el(`<label class="wahlomat-choice"><input type="checkbox" value="${value}"><span>${esc(label)}</span></label>`);
       const cb = item.querySelector('input');
@@ -425,6 +491,8 @@ export async function renderWahlomat(root) {
     if (s.budget) {
       const cfg = B[s.budget];
       const fs = el(`<fieldset class="wahlomat-field"><legend>${esc(s.budgetLegend)}</legend><small>Verteilt genau ${cfg.total} Punkte, höchstens ${cfg.max} je Option.</small></fieldset>`);
+      const help = helpBox(s.budget);
+      if (help) fs.appendChild(help);
       fs.appendChild(renderBudget(cfg));
       section.appendChild(fs);
     }

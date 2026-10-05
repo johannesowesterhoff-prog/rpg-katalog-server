@@ -56,6 +56,7 @@ function normalizeRow(raw, format) {
       short_description: raw.short_description, long_description: raw.long_description,
       crunch: raw.crunch, narrative: raw.narrative, fluff: raw.fluff,
       status: raw.status || 'draft', editorial_note: raw.editorial_note,
+      ...(raw.wahlomat_profile !== undefined ? { wahlomat_profile: raw.wahlomat_profile } : {}),
       publishers: (raw.publishers || []).map((p) => (typeof p === 'string' ? p : p.name)),
       genre_setting_top: raw.genre_setting_top || [],
       genre_setting: raw.genre_setting || [], play_focus: raw.play_focus || [], campaign_type: raw.campaign_type || [],

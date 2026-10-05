@@ -19,6 +19,20 @@ function toScale(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+// Interne Wahlomat-Werte (nur Admin + Wahlomat, nirgends im Katalog
+// angezeigt). Leere Werte fallen weg; ist gar nichts gesetzt, wird NULL
+// gespeichert und der Wahlomat schätzt wie bisher aus den Tags.
+export const WAHLOMAT_KEYS = ['welt_fremdheit', 'gefahr', 'letalitaet', 'figurenkompetenz', 'handlungsfreiheit'];
+function toWahlomatProfile(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  for (const key of WAHLOMAT_KEYS) {
+    const v = toScale(raw[key]);
+    if (v !== null) out[key] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 async function uniqueSlug(client, baseSlug, excludeId = null) {
   let slug = baseSlug || 'eintrag';
   let n = 2;
@@ -94,6 +108,9 @@ export function validateGamePayload(payload, { forPublish }) {
       push(key, `${key} muss zwischen 1 und 5 in 0,5er-Schritten liegen.`);
     }
   }
+  for (const [key, v] of Object.entries(toWahlomatProfile(payload.wahlomat_profile) || {})) {
+    if (v < 1 || v > 5 || Math.round(v * 2) !== v * 2) push('wahlomat_profile', `Wahlomat-Wert ${key} muss zwischen 1 und 5 in 0,5er-Schritten liegen.`);
+  }
   if (payload.release_year) {
     const y = Number(payload.release_year);
     if (!Number.isInteger(y) || y < 1970 || y > 2100) push('release_year', 'Erscheinungsjahr muss zwischen 1970 und 2100 liegen.');
@@ -163,7 +180,8 @@ export async function getWahlomatData() {
   const sql = `WITH ${cte}
     SELECT slug, title, language_code AS language, system_family,
       genre_setting_top, genre_setting, play_focus, tone_theme_top, tone_theme,
-      crunch, narrative, fluff
+      crunch, narrative, fluff,
+      (SELECT g.wahlomat_profile FROM katalog.games g WHERE g.id = gd.id) AS wahlomat_profile
     FROM gd WHERE status = 'published' ORDER BY title`;
   const r = await pool.query(sql);
   return { games: r.rows };
@@ -588,16 +606,17 @@ export async function createGame(payload, actor) {
       `INSERT INTO katalog.games (
         slug, title, original_title, sort_title, language_id, system_family_id, edition, release_year,
         short_description, long_description, crunch, narrative, fluff, status, editorial_note,
-        published_at
+        published_at, wahlomat_profile
       ) VALUES (
         $1,$2,$3,$2,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-        CASE WHEN $15 = 'published' THEN now() ELSE NULL END
+        CASE WHEN $15 = 'published' THEN now() ELSE NULL END, $16
       ) RETURNING id, slug`,
       [
         slug, payload.title.trim(), payload.original_title || null, languageId, systemFamilyId,
         payload.edition || null, payload.release_year || null, payload.short_description.trim(),
         payload.long_description || null, toScale(payload.crunch), toScale(payload.narrative), toScale(payload.fluff),
         payload.status || 'draft', payload.editorial_note || null, payload.status || 'draft',
+        toWahlomatProfile(payload.wahlomat_profile),
       ],
     );
     const gameId = ins.rows[0].id;
@@ -640,13 +659,17 @@ export async function updateGame(id, payload, actor) {
         slug=$1, title=$2, original_title=$3, sort_title=$2, language_id=$4, system_family_id=$5,
         edition=$6, release_year=$7, short_description=$8, long_description=$9,
         crunch=$10, narrative=$11, fluff=$12, status=$13, editorial_note=$14,
-        published_at = CASE WHEN $16 = 'published' AND published_at IS NULL THEN now() ELSE published_at END
+        published_at = CASE WHEN $16 = 'published' AND published_at IS NULL THEN now() ELSE published_at END,
+        wahlomat_profile = CASE WHEN $17 THEN $18::jsonb ELSE wahlomat_profile END
       WHERE id = $15`,
       [
         slug, payload.title.trim(), payload.original_title || null, languageId, systemFamilyId,
         payload.edition || null, payload.release_year || null, payload.short_description.trim(),
         payload.long_description || null, toScale(payload.crunch), toScale(payload.narrative), toScale(payload.fluff),
         payload.status || 'draft', payload.editorial_note || null, id, payload.status || 'draft',
+        // Nur überschreiben, wenn das Feld mitgeschickt wird -- ältere
+        // Formulare/Skripte ohne Wahlomat-Werte löschen sie so nicht.
+        Object.prototype.hasOwnProperty.call(payload, 'wahlomat_profile'), toWahlomatProfile(payload.wahlomat_profile),
       ],
     );
     await upsertRelations(client, id, payload);
