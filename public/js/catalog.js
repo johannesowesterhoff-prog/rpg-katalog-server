@@ -120,6 +120,12 @@ export function renderCatalog(root, ctx) {
   const chipBox = layout.querySelector('#chips');
 
   const closeDrawer = () => document.body.classList.remove('drawer-open');
+  // Escape schließt den Drawer. Einmalig am Dokument registriert, weil
+  // renderCatalog() bei jeder Filteränderung neu läuft.
+  if (!document.body.dataset.drawerEsc) {
+    document.body.dataset.drawerEsc = '1';
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+  }
   head.querySelector('#drawer-open').addEventListener('click', () => document.body.classList.add('drawer-open'));
   layout.querySelector('#drawer-close').addEventListener('click', closeDrawer);
   root.querySelector('#drawer-backdrop').addEventListener('click', closeDrawer);

@@ -41,9 +41,12 @@ function splitCsv(v) {
 /** Liest Query-Parameter (aus req.query) in ein normalisiertes Filterobjekt. */
 export function parseFilters(query, isAdmin) {
   const f = { ...DEFAULTS };
-  f.q = (query.q || '').trim();
+  // Nullbytes raus (Postgres bricht sonst mit 500 ab), page begrenzen
+  // (sonst "bigint out of range"), pageSize 1-100 (Admin-Liste fragt 96).
+  const clean = (v) => String(v ?? '').replace(/\u0000/g, '');
+  f.q = clean(query.q).trim();
   for (const key of ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'campaign', 'toneTop', 'tone']) {
-    f[key] = splitCsv(query[key]);
+    f[key] = splitCsv(clean(query[key]));
   }
   for (const key of MODE_DIMS) {
     if (query[key + 'Mode'] === 'AND') f[key + 'Mode'] = 'AND';
@@ -55,7 +58,8 @@ export function parseFilters(query, isAdmin) {
     if (Number.isFinite(mx) && mx >= 1 && mx <= 5) f[key + 'Max'] = mx;
   }
   if (SORTS[query.sort]) f.sort = query.sort;
-  f.page = Math.max(1, Number(query.page) || 1);
+  f.page = Math.min(100000, Math.max(1, Math.floor(Number(query.page)) || 1));
+  f.pageSize = Math.min(100, Math.max(1, Math.floor(Number(query.pageSize)) || PAGE_SIZE));
   // status: nur Admins dürfen einen bestimmten Status erzwingen (draft/archived/all).
   if (isAdmin && query.status && ['draft', 'published', 'archived', 'all'].includes(query.status)) {
     f.status = query.status;
