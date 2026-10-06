@@ -366,12 +366,30 @@ export async function getGameBySlug(slug, isAdmin) {
   g.play_sessions = playSessions.rows;
   delete g.search_vector;
 
-  const similarR = await pool.query(`WITH ${cte}
-    SELECT ${CARD_COLUMNS} FROM gd
-    WHERE gd.id <> $1 AND gd.status = 'published' AND gd.system_family = $2
-    ORDER BY gd.title LIMIT 4`, [g.id, g.system_family]);
+  // Ähnliche Spiele: gleiche Systemfamilie zählt am meisten, dazu
+  // Überschneidungen bei Top-Genre, Top-Ton und Spielfokus. Vorher zählte nur
+  // die Systemfamilie, und 28 von 58 Spielen bekamen keinen einzigen
+  // Vorschlag. Mindestpunktzahl 3: gleiche Familie allein reicht, ein
+  // einzelnes gemeinsames Top-Genre (z.B. "Fantasy" bei 33 Spielen) nicht.
+  let similar = [];
+  try {
+    const similarR = await pool.query(`WITH ${cte}, cand AS (
+      SELECT ${CARD_COLUMNS},
+        (CASE WHEN gd.system_family IS NOT NULL AND gd.system_family = $2 THEN 4 ELSE 0 END)
+        + 2 * cardinality(ARRAY(SELECT unnest(gd.genre_setting_top) INTERSECT SELECT unnest($3::text[])))
+        + 2 * cardinality(ARRAY(SELECT unnest(gd.tone_theme_top) INTERSECT SELECT unnest($4::text[])))
+        + cardinality(ARRAY(SELECT unnest(gd.play_focus) INTERSECT SELECT unnest($5::text[]))) AS score
+      FROM gd WHERE gd.id <> $1 AND gd.status = 'published')
+      SELECT * FROM cand WHERE score >= 3 ORDER BY score DESC, title LIMIT 4`,
+    [g.id, g.system_family ?? null, g.genre_setting_top || [], g.tone_theme_top || [], g.play_focus || []]);
+    similar = similarR.rows;
+  } catch (err) {
+    // Die Detailseite darf an den Vorschlägen nicht scheitern.
+    // eslint-disable-next-line no-console
+    console.error('Ähnliche Spiele konnten nicht ermittelt werden:', err.message);
+  }
 
-  return { game: g, similar: similarR.rows };
+  return { game: g, similar };
 }
 
 // Bewusst getrennt von getGameBySlug()/gameDetailCte(): archive_slug bleibt
