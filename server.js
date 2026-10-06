@@ -417,10 +417,26 @@ const INDEX_HTML_SSR = INDEX_HTML
   .replace(/<meta property="og:(?:title|description)"[^>]*>\s*/g, '');
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+// Absolute URLs für Link-Vorschauen (WhatsApp, Signal, Discord usw. brauchen
+// sie absolut). Spielseiten mit Cover nehmen das Cover, sonst das Standardbild.
+const previewMeta = (base, url, image) => `
+    <meta property="og:site_name" content="RPG-Katalog">
+    <meta property="og:locale" content="de_DE">
+    <meta property="og:url" content="${esc(url)}">
+    <meta property="og:image" content="${esc(image || `${base}/og-image.png`)}">${image ? '' : `
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="RPG-Katalog – Rollenspiel-Sammlung mit Einordnung nach Crunch, Narrativ und Fluff">`}
+    <meta name="twitter:card" content="summary_large_image">`;
+const sendIndex = (req, res) => {
+  const base = `${req.protocol}://${req.headers.host}`;
+  res.type('html').send(INDEX_HTML.replace('<!--SSR_META-->', previewMeta(base, `${base}/`)));
+};
+
 // SSR-Meta für einzelne Spiel-Detailseiten (Open-Graph-Tags für Social-Previews).
 app.get('/spiele/:slug', asyncRoute(async (req, res) => {
   const data = await getGameBySlug(req.params.slug, false);
-  if (!data) return res.status(404).type('html').send(INDEX_HTML);
+  if (!data) return sendIndex(req, res.status(404));
   const g = data.game;
   const base = `${req.protocol}://${req.headers.host}`;
   const meta = `
@@ -428,16 +444,13 @@ app.get('/spiele/:slug', asyncRoute(async (req, res) => {
     <meta name="description" content="${esc(g.short_description)}">
     <meta property="og:title" content="${esc(g.title)}">
     <meta property="og:description" content="${esc(g.short_description)}">
-    <meta property="og:url" content="${esc(`${base}/spiele/${g.slug}`)}">
-    ${g.cover ? `<meta property="og:image" content="${esc(`${base}/api/games/${g.slug}/cover?v=${g.cover.v}`)}">` : ''}`;
+    ${previewMeta(base, `${base}/spiele/${g.slug}`, g.cover ? `${base}/api/games/${g.slug}/cover?v=${g.cover.v}` : null)}`;
   res.type('html').send(INDEX_HTML_SSR.replace('<!--SSR_META-->', meta));
 }));
 
 // Alle übrigen Adminbereich-/App-Routen liefern die SPA-Shell aus.
-app.get(['/admin', '/admin/*splat', '/spiele'], (_req, res) => {
-  res.type('html').send(INDEX_HTML);
-});
-app.get('/', (_req, res) => res.type('html').send(INDEX_HTML));
+app.get(['/admin', '/admin/*splat', '/spiele'], sendIndex);
+app.get('/', sendIndex);
 
 // Letzter Fehlerfänger für Seitenrouten: knappe HTML-Seite statt Express-
 // Standardseite, nichts aus der Fehlermeldung nach außen.
