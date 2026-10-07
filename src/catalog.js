@@ -232,11 +232,18 @@ export async function getStats() {
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE (g.id IS NULL OR g.status = 'published') AND ps.role IS NOT NULL
       GROUP BY ps.role`),
-    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url,
+    // Status, Art und Aushang gelten für die ganze Kampagne und kommen vom
+    // neuesten Spielabend (der Aushang vom neuesten, der einen hat). Vorher
+    // stand eine Kampagne doppelt in der Liste, sobald sich ein Abend im
+    // Status unterschied.
+    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, ps.campaign,
+        (array_agg(ps.campaign_status ORDER BY ps.played_on DESC, ps.id DESC))[1] AS campaign_status,
+        (array_agg(ps.campaign_kind ORDER BY ps.played_on DESC, ps.id DESC))[1] AS campaign_kind,
+        (array_agg(ps.campaign_announcement_url ORDER BY ps.played_on DESC, ps.id DESC) FILTER (WHERE ps.campaign_announcement_url IS NOT NULL))[1] AS campaign_announcement_url,
         count(*)::int AS sessions, to_char(max(ps.played_on), 'YYYY-MM-DD') AS last_played
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE ps.campaign IS NOT NULL AND (g.id IS NULL OR g.status = 'published')
-      GROUP BY g.slug, g.title, ps.external_title, ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url
+      GROUP BY g.slug, g.title, ps.external_title, ps.campaign
       ORDER BY sessions DESC, ps.campaign`),
   ]);
 

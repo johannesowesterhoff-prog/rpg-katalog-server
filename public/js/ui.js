@@ -56,19 +56,23 @@ export const CAMPAIGN_KIND_LABEL = {
 // eine bereits vor dem Protokoll begonnene Zählung fortzuführen. Das "/M"
 // erscheint nur bei abgeschlossenen Kampagnen (M = höchste vergebene Nummer,
 // sonst die Anzahl protokollierter Sessions).
+// Der Status gilt für die ganze Kampagne und kommt vom neuesten Spielabend:
+// Wird nur der letzte Abend auf "abgeschlossen" gesetzt, zeigen auch die
+// früheren Abende "abgeschlossen" und "Session x/M".
 export function campaignSessionParts(s, group) {
   if (!s.campaign) return null;
   const sorted = [...group].sort((a, b) => a.played_on.localeCompare(b.played_on));
   const idx = s.session_number ?? (sorted.indexOf(s) + 1);
+  const closed = (sorted.at(-1) || s).campaign_status === 'abgeschlossen';
   let total = null;
-  if (s.campaign_status === 'abgeschlossen') {
+  if (closed) {
     const numbered = sorted.filter((x) => x.session_number != null).map((x) => x.session_number);
     total = numbered.length ? Math.max(...numbered) : sorted.length;
   }
   return {
     name: s.campaign,
     kindLabel: CAMPAIGN_KIND_LABEL[s.campaign_kind] || null,
-    statusLabel: s.campaign_status === 'abgeschlossen' ? 'abgeschlossen' : 'laufend',
+    statusLabel: closed ? 'abgeschlossen' : 'laufend',
     sessionLabel: `Session ${idx}${total ? '/' + total : ''}`,
     announcementUrl: s.campaign_announcement_url || null,
   };
