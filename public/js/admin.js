@@ -945,7 +945,8 @@ export async function renderPlaySessions(root) {
   const listSection = el(`<section class="section"><h2>Bisherige Einträge (<span id="ps-count">${sessions.length}</span>)</h2>
     <div id="ps-filter-banner"></div>
     <div class="scroll-x"><table>
-      <thead><tr><th>Datum</th><th>Spiel</th><th>Kampagne</th><th>Mitspieler:innen</th><th>Rolle</th><th>Notiz</th><th></th></tr></thead>
+      <thead><tr>${[['played_on', 'Datum'], ['game', 'Spiel'], ['campaign', 'Kampagne'], ['participants', 'Mitspieler:innen'], ['role', 'Rolle'], ['note', 'Notiz']]
+    .map(([k, l]) => `<th data-sort="${k}"><button type="button" class="sort-btn">${l}<span class="sort-ind" aria-hidden="true"></span></button></th>`).join('')}<th></th></tr></thead>
       <tbody id="ps-rows"></tbody>
     </table></div>
   </section>`);
@@ -956,6 +957,36 @@ export async function renderPlaySessions(root) {
 
   let allSessions = sessions;
   let campaignFilter = null;
+
+  // Spaltensortierung: Klick auf einen Spaltenkopf sortiert, erneuter Klick
+  // dreht die Richtung. Standard ist Datum, neueste zuerst. Leere Werte stehen
+  // immer unten; bei Gleichstand entscheidet das Datum (neueste zuerst).
+  let sort = { key: 'played_on', dir: 'desc' };
+  const SORT_VALUE = {
+    played_on: (s) => s.played_on,
+    game: (s) => s.game_title || s.external_title,
+    campaign: (s) => s.campaign,
+    participants: (s) => s.participants,
+    role: (s) => ROLE_LABEL[s.role],
+    note: (s) => s.note,
+  };
+  function sortSessions(list) {
+    const get = SORT_VALUE[sort.key];
+    const sign = sort.dir === 'asc' ? 1 : -1;
+    const byDate = (a, b) => b.played_on.localeCompare(a.played_on) || (b.id - a.id);
+    return [...list].sort((a, b) => {
+      const va = get(a) || '', vb = get(b) || '';
+      if (!va !== !vb) return va ? -1 : 1;
+      return sign * String(va).localeCompare(String(vb), 'de', { sensitivity: 'base', numeric: true }) || byDate(a, b);
+    });
+  }
+  listSection.querySelectorAll('th[data-sort]').forEach((th) => {
+    th.querySelector('button').addEventListener('click', () => {
+      const key = th.dataset.sort;
+      sort = sort.key === key ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'played_on' ? 'desc' : 'asc' };
+      renderRows();
+    });
+  });
 
   function openEditRow(tr, s) {
     const editRow = el(`<tr><td colspan="7">
@@ -1046,7 +1077,13 @@ export async function renderPlaySessions(root) {
       banner.appendChild(chip);
     }
 
-    const visible = campaignFilter ? allSessions.filter((s) => groupKey(s) === campaignFilter) : allSessions;
+    listSection.querySelectorAll('th[data-sort]').forEach((th) => {
+      const active = th.dataset.sort === sort.key;
+      th.setAttribute('aria-sort', active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+      th.querySelector('.sort-ind').textContent = active ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    });
+
+    const visible = sortSessions(campaignFilter ? allSessions.filter((s) => groupKey(s) === campaignFilter) : allSessions);
     if (!visible.length) { tb.appendChild(el('<tr><td colspan="7" class="muted">Noch keine Spielabende erfasst.</td></tr>')); return; }
     visible.forEach((s) => {
       const title = s.game_title || s.external_title;
