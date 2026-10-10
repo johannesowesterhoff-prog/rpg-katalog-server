@@ -960,7 +960,8 @@ export async function renderPlaySessions(root) {
 
   // Spaltensortierung: Klick auf einen Spaltenkopf sortiert, erneuter Klick
   // dreht die Richtung. Standard ist Datum, neueste zuerst. Leere Werte stehen
-  // immer unten; bei Gleichstand entscheidet das Datum (neueste zuerst).
+  // immer unten; bei Gleichstand entscheidet das Datum (neueste zuerst),
+  // am selben Tag die höhere Session-Nummer.
   let sort = { key: 'played_on', dir: 'desc' };
   const SORT_VALUE = {
     played_on: (s) => s.played_on,
@@ -973,7 +974,10 @@ export async function renderPlaySessions(root) {
   function sortSessions(list) {
     const get = SORT_VALUE[sort.key];
     const sign = sort.dir === 'asc' ? 1 : -1;
-    const byDate = (a, b) => b.played_on.localeCompare(a.played_on) || (b.id - a.id);
+    // Chronologisch aufsteigend: Datum, am selben Tag die Session-Nummer.
+    const chrono = (a, b) => a.played_on.localeCompare(b.played_on) || ((a.session_number ?? 0) - (b.session_number ?? 0)) || (a.id - b.id);
+    const byDate = (a, b) => chrono(b, a);
+    if (sort.key === 'played_on') return [...list].sort((a, b) => sign * chrono(a, b));
     return [...list].sort((a, b) => {
       const va = get(a) || '', vb = get(b) || '';
       if (!va !== !vb) return va ? -1 : 1;

@@ -61,7 +61,7 @@ export const CAMPAIGN_KIND_LABEL = {
 // früheren Abende "abgeschlossen" und "Session x/M".
 export function campaignSessionParts(s, group) {
   if (!s.campaign) return null;
-  const sorted = [...group].sort((a, b) => a.played_on.localeCompare(b.played_on));
+  const sorted = [...group].sort((a, b) => a.played_on.localeCompare(b.played_on) || ((a.session_number ?? 0) - (b.session_number ?? 0)));
   const idx = s.session_number ?? (sorted.indexOf(s) + 1);
   const closed = (sorted.at(-1) || s).campaign_status === 'abgeschlossen';
   let total = null;
