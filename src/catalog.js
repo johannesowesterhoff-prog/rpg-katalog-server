@@ -227,7 +227,7 @@ export async function getStats() {
     pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.note
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE g.id IS NULL OR g.status = 'published'
-      ORDER BY ps.played_on DESC, ps.id DESC LIMIT 8`),
+      ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC LIMIT 8`),
     pool.query(`SELECT ps.role AS value, count(*)::int AS count
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE (g.id IS NULL OR g.status = 'published') AND ps.role IS NOT NULL
@@ -237,9 +237,9 @@ export async function getStats() {
     // stand eine Kampagne doppelt in der Liste, sobald sich ein Abend im
     // Status unterschied.
     pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, ps.campaign,
-        (array_agg(ps.campaign_status ORDER BY ps.played_on DESC, ps.id DESC))[1] AS campaign_status,
-        (array_agg(ps.campaign_kind ORDER BY ps.played_on DESC, ps.id DESC))[1] AS campaign_kind,
-        (array_agg(ps.campaign_announcement_url ORDER BY ps.played_on DESC, ps.id DESC) FILTER (WHERE ps.campaign_announcement_url IS NOT NULL))[1] AS campaign_announcement_url,
+        (array_agg(ps.campaign_status ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC))[1] AS campaign_status,
+        (array_agg(ps.campaign_kind ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC))[1] AS campaign_kind,
+        (array_agg(ps.campaign_announcement_url ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC) FILTER (WHERE ps.campaign_announcement_url IS NOT NULL))[1] AS campaign_announcement_url,
         count(*)::int AS sessions, to_char(max(ps.played_on), 'YYYY-MM-DD') AS last_played
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE ps.campaign IS NOT NULL AND (g.id IS NULL OR g.status = 'published')
@@ -365,7 +365,7 @@ export async function getGameBySlug(slug, isAdmin) {
     ),
     pool.query(
       `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, ${isAdmin ? 'participants, role,' : 'NULL::text AS participants, NULL::text AS role,'} note, summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number FROM katalog.play_sessions
-       WHERE game_id = $1 ORDER BY played_on DESC, id DESC`, [g.id],
+       WHERE game_id = $1 ORDER BY played_on DESC, session_number DESC NULLS LAST, id DESC`, [g.id],
     ),
   ]);
   g.publishers = publishers.rows;
@@ -427,7 +427,7 @@ export async function getGameById(id) {
     ),
     pool.query(
       `SELECT id, to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, note, summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number, role FROM katalog.play_sessions
-       WHERE game_id = $1 ORDER BY played_on DESC, id DESC`, [g.id],
+       WHERE game_id = $1 ORDER BY played_on DESC, session_number DESC NULLS LAST, id DESC`, [g.id],
     ),
   ]);
   g.publishers = publishers.rows;
@@ -484,7 +484,7 @@ export async function listPlaySessions() {
     SELECT ps.id, ps.game_id, g.slug AS game_slug, g.title AS game_title, ps.external_title,
       to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.participants, ps.note, ps.summary_url, ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url, ps.session_number, ps.role
     FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
-    ORDER BY ps.played_on DESC, ps.id DESC`);
+    ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC`);
   return r.rows;
 }
 
