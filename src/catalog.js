@@ -188,6 +188,25 @@ export async function getWahlomatData() {
 }
 
 // --------------------------------------------------------- Statistik
+// Öffentliches Spielabend-Protokoll für Statistik → Spielabende. Mitspieler:innen
+// und Rolle pro Abend bleiben wie auf den Spielseiten verborgen; die Rollen
+// gibt es nur aufsummiert pro Jahr (wie die Rollen-Kacheln der Übersicht).
+export async function getPlaySessionLog() {
+  const visible = "(g.id IS NULL OR g.status = 'published')";
+  const [sessions, roles] = await Promise.all([
+    pool.query(`SELECT to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, g.slug, COALESCE(g.title, ps.external_title) AS title,
+        ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url, ps.session_number, ps.note, ps.summary_url
+      FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+      WHERE ${visible}
+      ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC`),
+    pool.query(`SELECT extract(year FROM ps.played_on)::int AS year, ps.role, count(*)::int AS count
+      FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+      WHERE ${visible} AND ps.role IS NOT NULL
+      GROUP BY 1, 2`),
+  ]);
+  return { sessions: sessions.rows, rolesByYear: roles.rows };
+}
+
 // Aggregierte Kennzahlen über die veröffentlichte Sammlung fürs Statistik-
 // Dashboard: Verteilungen, Skalen-Durchschnitte sowie Spielabend-Auswertung.
 export async function getStats() {

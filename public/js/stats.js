@@ -1,7 +1,7 @@
 // Statistik-Seite: aggregierte Kennzahlen über die veröffentlichte Sammlung
 // (Verteilungen, Skalen-Durchschnitte, Spielabend-Auswertung).
 import { api } from './api.js';
-import { el, esc, emptyState, CAMPAIGN_KIND_LABEL } from './ui.js';
+import { el, esc, emptyState, CAMPAIGN_KIND_LABEL, campaignSessionBadges } from './ui.js';
 
 function barSection(title, rows) {
   const max = Math.max(1, ...rows.map((r) => r.count));
@@ -86,7 +86,15 @@ function dotPlot(label, games, field) {
   </section>`;
 }
 
-export async function renderStats(root) {
+// Reiter oben auf der Statistikseite: Übersicht und das Spielabend-Protokoll.
+function statsTabs(active) {
+  const items = [['#/statistik', 'Übersicht', 'overview'], ['#/statistik/spielabende', 'Spielabende', 'sessions']];
+  return `<nav class="admin-tabs" aria-label="Statistik">${items.map(([href, label, key]) =>
+    `<a href="${href}"${key === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>`;
+}
+
+export async function renderStats(root, sub, params) {
+  if (sub === 'spielabende') return renderSessionLog(root, params);
   root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:220px"></div></div>';
   document.title = 'Statistik – RPG-Katalog';
 
@@ -105,6 +113,7 @@ export async function renderStats(root) {
     <p class="lede">Zahlen und Verteilungen über die gesamte veröffentlichte Sammlung.</p>
   </section>`);
   root.appendChild(head);
+  root.appendChild(el(statsTabs('overview')));
 
   const tiles = el(`<div class="tiles">
     <div class="card tile"><span class="num">${s.totals.games}</span><span class="lbl">Spiele</span></div>
@@ -179,4 +188,89 @@ export async function renderStats(root) {
       </li>`).join('')}</ol>`;
     root.appendChild(el(`<section class="section"><h2>Kampagnen</h2>${campaignsHtml}</section>`));
   }
+}
+
+// ------------------------------------------------------------ Spielabende
+// Alle protokollierten Spielabende mit Jahresauswahl (#/statistik/spielabende?jahr=2026).
+// Kennzahlen und "Meistgespielt" beziehen sich auf das gewählte Jahr; die
+// Kampagnen-Badges zählen über alle Jahre, damit "Session x/M" stimmt.
+async function renderSessionLog(root, params) {
+  root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:220px"></div></div>';
+  document.title = 'Spielabende – Statistik – RPG-Katalog';
+
+  let data;
+  try {
+    data = await api('/api/play-sessions.json');
+  } catch (e) {
+    root.innerHTML = '';
+    root.appendChild(emptyState('Spielabende nicht verfügbar', e.message));
+    return;
+  }
+
+  const all = data.sessions;
+  const yearOf = (s) => Number(s.played_on.slice(0, 4));
+  const years = [...new Set(all.map(yearOf))].sort((a, b) => b - a);
+  const requested = Number(params?.get('jahr'));
+  const year = years.includes(requested) ? requested : null;
+  const sessions = year ? all.filter((s) => yearOf(s) === year) : all;
+
+  root.innerHTML = '';
+  root.appendChild(el(`<section class="catalog-head">
+    <h1>Statistik</h1>
+    <p class="lede">Alle protokollierten Spielabende${year ? ` im Jahr ${year}` : ''}.</p>
+  </section>`));
+  root.appendChild(el(statsTabs('sessions')));
+
+  const yearLink = (y, label) => `<a class="chip" href="#/statistik/spielabende${y ? `?jahr=${y}` : ''}"${y === year ? ' aria-current="true"' : ''}>${label}</a>`;
+  root.appendChild(el(`<div class="tag-row year-filter" role="navigation" aria-label="Jahr">
+    ${yearLink(null, 'Alle Jahre')}${years.map((y) => yearLink(y, String(y))).join('')}
+  </div>`));
+
+  const roles = { spielleiter: 0, spieler: 0 };
+  (data.rolesByYear || []).filter((r) => !year || r.year === year).forEach((r) => { roles[r.role] = (roles[r.role] || 0) + r.count; });
+  const gameKey = (s) => s.slug || `x:${s.title}`;
+  root.appendChild(el(`<div class="tiles">
+    <div class="card tile"><span class="num">${sessions.length}</span><span class="lbl">Spielabende</span></div>
+    <div class="card tile"><span class="num">${new Set(sessions.map(gameKey)).size}</span><span class="lbl">verschiedene Spiele</span></div>
+    <div class="card tile"><span class="num">${roles.spielleiter}</span><span class="lbl">× Spielleiter:in</span></div>
+    <div class="card tile"><span class="num">${roles.spieler}</span><span class="lbl">× Spieler:in</span></div>
+  </div>`));
+
+  const titleLink = (title, slug) => (slug ? `<a href="#/spiele/${esc(slug)}">${esc(title)}</a>` : `${esc(title)} <span class="faint" style="font-size:var(--text-xs)">(extern)</span>`);
+
+  const counts = new Map();
+  sessions.forEach((s) => {
+    const k = gameKey(s);
+    const c = counts.get(k) || { title: s.title, slug: s.slug, n: 0, last: s.played_on };
+    c.n += 1;
+    if (s.played_on > c.last) c.last = s.played_on;
+    counts.set(k, c);
+  });
+  const top = [...counts.values()].sort((a, b) => b.n - a.n || b.last.localeCompare(a.last)).slice(0, 10);
+  if (top.length) {
+    root.appendChild(el(`<section class="section"><h2>Meistgespielt${year ? ` ${year}` : ''}</h2><ol class="stat-list">${top.map((g) => `<li>
+      ${titleLink(g.title, g.slug)}
+      <span class="muted">${g.n}× gespielt, zuletzt ${fmtDateOnly(g.last)}</span>
+    </li>`).join('')}</ol></section>`));
+  }
+
+  const list = el(`<section class="section">
+    <h2>Alle Spielabende${year ? ` ${year}` : ''} (${sessions.length})</h2>
+    ${sessions.length ? `<div class="scroll-x"><table>
+      <thead><tr><th>Datum</th><th>Spiel</th><th>Kampagne</th><th>Notiz</th></tr></thead>
+      <tbody>${sessions.map((s) => `<tr>
+        <td>${esc(fmtDateOnly(s.played_on))}</td>
+        <td>${titleLink(s.title, s.slug)}</td>
+        <td class="session-campaign-cell">–</td>
+        <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
+      </tr>`).join('')}</tbody></table></div>`
+    : '<p class="muted">Noch keine Spielabende protokolliert.</p>'}
+  </section>`);
+  list.querySelectorAll('.session-campaign-cell').forEach((cell, i) => {
+    const s = sessions[i];
+    const group = all.filter((x) => x.campaign && x.campaign === s.campaign && gameKey(x) === gameKey(s));
+    const badges = campaignSessionBadges(s, group);
+    if (badges) { cell.textContent = ''; cell.appendChild(badges); }
+  });
+  root.appendChild(list);
 }

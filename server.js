@@ -15,7 +15,7 @@ import {
   hasArchiveAccess,
 } from './src/auth.js';
 import {
-  listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats,
+  listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats, getPlaySessionLog,
   getDashboard, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
   deleteMasterEntry, getAuditLog,
@@ -141,6 +141,10 @@ app.get('/api/wahlomat.json', asyncRoute(async (_req, res) => {
 
 app.get('/api/stats.json', asyncRoute(async (_req, res) => {
   res.json(await getStats());
+}));
+
+app.get('/api/play-sessions.json', asyncRoute(async (_req, res) => {
+  res.json(await getPlaySessionLog());
 }));
 
 app.get('/api/master-data', asyncRoute(async (_req, res) => {
