@@ -256,6 +256,28 @@ async function renderSessionLog(root, params) {
 
   const titleLink = (title, slug) => (slug ? `<a href="#/spiele/${esc(slug)}">${esc(title)}</a>` : `${esc(title)} <span class="faint" style="font-size:var(--text-xs)">(extern)</span>`);
 
+  // Spaltensortierung wie im Adminbereich: Klick sortiert, erneuter Klick dreht
+  // die Richtung. Standard ist Datum, neueste zuerst; am selben Tag entscheidet
+  // die Session-Nummer. Leere Werte stehen immer unten, bei Gleichstand gilt
+  // das Datum (neueste zuerst).
+  let sort = { key: 'played_on', dir: 'desc' };
+  const SORT_VALUE = { game: (s) => s.title, campaign: (s) => s.campaign, note: (s) => s.note };
+  const chrono = (a, b) => a.played_on.localeCompare(b.played_on) || ((a.session_number ?? 0) - (b.session_number ?? 0));
+  function sortSessions(list) {
+    const sign = sort.dir === 'asc' ? 1 : -1;
+    if (sort.key === 'played_on') return [...list].sort((a, b) => sign * chrono(a, b));
+    const get = SORT_VALUE[sort.key];
+    return [...list].sort((a, b) => {
+      const va = get(a) || '', vb = get(b) || '';
+      if (!va !== !vb) return va ? -1 : 1;
+      return sign * va.localeCompare(vb, 'de', { sensitivity: 'base', numeric: true }) || chrono(b, a);
+    });
+  }
+  const sortHead = (key, label) => {
+    const active = sort.key === key;
+    return `<th data-sort="${key}" aria-sort="${active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sort-btn">${label}${active ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</button></th>`;
+  };
+
   function syncUrl() {
     const qs = new URLSearchParams();
     if (state.year) qs.set('jahr', state.year);
@@ -268,10 +290,10 @@ async function renderSessionLog(root, params) {
 
   function renderContent() {
     const needle = state.q.trim().toLowerCase();
-    const sessions = all.filter((s) => (!state.year || yearOf(s) === state.year)
+    const sessions = sortSessions(all.filter((s) => (!state.year || yearOf(s) === state.year)
       && (!state.game || gameKey(s) === state.game)
       && (!state.campaign || s.campaign === state.campaign)
-      && (!needle || [s.title, s.campaign, s.note].some((v) => v && v.toLowerCase().includes(needle))));
+      && (!needle || [s.title, s.campaign, s.note].some((v) => v && v.toLowerCase().includes(needle)))));
     const narrowed = state.game || state.campaign || needle;
     filters.querySelector('#sl-reset').hidden = !(narrowed || state.year);
 
@@ -290,7 +312,7 @@ async function renderSessionLog(root, params) {
     const list = el(`<section class="section">
       <h2>Spielabende (${sessions.length})</h2>
       ${sessions.length ? `<div class="scroll-x"><table>
-        <thead><tr><th>Datum</th><th>Spiel</th><th>Kampagne</th><th>Notiz</th></tr></thead>
+        <thead><tr>${sortHead('played_on', 'Datum')}${sortHead('game', 'Spiel')}${sortHead('campaign', 'Kampagne')}${sortHead('note', 'Notiz')}</tr></thead>
         <tbody>${sessions.map((s) => `<tr>
           <td>${esc(fmtDateOnly(s.played_on))}</td>
           <td>${titleLink(s.title, s.slug)}</td>
@@ -305,6 +327,11 @@ async function renderSessionLog(root, params) {
       const badges = campaignSessionBadges(s, group, { onNameClick: () => { state.campaign = s.campaign; campSel.value = s.campaign; update(); } });
       if (badges) { cell.textContent = ''; cell.appendChild(badges); }
     });
+    list.querySelectorAll('th[data-sort] button').forEach((btn) => btn.addEventListener('click', () => {
+      const key = btn.parentElement.dataset.sort;
+      sort = sort.key === key ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'played_on' ? 'desc' : 'asc' };
+      renderContent();
+    }));
     content.appendChild(list);
   }
 
