@@ -221,10 +221,14 @@ async function renderSessionLog(root, params) {
   </section>`));
   root.appendChild(el(statsTabs('sessions')));
 
-  const yearLink = (y, label) => `<a class="chip" href="#/statistik/spielabende${y ? `?jahr=${y}` : ''}"${y === year ? ' aria-current="true"' : ''}>${label}</a>`;
-  root.appendChild(el(`<div class="tag-row year-filter" role="navigation" aria-label="Jahr">
-    ${yearLink(null, 'Alle Jahre')}${years.map((y) => yearLink(y, String(y))).join('')}
-  </div>`));
+  // Die Jahresauswahl erscheint erst ab zwei Jahren mit Einträgen; bei nur
+  // einem Jahr zeigten "Alle Jahre" und das Jahr dasselbe.
+  if (years.length > 1) {
+    const yearLink = (y, label) => `<a class="chip" href="#/statistik/spielabende${y ? `?jahr=${y}` : ''}"${y === year ? ' aria-current="true"' : ''}>${label}</a>`;
+    root.appendChild(el(`<div class="tag-row year-filter" role="navigation" aria-label="Jahr">
+      ${yearLink(null, 'Alle Jahre')}${years.map((y) => yearLink(y, String(y))).join('')}
+    </div>`));
+  }
 
   const roles = { spielleiter: 0, spieler: 0 };
   (data.rolesByYear || []).filter((r) => !year || r.year === year).forEach((r) => { roles[r.role] = (roles[r.role] || 0) + r.count; });
