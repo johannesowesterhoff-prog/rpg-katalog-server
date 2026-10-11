@@ -191,9 +191,12 @@ export async function renderStats(root, sub, params) {
 }
 
 // ------------------------------------------------------------ Spielabende
-// Alle protokollierten Spielabende mit Jahresauswahl (#/statistik/spielabende?jahr=2026).
-// Kennzahlen und "Meistgespielt" beziehen sich auf das gewählte Jahr; die
-// Kampagnen-Badges zählen über alle Jahre, damit "Session x/M" stimmt.
+// Alle protokollierten Spielabende, filterbar nach Jahr, Spiel, Kampagne und
+// Freitext (Spiel, Kampagne, Notiz). Die Filter stehen in der URL, z. B.
+// #/statistik/spielabende?jahr=2026&spiel=forbidden-lands, damit sich eine
+// Ansicht teilen lässt. "Meistgespielt" steht bewusst nur auf der Übersicht.
+// Die Kampagnen-Badges zählen über alle Abende, damit "Session x/M" auch
+// gefiltert stimmt.
 async function renderSessionLog(root, params) {
   root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:220px"></div></div>';
   document.title = 'Spielabende – Statistik – RPG-Katalog';
@@ -209,72 +212,112 @@ async function renderSessionLog(root, params) {
 
   const all = data.sessions;
   const yearOf = (s) => Number(s.played_on.slice(0, 4));
+  const gameKey = (s) => s.slug || `x:${s.title}`;
   const years = [...new Set(all.map(yearOf))].sort((a, b) => b - a);
-  const requested = Number(params?.get('jahr'));
-  const year = years.includes(requested) ? requested : null;
-  const sessions = year ? all.filter((s) => yearOf(s) === year) : all;
+  const requestedYear = Number(params?.get('jahr'));
+  const state = {
+    year: years.includes(requestedYear) ? requestedYear : null,
+    game: params?.get('spiel') || '',
+    campaign: params?.get('kampagne') || '',
+    q: params?.get('q') || '',
+  };
 
   root.innerHTML = '';
   root.appendChild(el(`<section class="catalog-head">
     <h1>Statistik</h1>
-    <p class="lede">Alle protokollierten Spielabende${year ? ` im Jahr ${year}` : ''}.</p>
+    <p class="lede">Alle protokollierten Spielabende.</p>
   </section>`));
   root.appendChild(el(statsTabs('sessions')));
 
-  // Die Jahresauswahl erscheint erst ab zwei Jahren mit Einträgen; bei nur
-  // einem Jahr zeigten "Alle Jahre" und das Jahr dasselbe.
-  if (years.length > 1) {
-    const yearLink = (y, label) => `<a class="chip" href="#/statistik/spielabende${y ? `?jahr=${y}` : ''}"${y === year ? ' aria-current="true"' : ''}>${label}</a>`;
-    root.appendChild(el(`<div class="tag-row year-filter" role="navigation" aria-label="Jahr">
-      ${yearLink(null, 'Alle Jahre')}${years.map((y) => yearLink(y, String(y))).join('')}
-    </div>`));
-  }
+  const games = [...new Map(all.map((s) => [gameKey(s), s.title])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'de'));
+  const campaigns = [...new Set(all.map((s) => s.campaign).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
+  const filters = el(`<div class="search-row session-filters">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg>
+      <input type="search" id="sl-q" placeholder="Spiel, Kampagne oder Notiz suchen …" aria-label="Spielabende durchsuchen">
+    </div>
+    <select id="sl-game" aria-label="Spiel"><option value="">Alle Spiele</option>${games.map(([k, t]) => `<option value="${esc(k)}">${esc(t)}</option>`).join('')}</select>
+    <select id="sl-campaign" aria-label="Kampagne"><option value="">Alle Kampagnen</option>${campaigns.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
+    ${years.length > 1 ? `<select id="sl-year" aria-label="Jahr"><option value="">Alle Jahre</option>${years.map((y) => `<option value="${y}">${y}</option>`).join('')}</select>` : ''}
+    <button type="button" class="btn btn-sm" id="sl-reset" hidden>Filter zurücksetzen</button>
+  </div>`);
+  root.appendChild(filters);
+  const qInput = filters.querySelector('#sl-q');
+  const gameSel = filters.querySelector('#sl-game');
+  const campSel = filters.querySelector('#sl-campaign');
+  const yearSel = filters.querySelector('#sl-year');
+  qInput.value = state.q;
+  gameSel.value = state.game;
+  campSel.value = state.campaign;
+  if (yearSel) yearSel.value = state.year ? String(state.year) : '';
 
-  const roles = { spielleiter: 0, spieler: 0 };
-  (data.rolesByYear || []).filter((r) => !year || r.year === year).forEach((r) => { roles[r.role] = (roles[r.role] || 0) + r.count; });
-  const gameKey = (s) => s.slug || `x:${s.title}`;
-  root.appendChild(el(`<div class="tiles">
-    <div class="card tile"><span class="num">${sessions.length}</span><span class="lbl">Spielabende</span></div>
-    <div class="card tile"><span class="num">${new Set(sessions.map(gameKey)).size}</span><span class="lbl">verschiedene Spiele</span></div>
-    <div class="card tile"><span class="num">${roles.spielleiter}</span><span class="lbl">× Spielleiter:in</span></div>
-    <div class="card tile"><span class="num">${roles.spieler}</span><span class="lbl">× Spieler:in</span></div>
-  </div>`));
+  const content = el('<div></div>');
+  root.appendChild(content);
 
   const titleLink = (title, slug) => (slug ? `<a href="#/spiele/${esc(slug)}">${esc(title)}</a>` : `${esc(title)} <span class="faint" style="font-size:var(--text-xs)">(extern)</span>`);
 
-  const counts = new Map();
-  sessions.forEach((s) => {
-    const k = gameKey(s);
-    const c = counts.get(k) || { title: s.title, slug: s.slug, n: 0, last: s.played_on };
-    c.n += 1;
-    if (s.played_on > c.last) c.last = s.played_on;
-    counts.set(k, c);
-  });
-  const top = [...counts.values()].sort((a, b) => b.n - a.n || b.last.localeCompare(a.last)).slice(0, 10);
-  if (top.length) {
-    root.appendChild(el(`<section class="section"><h2>Meistgespielt${year ? ` ${year}` : ''}</h2><ol class="stat-list">${top.map((g) => `<li>
-      ${titleLink(g.title, g.slug)}
-      <span class="muted">${g.n}× gespielt, zuletzt ${fmtDateOnly(g.last)}</span>
-    </li>`).join('')}</ol></section>`));
+  function syncUrl() {
+    const qs = new URLSearchParams();
+    if (state.year) qs.set('jahr', state.year);
+    if (state.game) qs.set('spiel', state.game);
+    if (state.campaign) qs.set('kampagne', state.campaign);
+    if (state.q) qs.set('q', state.q);
+    const hash = `#/statistik/spielabende${qs.toString() ? `?${qs}` : ''}`;
+    if (location.hash !== hash) history.replaceState(null, '', hash);
   }
 
-  const list = el(`<section class="section">
-    <h2>Alle Spielabende${year ? ` ${year}` : ''} (${sessions.length})</h2>
-    ${sessions.length ? `<div class="scroll-x"><table>
-      <thead><tr><th>Datum</th><th>Spiel</th><th>Kampagne</th><th>Notiz</th></tr></thead>
-      <tbody>${sessions.map((s) => `<tr>
-        <td>${esc(fmtDateOnly(s.played_on))}</td>
-        <td>${titleLink(s.title, s.slug)}</td>
-        <td class="session-campaign-cell">–</td>
-        <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
-      </tr>`).join('')}</tbody></table></div>`
-    : '<p class="muted">Noch keine Spielabende protokolliert.</p>'}
-  </section>`);
-  list.querySelectorAll('.session-campaign-cell').forEach((cell, i) => {
-    const s = sessions[i];
-    const group = all.filter((x) => x.campaign && x.campaign === s.campaign && gameKey(x) === gameKey(s));
-    const badges = campaignSessionBadges(s, group);
-    if (badges) { cell.textContent = ''; cell.appendChild(badges); }
+  function renderContent() {
+    const needle = state.q.trim().toLowerCase();
+    const sessions = all.filter((s) => (!state.year || yearOf(s) === state.year)
+      && (!state.game || gameKey(s) === state.game)
+      && (!state.campaign || s.campaign === state.campaign)
+      && (!needle || [s.title, s.campaign, s.note].some((v) => v && v.toLowerCase().includes(needle))));
+    const narrowed = state.game || state.campaign || needle;
+    filters.querySelector('#sl-reset').hidden = !(narrowed || state.year);
+
+    // Rollen gibt es nur aufsummiert pro Jahr, daher nur ohne weitere Filter.
+    const roles = { spielleiter: 0, spieler: 0 };
+    (data.rolesByYear || []).filter((r) => !state.year || r.year === state.year).forEach((r) => { roles[r.role] = (roles[r.role] || 0) + r.count; });
+
+    content.innerHTML = '';
+    content.appendChild(el(`<div class="tiles">
+      <div class="card tile"><span class="num">${sessions.length}</span><span class="lbl">Spielabende</span></div>
+      <div class="card tile"><span class="num">${new Set(sessions.map(gameKey)).size}</span><span class="lbl">verschiedene Spiele</span></div>
+      ${narrowed ? '' : `<div class="card tile"><span class="num">${roles.spielleiter}</span><span class="lbl">× Spielleiter:in</span></div>
+      <div class="card tile"><span class="num">${roles.spieler}</span><span class="lbl">× Spieler:in</span></div>`}
+    </div>`));
+
+    const list = el(`<section class="section">
+      <h2>Spielabende (${sessions.length})</h2>
+      ${sessions.length ? `<div class="scroll-x"><table>
+        <thead><tr><th>Datum</th><th>Spiel</th><th>Kampagne</th><th>Notiz</th></tr></thead>
+        <tbody>${sessions.map((s) => `<tr>
+          <td>${esc(fmtDateOnly(s.played_on))}</td>
+          <td>${titleLink(s.title, s.slug)}</td>
+          <td class="session-campaign-cell">–</td>
+          <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
+        </tr>`).join('')}</tbody></table></div>`
+      : `<p class="muted">${all.length ? 'Keine Spielabende für diese Filter.' : 'Noch keine Spielabende protokolliert.'}</p>`}
+    </section>`);
+    list.querySelectorAll('.session-campaign-cell').forEach((cell, i) => {
+      const s = sessions[i];
+      const group = all.filter((x) => x.campaign && x.campaign === s.campaign && gameKey(x) === gameKey(s));
+      const badges = campaignSessionBadges(s, group, { onNameClick: () => { state.campaign = s.campaign; campSel.value = s.campaign; update(); } });
+      if (badges) { cell.textContent = ''; cell.appendChild(badges); }
+    });
+    content.appendChild(list);
+  }
+
+  function update() { syncUrl(); renderContent(); }
+  qInput.addEventListener('input', () => { state.q = qInput.value; update(); });
+  gameSel.addEventListener('change', () => { state.game = gameSel.value; update(); });
+  campSel.addEventListener('change', () => { state.campaign = campSel.value; update(); });
+  if (yearSel) yearSel.addEventListener('change', () => { state.year = yearSel.value ? Number(yearSel.value) : null; update(); });
+  filters.querySelector('#sl-reset').addEventListener('click', () => {
+    Object.assign(state, { year: null, game: '', campaign: '', q: '' });
+    qInput.value = ''; gameSel.value = ''; campSel.value = '';
+    if (yearSel) yearSel.value = '';
+    update();
   });
-  root.appendChild(list);
+  renderContent();
 }
