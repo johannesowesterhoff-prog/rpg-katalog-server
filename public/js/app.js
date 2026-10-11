@@ -53,7 +53,7 @@ async function route() {
   try {
     if (parts[0] === 'spiele' && parts[1]) { markNav('katalog'); await renderDetail(root, decodeURIComponent(parts[1]), ctx); return; }
     if (parts[0] === 'wahlomat') { markNav('wahlomat'); await renderWahlomat(root); return; }
-    if (parts[0] === 'statistik') { markNav('statistik'); await renderStats(root); return; }
+    if (parts[0] === 'statistik') { markNav('statistik'); await renderStats(root, parts[1], params); return; }
     if (parts[0] === 'admin') {
       markNav('admin');
       const sub = parts[1];
