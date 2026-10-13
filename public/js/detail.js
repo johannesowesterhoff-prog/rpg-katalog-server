@@ -96,12 +96,12 @@ export async function renderDetail(root, slug, ctx) {
       <section class="section">
         <h2>Spielabende (${sessions.length})</h2>
         ${sessions.length ? `<div class="scroll-x"><table>
-          <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}<th>Spielform</th><th>Mitspieler:innen</th><th>Rolle</th><th>Zusammenfassung</th></tr></thead>
+          <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}<th>Mitspieler:innen</th><th>Spielform</th><th>Rolle</th><th>Zusammenfassung</th></tr></thead>
           <tbody>${sessions.map((s) => `<tr>
             <td>${esc(fmtDateOnly(s.played_on))}</td>
             ${showCampaign ? '<td class="session-campaign-cell">–</td>' : ''}
-            <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
             <td>${esc(s.participants || '–')}</td>
+            <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
             <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
             <td>${summaryLink(s) || '–'}</td>
           </tr>`).join('')}</tbody></table></div>`

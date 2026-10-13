@@ -323,13 +323,13 @@ async function renderSessionLog(root, params) {
     const list = el(`<section class="section">
       <h2>Spielabende (${sessions.length})</h2>
       ${sessions.length ? `<div class="scroll-x"><table>
-        <thead><tr>${sortHead('played_on', 'Datum')}${sortHead('game', 'Spiel')}${sortHead('campaign', 'Kampagne')}${sortHead('play_mode', 'Spielform')}${sortHead('participants', 'Mitspieler:innen')}${sortHead('role', 'Rolle')}${sortHead('summary', 'Zusammenfassung')}</tr></thead>
+        <thead><tr>${sortHead('played_on', 'Datum')}${sortHead('game', 'Spiel')}${sortHead('campaign', 'Kampagne')}${sortHead('participants', 'Mitspieler:innen')}${sortHead('play_mode', 'Spielform')}${sortHead('role', 'Rolle')}${sortHead('summary', 'Zusammenfassung')}</tr></thead>
         <tbody>${sessions.map((s) => `<tr>
           <td>${esc(fmtDateOnly(s.played_on))}</td>
           <td>${titleLink(s.title, s.slug)}</td>
           <td class="session-campaign-cell">–</td>
-          <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
           <td>${esc(s.participants || '–')}</td>
+          <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
           <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
           <td>${s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : '–'}</td>
         </tr>`).join('')}</tbody></table></div>`
