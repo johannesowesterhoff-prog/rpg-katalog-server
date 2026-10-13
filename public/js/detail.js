@@ -63,6 +63,10 @@ export async function renderDetail(root, slug, ctx) {
   const sessions = g.play_sessions || [];
   const showParticipants = sessions.some((s) => s.participants != null);
   const showCampaign = sessions.some((s) => s.campaign != null);
+  // Notizen liefert der Server nur an Admins aus; öffentlich bleibt nur der
+  // Link zur Zusammenfassung.
+  const showNotes = !!ctx?.isAdmin;
+  const summaryLink = (s) => (s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : '');
   const fmtDateOnly = (v) => (v ? new Date(v).toLocaleDateString('de-DE') : '–');
   const layout = el(`<div class="detail-layout">
     <div>
@@ -94,12 +98,12 @@ export async function renderDetail(root, slug, ctx) {
       <section class="section">
         <h2>Spielabende (${sessions.length})</h2>
         ${sessions.length ? `<div class="scroll-x"><table>
-          <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}${showParticipants ? '<th>Mitspieler:innen</th>' : ''}<th>Notiz</th></tr></thead>
+          <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}${showParticipants ? '<th>Mitspieler:innen</th>' : ''}<th>${showNotes ? 'Notiz' : 'Zusammenfassung'}</th></tr></thead>
           <tbody>${sessions.map((s) => `<tr>
             <td>${esc(fmtDateOnly(s.played_on))}</td>
             ${showCampaign ? '<td class="session-campaign-cell">–</td>' : ''}
             ${showParticipants ? `<td>${esc(s.participants || '–')}</td>` : ''}
-            <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
+            <td>${showNotes ? `${esc(s.note || '–')}${s.summary_url ? `<br>${summaryLink(s)}` : ''}` : (summaryLink(s) || '–')}</td>
           </tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">Für dieses Spiel ist noch kein Spielabend protokolliert.</p>'}
       </section>
