@@ -188,14 +188,14 @@ export async function getWahlomatData() {
 }
 
 // --------------------------------------------------------- Statistik
-// Öffentliches Spielabend-Protokoll für Statistik → Spielabende. Mitspieler:innen
-// und Rolle pro Abend bleiben wie auf den Spielseiten verborgen; die Rollen
+// Öffentliches Spielabend-Protokoll für Statistik → Spielabende. Notizen,
+// Mitspieler:innen und Rolle pro Abend bleiben wie auf den Spielseiten verborgen; die Rollen
 // gibt es nur aufsummiert pro Jahr (wie die Rollen-Kacheln der Übersicht).
 export async function getPlaySessionLog() {
   const visible = "(g.id IS NULL OR g.status = 'published')";
   const [sessions, roles] = await Promise.all([
     pool.query(`SELECT to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, g.slug, COALESCE(g.title, ps.external_title) AS title,
-        ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url, ps.session_number, ps.play_mode, ps.note, ps.summary_url
+        ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url, ps.session_number, ps.play_mode, ps.summary_url
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE ${visible}
       ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC`),
@@ -243,7 +243,7 @@ export async function getStats() {
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE g.id IS NULL OR g.status = 'published'
       GROUP BY g.id, g.slug, g.title, ps.external_title ORDER BY sessions DESC, last_played DESC`),
-    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, ps.note
+    pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE g.id IS NULL OR g.status = 'published'
       ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC LIMIT 8`),
@@ -383,7 +383,7 @@ export async function getGameBySlug(slug, isAdmin) {
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
     pool.query(
-      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, ${isAdmin ? 'participants, role,' : 'NULL::text AS participants, NULL::text AS role,'} note, summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number, play_mode FROM katalog.play_sessions
+      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, ${isAdmin ? 'participants, role, note,' : 'NULL::text AS participants, NULL::text AS role, NULL::text AS note,'} summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number, play_mode FROM katalog.play_sessions
        WHERE game_id = $1 ORDER BY played_on DESC, session_number DESC NULLS LAST, id DESC`, [g.id],
     ),
   ]);

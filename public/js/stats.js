@@ -159,7 +159,6 @@ export async function renderStats(root, sub, params) {
     ? `<ol class="stat-list">${s.recentSessions.map((r) => `<li>
         ${titleLink(r.title, r.slug)}
         <span class="muted">${esc(fmtDateOnly(r.played_on))}</span>
-        ${r.note ? `<p class="faint" style="font-size:var(--text-xs);margin:.2rem 0 0">${esc(r.note)}</p>` : ''}
       </li>`).join('')}</ol>`
     : '<p class="muted">Noch keine Spielabende protokolliert.</p>';
 
@@ -192,7 +191,7 @@ export async function renderStats(root, sub, params) {
 
 // ------------------------------------------------------------ Spielabende
 // Alle protokollierten Spielabende, filterbar nach Jahr, Spiel, Kampagne und
-// Freitext (Spiel, Kampagne, Notiz). Die Filter stehen in der URL, z. B.
+// Freitext (Spiel, Kampagne; Notizen sind nicht öffentlich). Die Filter stehen in der URL, z. B.
 // #/statistik/spielabende?jahr=2026&spiel=forbidden-lands, damit sich eine
 // Ansicht teilen lässt. "Meistgespielt" steht bewusst nur auf der Übersicht.
 // Die Kampagnen-Badges zählen über alle Abende, damit "Session x/M" auch
@@ -235,7 +234,7 @@ async function renderSessionLog(root, params) {
   const filters = el(`<div class="search-row session-filters">
     <div class="search-box">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg>
-      <input type="search" id="sl-q" placeholder="Spiel, Kampagne oder Notiz suchen …" aria-label="Spielabende durchsuchen">
+      <input type="search" id="sl-q" placeholder="Spiel oder Kampagne suchen …" aria-label="Spielabende durchsuchen">
     </div>
     <select id="sl-game" aria-label="Spiel"><option value="">Alle Spiele</option>${games.map(([k, t]) => `<option value="${esc(k)}">${esc(t)}</option>`).join('')}</select>
     <select id="sl-campaign" aria-label="Kampagne"><option value="">Alle Kampagnen</option>${campaigns.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
@@ -265,7 +264,7 @@ async function renderSessionLog(root, params) {
   // die Session-Nummer. Leere Werte stehen immer unten, bei Gleichstand gilt
   // das Datum (neueste zuerst).
   let sort = { key: 'played_on', dir: 'desc' };
-  const SORT_VALUE = { game: (s) => s.title, campaign: (s) => s.campaign, play_mode: (s) => PLAY_MODE_LABEL[s.play_mode], note: (s) => s.note };
+  const SORT_VALUE = { game: (s) => s.title, campaign: (s) => s.campaign, play_mode: (s) => PLAY_MODE_LABEL[s.play_mode], summary: (s) => (s.summary_url ? 'a' : '') };
   const chrono = (a, b) => a.played_on.localeCompare(b.played_on) || ((a.session_number ?? 0) - (b.session_number ?? 0));
   function sortSessions(list) {
     const sign = sort.dir === 'asc' ? 1 : -1;
@@ -299,7 +298,7 @@ async function renderSessionLog(root, params) {
       && (!state.game || gameKey(s) === state.game)
       && (!state.campaign || s.campaign === state.campaign)
       && (!state.mode || s.play_mode === state.mode)
-      && (!needle || [s.title, s.campaign, s.note].some((v) => v && v.toLowerCase().includes(needle)))));
+      && (!needle || [s.title, s.campaign].some((v) => v && v.toLowerCase().includes(needle)))));
     const narrowed = state.game || state.campaign || state.mode || needle;
     filters.querySelector('#sl-reset').hidden = !(narrowed || state.year);
 
@@ -320,13 +319,13 @@ async function renderSessionLog(root, params) {
     const list = el(`<section class="section">
       <h2>Spielabende (${sessions.length})</h2>
       ${sessions.length ? `<div class="scroll-x"><table>
-        <thead><tr>${sortHead('played_on', 'Datum')}${sortHead('game', 'Spiel')}${sortHead('campaign', 'Kampagne')}${sortHead('play_mode', 'Spielform')}${sortHead('note', 'Notiz')}</tr></thead>
+        <thead><tr>${sortHead('played_on', 'Datum')}${sortHead('game', 'Spiel')}${sortHead('campaign', 'Kampagne')}${sortHead('play_mode', 'Spielform')}${sortHead('summary', 'Zusammenfassung')}</tr></thead>
         <tbody>${sessions.map((s) => `<tr>
           <td>${esc(fmtDateOnly(s.played_on))}</td>
           <td>${titleLink(s.title, s.slug)}</td>
           <td class="session-campaign-cell">–</td>
           <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
-          <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
+          <td>${s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : '–'}</td>
         </tr>`).join('')}</tbody></table></div>`
       : `<p class="muted">${all.length ? 'Keine Spielabende für diese Filter.' : 'Noch keine Spielabende protokolliert.'}</p>`}
     </section>`);
