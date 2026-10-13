@@ -181,7 +181,7 @@ export async function renderStats(root, sub, params) {
     const kindTag = (c) => (CAMPAIGN_KIND_LABEL[c.campaign_kind] ? `, ${CAMPAIGN_KIND_LABEL[c.campaign_kind]}` : '');
     const campaignsHtml = `<ol class="stat-list">${s.campaigns.map((c) => `<li>
         <b>${esc(c.campaign)}</b> <span class="faint" style="font-size:var(--text-xs)">(${c.campaign_status === 'abgeschlossen' ? 'abgeschlossen' : 'laufend'}${kindTag(c)})</span>
-        ${c.campaign_announcement_url ? `<a href="${esc(c.campaign_announcement_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)"> · Aushang ↗</a>` : ''}
+        ${c.campaign_announcement_url ? `<a href="${esc(c.campaign_announcement_url)}" target="_blank" rel="noopener" class="tag tag-link">Aushang ↗</a>` : ''}
         <br>${titleLink(c.title, c.slug)}
         <span class="muted">${c.sessions}× gespielt, zuletzt ${fmtDateOnly(c.last_played)}</span>
       </li>`).join('')}</ol>`;
@@ -331,7 +331,7 @@ async function renderSessionLog(root, params) {
           <td>${esc(s.participants || '–')}</td>
           <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
           <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
-          <td>${s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : '–'}</td>
+          <td>${s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="tag tag-link">Zusammenfassung ↗</a>` : '–'}</td>
         </tr>`).join('')}</tbody></table></div>`
       : `<p class="muted">${all.length ? 'Keine Spielabende für diese Filter.' : 'Noch keine Spielabende protokolliert.'}</p>`}
     </section>`);

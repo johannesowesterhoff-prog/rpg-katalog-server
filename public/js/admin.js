@@ -1130,7 +1130,7 @@ export async function renderPlaySessions(root) {
         <td>${esc(s.participants || '–')}</td>
         <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
         <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
-        <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
+        <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="tag tag-link">Zusammenfassung ↗</a>` : ''}</td>
         <td class="row-actions">
           <button type="button" class="btn btn-sm ps-edit">Bearbeiten</button>
           <button type="button" class="btn btn-sm btn-danger">Löschen</button>
