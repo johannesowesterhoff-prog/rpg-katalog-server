@@ -1,6 +1,6 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
 import { api, setArchiveToken, hasArchiveToken, hasToken } from './api.js';
-import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, campaignSessionBadges, coverUrl } from './ui.js';
+import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, coverUrl } from './ui.js';
 
 // Deep-Link-Ziel im privaten "Schwarzen Regal" (separate PDF-Datenbank,
 // siehe handoff_archive_link.md). Format: #<archive_slug> -- das Regal läuft in
@@ -61,11 +61,9 @@ export async function renderDetail(root, slug, ctx) {
 
   const products = g.products || [];
   const sessions = g.play_sessions || [];
-  const showParticipants = sessions.some((s) => s.participants != null);
   const showCampaign = sessions.some((s) => s.campaign != null);
-  // Notizen liefert der Server nur an Admins aus; öffentlich bleibt nur der
-  // Link zur Zusammenfassung.
-  const showNotes = !!ctx?.isAdmin;
+  // Öffentlich ist alles außer den Notizen; die gibt es nur im Adminbereich.
+  const ROLE_LABEL = { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' };
   const summaryLink = (s) => (s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : '');
   const fmtDateOnly = (v) => (v ? new Date(v).toLocaleDateString('de-DE') : '–');
   const layout = el(`<div class="detail-layout">
@@ -98,12 +96,14 @@ export async function renderDetail(root, slug, ctx) {
       <section class="section">
         <h2>Spielabende (${sessions.length})</h2>
         ${sessions.length ? `<div class="scroll-x"><table>
-          <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}${showParticipants ? '<th>Mitspieler:innen</th>' : ''}<th>${showNotes ? 'Notiz' : 'Zusammenfassung'}</th></tr></thead>
+          <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}<th>Spielform</th><th>Mitspieler:innen</th><th>Rolle</th><th>Zusammenfassung</th></tr></thead>
           <tbody>${sessions.map((s) => `<tr>
             <td>${esc(fmtDateOnly(s.played_on))}</td>
             ${showCampaign ? '<td class="session-campaign-cell">–</td>' : ''}
-            ${showParticipants ? `<td>${esc(s.participants || '–')}</td>` : ''}
-            <td>${showNotes ? `${esc(s.note || '–')}${s.summary_url ? `<br>${summaryLink(s)}` : ''}` : (summaryLink(s) || '–')}</td>
+            <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
+            <td>${esc(s.participants || '–')}</td>
+            <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
+            <td>${summaryLink(s) || '–'}</td>
           </tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">Für dieses Spiel ist noch kein Spielabend protokolliert.</p>'}
       </section>

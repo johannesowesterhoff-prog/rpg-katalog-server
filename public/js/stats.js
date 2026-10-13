@@ -191,7 +191,7 @@ export async function renderStats(root, sub, params) {
 
 // ------------------------------------------------------------ Spielabende
 // Alle protokollierten Spielabende, filterbar nach Jahr, Spiel, Kampagne und
-// Freitext (Spiel, Kampagne; Notizen sind nicht öffentlich). Die Filter stehen in der URL, z. B.
+// Freitext (Spiel, Kampagne, Mitspieler:innen; Notizen sind nicht öffentlich). Die Filter stehen in der URL, z. B.
 // #/statistik/spielabende?jahr=2026&spiel=forbidden-lands, damit sich eine
 // Ansicht teilen lässt. "Meistgespielt" steht bewusst nur auf der Übersicht.
 // Die Kampagnen-Badges zählen über alle Abende, damit "Session x/M" auch
@@ -220,7 +220,9 @@ async function renderSessionLog(root, params) {
     campaign: params?.get('kampagne') || '',
     q: params?.get('q') || '',
     mode: params?.get('spielform') || '',
+    role: params?.get('rolle') || '',
   };
+  const ROLE_LABEL = { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' };
 
   root.innerHTML = '';
   root.appendChild(el(`<section class="catalog-head">
@@ -234,10 +236,11 @@ async function renderSessionLog(root, params) {
   const filters = el(`<div class="search-row session-filters">
     <div class="search-box">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg>
-      <input type="search" id="sl-q" placeholder="Spiel oder Kampagne suchen …" aria-label="Spielabende durchsuchen">
+      <input type="search" id="sl-q" placeholder="Spiel, Kampagne oder Mitspieler:in suchen …" aria-label="Spielabende durchsuchen">
     </div>
     <select id="sl-game" aria-label="Spiel"><option value="">Alle Spiele</option>${games.map(([k, t]) => `<option value="${esc(k)}">${esc(t)}</option>`).join('')}</select>
     <select id="sl-campaign" aria-label="Kampagne"><option value="">Alle Kampagnen</option>${campaigns.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
+    <select id="sl-role" aria-label="Rolle"><option value="">Alle Rollen</option>${Object.entries(ROLE_LABEL).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
     <select id="sl-mode" aria-label="Spielform"><option value="">Am Tisch &amp; online</option>${Object.entries(PLAY_MODE_LABEL).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
     ${years.length > 1 ? `<select id="sl-year" aria-label="Jahr"><option value="">Alle Jahre</option>${years.map((y) => `<option value="${y}">${y}</option>`).join('')}</select>` : ''}
     <button type="button" class="btn btn-sm" id="sl-reset" hidden>Filter zurücksetzen</button>
@@ -248,10 +251,12 @@ async function renderSessionLog(root, params) {
   const campSel = filters.querySelector('#sl-campaign');
   const yearSel = filters.querySelector('#sl-year');
   const modeSel = filters.querySelector('#sl-mode');
+  const roleSel = filters.querySelector('#sl-role');
   qInput.value = state.q;
   gameSel.value = state.game;
   campSel.value = state.campaign;
   modeSel.value = PLAY_MODE_LABEL[state.mode] ? state.mode : '';
+  roleSel.value = ROLE_LABEL[state.role] ? state.role : '';
   if (yearSel) yearSel.value = state.year ? String(state.year) : '';
 
   const content = el('<div></div>');
@@ -264,7 +269,7 @@ async function renderSessionLog(root, params) {
   // die Session-Nummer. Leere Werte stehen immer unten, bei Gleichstand gilt
   // das Datum (neueste zuerst).
   let sort = { key: 'played_on', dir: 'desc' };
-  const SORT_VALUE = { game: (s) => s.title, campaign: (s) => s.campaign, play_mode: (s) => PLAY_MODE_LABEL[s.play_mode], summary: (s) => (s.summary_url ? 'a' : '') };
+  const SORT_VALUE = { game: (s) => s.title, campaign: (s) => s.campaign, play_mode: (s) => PLAY_MODE_LABEL[s.play_mode], participants: (s) => s.participants, role: (s) => ROLE_LABEL[s.role], summary: (s) => (s.summary_url ? 'a' : '') };
   const chrono = (a, b) => a.played_on.localeCompare(b.played_on) || ((a.session_number ?? 0) - (b.session_number ?? 0));
   function sortSessions(list) {
     const sign = sort.dir === 'asc' ? 1 : -1;
@@ -288,6 +293,7 @@ async function renderSessionLog(root, params) {
     if (state.campaign) qs.set('kampagne', state.campaign);
     if (state.q) qs.set('q', state.q);
     if (state.mode) qs.set('spielform', state.mode);
+    if (state.role) qs.set('rolle', state.role);
     const hash = `#/statistik/spielabende${qs.toString() ? `?${qs}` : ''}`;
     if (location.hash !== hash) history.replaceState(null, '', hash);
   }
@@ -298,13 +304,11 @@ async function renderSessionLog(root, params) {
       && (!state.game || gameKey(s) === state.game)
       && (!state.campaign || s.campaign === state.campaign)
       && (!state.mode || s.play_mode === state.mode)
-      && (!needle || [s.title, s.campaign].some((v) => v && v.toLowerCase().includes(needle)))));
-    const narrowed = state.game || state.campaign || state.mode || needle;
+      && (!state.role || s.role === state.role)
+      && (!needle || [s.title, s.campaign, s.participants].some((v) => v && v.toLowerCase().includes(needle)))));
+    const narrowed = state.game || state.campaign || state.mode || state.role || needle;
     filters.querySelector('#sl-reset').hidden = !(narrowed || state.year);
 
-    // Rollen gibt es nur aufsummiert pro Jahr, daher nur ohne weitere Filter.
-    const roles = { spielleiter: 0, spieler: 0 };
-    (data.rolesByYear || []).filter((r) => !state.year || r.year === state.year).forEach((r) => { roles[r.role] = (roles[r.role] || 0) + r.count; });
 
     content.innerHTML = '';
     content.appendChild(el(`<div class="tiles">
@@ -312,19 +316,21 @@ async function renderSessionLog(root, params) {
       <div class="card tile"><span class="num">${new Set(sessions.map(gameKey)).size}</span><span class="lbl">verschiedene Spiele</span></div>
       <div class="card tile"><span class="num">${sessions.filter((s) => s.play_mode === 'am-tisch').length}</span><span class="lbl">× am Tisch</span></div>
       <div class="card tile"><span class="num">${sessions.filter((s) => s.play_mode === 'online').length}</span><span class="lbl">× online</span></div>
-      ${narrowed ? '' : `<div class="card tile"><span class="num">${roles.spielleiter}</span><span class="lbl">× Spielleiter:in</span></div>
-      <div class="card tile"><span class="num">${roles.spieler}</span><span class="lbl">× Spieler:in</span></div>`}
+      <div class="card tile"><span class="num">${sessions.filter((s) => s.role === 'spielleiter').length}</span><span class="lbl">× Spielleiter:in</span></div>
+      <div class="card tile"><span class="num">${sessions.filter((s) => s.role === 'spieler').length}</span><span class="lbl">× Spieler:in</span></div>
     </div>`));
 
     const list = el(`<section class="section">
       <h2>Spielabende (${sessions.length})</h2>
       ${sessions.length ? `<div class="scroll-x"><table>
-        <thead><tr>${sortHead('played_on', 'Datum')}${sortHead('game', 'Spiel')}${sortHead('campaign', 'Kampagne')}${sortHead('play_mode', 'Spielform')}${sortHead('summary', 'Zusammenfassung')}</tr></thead>
+        <thead><tr>${sortHead('played_on', 'Datum')}${sortHead('game', 'Spiel')}${sortHead('campaign', 'Kampagne')}${sortHead('play_mode', 'Spielform')}${sortHead('participants', 'Mitspieler:innen')}${sortHead('role', 'Rolle')}${sortHead('summary', 'Zusammenfassung')}</tr></thead>
         <tbody>${sessions.map((s) => `<tr>
           <td>${esc(fmtDateOnly(s.played_on))}</td>
           <td>${titleLink(s.title, s.slug)}</td>
           <td class="session-campaign-cell">–</td>
           <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
+          <td>${esc(s.participants || '–')}</td>
+          <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
           <td>${s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : '–'}</td>
         </tr>`).join('')}</tbody></table></div>`
       : `<p class="muted">${all.length ? 'Keine Spielabende für diese Filter.' : 'Noch keine Spielabende protokolliert.'}</p>`}
@@ -348,10 +354,11 @@ async function renderSessionLog(root, params) {
   gameSel.addEventListener('change', () => { state.game = gameSel.value; update(); });
   campSel.addEventListener('change', () => { state.campaign = campSel.value; update(); });
   modeSel.addEventListener('change', () => { state.mode = modeSel.value; update(); });
+  roleSel.addEventListener('change', () => { state.role = roleSel.value; update(); });
   if (yearSel) yearSel.addEventListener('change', () => { state.year = yearSel.value ? Number(yearSel.value) : null; update(); });
   filters.querySelector('#sl-reset').addEventListener('click', () => {
-    Object.assign(state, { year: null, game: '', campaign: '', q: '', mode: '' });
-    qInput.value = ''; gameSel.value = ''; campSel.value = ''; modeSel.value = '';
+    Object.assign(state, { year: null, game: '', campaign: '', q: '', mode: '', role: '' });
+    qInput.value = ''; gameSel.value = ''; campSel.value = ''; modeSel.value = ''; roleSel.value = '';
     if (yearSel) yearSel.value = '';
     update();
   });
