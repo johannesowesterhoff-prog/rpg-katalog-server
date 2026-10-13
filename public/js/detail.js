@@ -64,7 +64,7 @@ export async function renderDetail(root, slug, ctx) {
   const showCampaign = sessions.some((s) => s.campaign != null);
   // Öffentlich ist alles außer den Notizen; die gibt es nur im Adminbereich.
   const ROLE_LABEL = { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' };
-  const summaryLink = (s) => (s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : '');
+  const summaryLink = (s) => (s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="tag tag-link">Zusammenfassung ↗</a>` : '');
   const fmtDateOnly = (v) => (v ? new Date(v).toLocaleDateString('de-DE') : '–');
   const layout = el(`<div class="detail-layout">
     <div>

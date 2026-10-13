@@ -177,8 +177,8 @@ label { font-size: var(--text-sm); font-weight: 500; }
 .campaign-badges .tag { cursor: default; }
 .campaign-badges .tag:hover { color: var(--text-muted); border-color: transparent; background: var(--surface-2); }
 .campaign-badges .tag-row { margin-top: .25rem; }
-.campaign-badges .tag-link { cursor: pointer; color: var(--accent); text-decoration: none; }
-.campaign-badges .tag-link:hover { color: var(--accent-strong); border-color: var(--accent-line); background: var(--accent-soft); }
+.tag.tag-link, .campaign-badges .tag.tag-link { cursor: pointer; color: var(--accent); font-weight: 700; text-decoration: none; display: inline-block; white-space: nowrap; }
+.tag.tag-link:hover, .campaign-badges .tag.tag-link:hover { color: var(--accent-strong); border-color: var(--accent-line); background: var(--accent-soft); }
 .tag-tone { background: transparent; border-color: var(--border); }
 .tag-tone:hover { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
 
