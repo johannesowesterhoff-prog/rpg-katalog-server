@@ -349,6 +349,32 @@ app.get('/api/admin/audit', requireAdmin, asyncRoute(async (req, res) => {
 app.get('/api/admin/play-sessions', requireAdmin, asyncRoute(async (_req, res) => {
   res.json({ sessions: await listPlaySessions() });
 }));
+// CSV-Export aller Spielabende für Excel/Google Sheets: Semikolon als
+// Trenner und UTF-8-BOM, damit Excel Umlaute richtig liest. Enthält auch
+// Mitspieler:innen und Rolle (nur für Admins).
+app.get('/api/admin/play-sessions.csv', requireAdmin, asyncRoute(async (_req, res) => {
+  const sessions = await listPlaySessions();
+  const label = {
+    role: { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' },
+    play_mode: { 'am-tisch': 'Am Tisch', online: 'Online' },
+    campaign_status: { laufend: 'laufend', abgeschlossen: 'abgeschlossen' },
+    campaign_kind: { 'one-shot': 'One-Shot (Two-Shot)', 'few-shot': 'Few-Shot', kampagne: 'Kampagne', 'epische-kampagne': 'Epische Kampagne', 'sandbox-szenarien': 'Sandbox-Szenarien' },
+  };
+  const header = ['Datum', 'Spiel', 'Im Katalog', 'Kampagne', 'Kampagnenart', 'Kampagnenstatus', 'Session-Nr.',
+    'Spielform', 'Rolle', 'Mitspieler:innen', 'Notiz', 'Zusammenfassung', 'Aushang'];
+  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [header.join(';')];
+  for (const s of sessions) {
+    lines.push([
+      s.played_on, s.game_title || s.external_title, s.game_id ? 'ja' : 'nein', s.campaign,
+      label.campaign_kind[s.campaign_kind], label.campaign_status[s.campaign_status], s.session_number,
+      label.play_mode[s.play_mode], label.role[s.role], s.participants, s.note, s.summary_url, s.campaign_announcement_url,
+    ].map(esc).join(';'));
+  }
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="rpg-katalog-spielabende.csv"');
+  res.send('\uFEFF' + lines.join('\r\n'));
+}));
 app.get('/api/admin/games-lookup', requireAdmin, asyncRoute(async (_req, res) => {
   res.json({ games: await getGameLookup() });
 }));
