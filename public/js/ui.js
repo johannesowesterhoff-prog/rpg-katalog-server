@@ -42,6 +42,8 @@ export function scaleBadges(g) {
 }
 
 export const STATUS_LABEL = { published: 'Veröffentlicht', draft: 'Entwurf', archived: 'Archiviert' };
+// Spielform eines Spielabends (Feld play_mode).
+export const PLAY_MODE_LABEL = { 'am-tisch': 'Am Tisch', online: 'Online' };
 export const CAMPAIGN_KIND_LABEL = {
   'one-shot': 'One-Shot (Two-Shot)',
   'few-shot': 'Few-Shot',

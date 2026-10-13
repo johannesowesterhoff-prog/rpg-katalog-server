@@ -1,7 +1,7 @@
 // Adminbereich: Dashboard, Editor, Import/Export, Stammdaten und
 // Änderungsprotokoll.
 import { api, setToken } from './api.js';
-import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, campaignSessionBadges, coverFrame, COVER_FIT_LABEL } from './ui.js';
+import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, coverFrame, COVER_FIT_LABEL } from './ui.js';
 
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 // Interne Wahlomat-Achsen (siehe wahlomat.js); werden nur im Editor gezeigt.
@@ -491,7 +491,7 @@ export async function renderEditor(root, id) {
   const sessionBox = s5sessions.wrap.querySelector('#sessions');
   const sessionRows = [];
   const existingCampaigns = [...new Set((state.play_sessions || []).map((s) => s.campaign).filter(Boolean))];
-  function addSession(s = { played_on: '', participants: '', note: '', summary_url: '', campaign: '', campaign_status: '', campaign_kind: '', campaign_announcement_url: '', session_number: '', role: '' }) {
+  function addSession(s = { played_on: '', participants: '', note: '', summary_url: '', campaign: '', campaign_status: '', campaign_kind: '', campaign_announcement_url: '', session_number: '', role: '', play_mode: '' }) {
     const row = el(`<div class="session-entry" style="margin-bottom:var(--space-4);padding-bottom:var(--space-4);border-bottom:1px solid var(--border)">
       <div class="session-row">
         <div class="field narrow" style="margin:0"><label>Datum</label><input type="date" class="s-date" value="${esc(s.played_on ? String(s.played_on).slice(0, 10) : '')}"></div>
@@ -506,6 +506,10 @@ export async function renderEditor(root, id) {
           <option value="">–</option>
           <option value="laufend" ${s.campaign_status === 'laufend' ? 'selected' : ''}>laufend</option>
           <option value="abgeschlossen" ${s.campaign_status === 'abgeschlossen' ? 'selected' : ''}>abgeschlossen</option>
+        </select></div>
+<div class="field narrow" style="margin:0"><label>Spielform</label><select class="s-play-mode">
+          <option value="">–</option>
+          ${Object.entries(PLAY_MODE_LABEL).map(([v, l]) => `<option value="${v}"${s.play_mode === v ? ' selected' : ''}>${l}</option>`).join('')}
         </select></div>
         <div class="field narrow" style="margin:0"><label>Rolle</label><select class="s-role">
           <option value="">–</option>
@@ -589,6 +593,7 @@ export async function renderEditor(root, id) {
         campaign_announcement_url: r.querySelector('.s-campaign-announcement-url').value.trim() || null,
         session_number: r.querySelector('.s-session-number').value || null,
         role: r.querySelector('.s-role').value || null,
+        play_mode: r.querySelector('.s-play-mode').value || null,
         note: r.querySelector('.s-note').value.trim() || null,
         summary_url: r.querySelector('.s-summary-url').value.trim() || null,
       })).filter((s) => s.played_on),
@@ -922,6 +927,10 @@ export async function renderPlaySessions(root) {
           <option value="laufend">laufend</option>
           <option value="abgeschlossen">abgeschlossen</option>
         </select></div>
+<div class="field narrow" style="margin:0"><label for="ps-play-mode">Spielform</label><select id="ps-play-mode">
+          <option value="">–</option>
+          ${Object.entries(PLAY_MODE_LABEL).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
+        </select></div>
         <div class="field narrow" style="margin:0"><label for="ps-role">Rolle</label><select id="ps-role">
           <option value="">–</option>
           <option value="spielleiter">Spielleiter:in</option>
@@ -942,15 +951,29 @@ export async function renderPlaySessions(root) {
   formSection.querySelector('#ps-game-field').appendChild(gameAc.wrap);
   body.appendChild(formSection);
 
-  const listSection = el(`<section class="section"><h2>Bisherige Einträge (<span id="ps-count">${sessions.length}</span>)</h2>
+  const listSection = el(`<section class="section"><div class="section-head-row"><h2>Bisherige Einträge (<span id="ps-count">${sessions.length}</span>)</h2>
+    <button type="button" class="btn btn-sm" id="ps-export">Als CSV exportieren</button></div>
     <div id="ps-filter-banner"></div>
     <div class="scroll-x"><table>
-      <thead><tr>${[['played_on', 'Datum'], ['game', 'Spiel'], ['campaign', 'Kampagne'], ['participants', 'Mitspieler:innen'], ['role', 'Rolle'], ['note', 'Notiz']]
+      <thead><tr>${[['played_on', 'Datum'], ['game', 'Spiel'], ['campaign', 'Kampagne'], ['participants', 'Mitspieler:innen'], ['play_mode', 'Spielform'], ['role', 'Rolle'], ['note', 'Notiz']]
     .map(([k, l]) => `<th data-sort="${k}"><button type="button" class="sort-btn">${l}<span class="sort-ind" aria-hidden="true"></span></button></th>`).join('')}<th></th></tr></thead>
       <tbody id="ps-rows"></tbody>
     </table></div>
   </section>`);
   body.appendChild(listSection);
+
+  listSection.querySelector('#ps-export').addEventListener('click', async () => {
+    try {
+      const res = await api('/api/admin/play-sessions.csv', { raw: true });
+      if (!res.ok) throw new Error('Export nicht möglich – bitte neu anmelden.');
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = `rpg-katalog-spielabende-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast('Export erstellt.');
+    } catch (e) { toast(e.message, 'err'); }
+  });
 
   function groupKey(s) { return (s.game_id ?? `x:${s.external_title}`) + '|' + s.campaign; }
   const ROLE_LABEL = { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' };
@@ -968,6 +991,7 @@ export async function renderPlaySessions(root) {
     game: (s) => s.game_title || s.external_title,
     campaign: (s) => s.campaign,
     participants: (s) => s.participants,
+    play_mode: (s) => PLAY_MODE_LABEL[s.play_mode],
     role: (s) => ROLE_LABEL[s.role],
     note: (s) => s.note,
   };
@@ -993,7 +1017,7 @@ export async function renderPlaySessions(root) {
   });
 
   function openEditRow(tr, s) {
-    const editRow = el(`<tr><td colspan="7">
+    const editRow = el(`<tr><td colspan="8">
       <div class="session-row">
         <div class="field narrow" style="margin:0"><label>Datum *</label><input type="date" class="e-date" value="${esc(s.played_on)}" required></div>
         <div class="field" id="e-game-field" style="margin:0"><label>Spiel (Katalog-Titel oder frei)</label></div>
@@ -1008,6 +1032,10 @@ export async function renderPlaySessions(root) {
           <option value="">–</option>
           <option value="laufend" ${s.campaign_status === 'laufend' ? 'selected' : ''}>laufend</option>
           <option value="abgeschlossen" ${s.campaign_status === 'abgeschlossen' ? 'selected' : ''}>abgeschlossen</option>
+        </select></div>
+<div class="field narrow" style="margin:0"><label>Spielform</label><select class="e-play-mode">
+          <option value="">–</option>
+          ${Object.entries(PLAY_MODE_LABEL).map(([v, l]) => `<option value="${v}"${s.play_mode === v ? ' selected' : ''}>${l}</option>`).join('')}
         </select></div>
         <div class="field narrow" style="margin:0"><label>Rolle</label><select class="e-role">
           <option value="">–</option>
@@ -1044,6 +1072,7 @@ export async function renderPlaySessions(root) {
         campaign_announcement_url: editRow.querySelector('.e-campaign-announcement-url').value.trim() || null,
         session_number: editRow.querySelector('.e-session-number').value || null,
         role: editRow.querySelector('.e-role').value || null,
+        play_mode: editRow.querySelector('.e-play-mode').value || null,
         note: editRow.querySelector('.e-note').value.trim() || null,
         summary_url: editRow.querySelector('.e-summary-url').value.trim() || null,
       };
@@ -1057,7 +1086,7 @@ export async function renderPlaySessions(root) {
           campaign_status: payload.campaign_status, campaign_kind: payload.campaign_kind,
           campaign_announcement_url: payload.campaign_announcement_url,
           session_number: payload.session_number ? Number(payload.session_number) : null,
-          role: payload.role, note: payload.note, summary_url: payload.summary_url,
+          role: payload.role, play_mode: payload.play_mode, note: payload.note, summary_url: payload.summary_url,
         });
         renderRows();
         toast('Gespeichert.');
@@ -1088,7 +1117,7 @@ export async function renderPlaySessions(root) {
     });
 
     const visible = sortSessions(campaignFilter ? allSessions.filter((s) => groupKey(s) === campaignFilter) : allSessions);
-    if (!visible.length) { tb.appendChild(el('<tr><td colspan="7" class="muted">Noch keine Spielabende erfasst.</td></tr>')); return; }
+    if (!visible.length) { tb.appendChild(el('<tr><td colspan="8" class="muted">Noch keine Spielabende erfasst.</td></tr>')); return; }
     visible.forEach((s) => {
       const title = s.game_title || s.external_title;
       const titleHtml = s.game_slug
@@ -1099,6 +1128,7 @@ export async function renderPlaySessions(root) {
         <td>${titleHtml}</td>
         <td class="campaign-cell">–</td>
         <td>${esc(s.participants || '–')}</td>
+        <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
         <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
         <td>${esc(s.note || '–')}${s.summary_url ? `<br><a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="faint" style="font-size:var(--text-xs)">Zusammenfassung ↗</a>` : ''}</td>
         <td class="row-actions">
@@ -1140,6 +1170,7 @@ export async function renderPlaySessions(root) {
       campaign_announcement_url: formSection.querySelector('#ps-campaign-announcement-url').value.trim() || null,
       session_number: formSection.querySelector('#ps-session-number').value || null,
       role: formSection.querySelector('#ps-role').value || null,
+      play_mode: formSection.querySelector('#ps-play-mode').value || null,
       note: formSection.querySelector('#ps-note').value.trim() || null,
       summary_url: formSection.querySelector('#ps-summary-url').value.trim() || null,
     };
@@ -1153,7 +1184,7 @@ export async function renderPlaySessions(root) {
         campaign_status: payload.campaign_status, campaign_kind: payload.campaign_kind,
         campaign_announcement_url: payload.campaign_announcement_url,
         session_number: payload.session_number ? Number(payload.session_number) : null,
-        role: payload.role, note: payload.note, summary_url: payload.summary_url,
+        role: payload.role, play_mode: payload.play_mode, note: payload.note, summary_url: payload.summary_url,
       }, ...allSessions];
       renderRows();
       formSection.querySelector('#ps-form').reset();
