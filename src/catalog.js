@@ -188,14 +188,15 @@ export async function getWahlomatData() {
 }
 
 // --------------------------------------------------------- Statistik
-// Öffentliches Spielabend-Protokoll für Statistik → Spielabende. Notizen,
-// Mitspieler:innen und Rolle pro Abend bleiben wie auf den Spielseiten verborgen; die Rollen
-// gibt es nur aufsummiert pro Jahr (wie die Rollen-Kacheln der Übersicht).
+// Öffentliches Spielabend-Protokoll für Statistik → Spielabende. Öffentlich ist
+// alles außer den Notizen (die gibt es nur im Adminbereich). rolesByYear bleibt
+// für die Rollen-Summen pro Jahr erhalten.
 export async function getPlaySessionLog() {
   const visible = "(g.id IS NULL OR g.status = 'published')";
   const [sessions, roles] = await Promise.all([
     pool.query(`SELECT to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, g.slug, COALESCE(g.title, ps.external_title) AS title,
-        ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url, ps.session_number, ps.play_mode, ps.summary_url
+        ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url, ps.session_number, ps.play_mode, ps.summary_url,
+        ps.participants, ps.role
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
       WHERE ${visible}
       ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC`),
@@ -383,7 +384,7 @@ export async function getGameBySlug(slug, isAdmin) {
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
     pool.query(
-      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, ${isAdmin ? 'participants, role, note,' : 'NULL::text AS participants, NULL::text AS role, NULL::text AS note,'} summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number, play_mode FROM katalog.play_sessions
+      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, role, summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number, play_mode FROM katalog.play_sessions
        WHERE game_id = $1 ORDER BY played_on DESC, session_number DESC NULLS LAST, id DESC`, [g.id],
     ),
   ]);
