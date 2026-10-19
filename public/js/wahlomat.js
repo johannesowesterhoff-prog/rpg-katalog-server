@@ -829,6 +829,8 @@ export async function renderWahlomat(root, params, groupId = null) {
     attempted = false;
     errorBox.textContent = '';
 
+    // „Als Gruppe spielen?“ und „Letzte Antworten“ nur auf der ersten Seite.
+    resumeWrap.hidden = state.step !== 1;
     const pct = Math.round(state.step / STEPS.length * 100);
     progress.querySelector('#wProgressText').textContent = `${(members.length || group) && personLabel() ? `${personLabel()} · ` : ''}Schritt ${state.step} von ${STEPS.length}`;
     progress.querySelector('#wProgressPct').textContent = `${pct} %`;
