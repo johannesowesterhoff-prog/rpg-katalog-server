@@ -302,14 +302,195 @@ function makeChips(game, profile) {
   return { good: good.slice(0, 6), warnings: warnings.slice(0, 5) };
 }
 
+// ------------------------------------------------------- Teilen & Gruppe
+// Die Antworten einer Person stehen kompakt (JSON → Base64url) in der URL:
+// #/wahlomat?p=<Person 1>&p=<Person 2>. So lässt sich ein Ergebnis per Link
+// teilen, und eine Gruppe sammelt ihre Antworten, indem jede Person den
+// Link öffnet, sich hinzufügt und den neuen Link weitergibt. Gespeichert
+// werden nur vergebene Punkte und bewegte Regler.
+const SCALAR_KEYS = Object.keys(SCALAR_TO_PRIORITY).filter((k) => k !== 'figurenkompetenz');
+const STORAGE_KEY = 'rpg-wahlomat:last';
+const MAX_MEMBERS = 12;
+
+function toB64url(text) {
+  let bin = '';
+  new TextEncoder().encode(text).forEach((b) => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function fromB64url(code) {
+  const bin = atob(String(code).replace(/-/g, '+').replace(/_/g, '/'));
+  return new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)));
+}
+
+function encodeMember({ name, profile }) {
+  const positive = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v > 0));
+  return toB64url(JSON.stringify({
+    n: name,
+    g: positive(profile.genre), t: positive(profile.ton), a: positive(profile.aktivitaeten),
+    s: Object.fromEntries(SCALAR_KEYS.filter((k) => profile[k] != null).map((k) => [k, profile[k]])),
+    f: profile.figurenkompetenz,
+    p: profile.priorities,
+  }));
+}
+
+// Unbekannte Schlüssel (etwa ein inzwischen umbenanntes Genre) und Werte
+// außerhalb der Skalen fallen still heraus; ein kaputter Link ergibt null.
+function decodeMember(code) {
+  try {
+    const o = JSON.parse(fromB64url(code));
+    const budget = (src, cfg) => Object.fromEntries(Object.entries(src || {})
+      .filter(([k, v]) => Object.hasOwn(cfg.labels, k) && Number.isInteger(v) && v > 0 && v <= cfg.max));
+    const scalar = (v) => (v != null && Number(v) >= 1 && Number(v) <= 5 ? Number(v) : null);
+    const figureValues = FIGURE_OPTIONS.map(([v]) => v);
+    const figures = Array.isArray(o.f) ? o.f.filter((v) => figureValues.includes(v)) : [];
+    return {
+      name: String(o.n || '').trim().slice(0, 40),
+      profile: {
+        genre: budget(o.g, B.genre), ton: budget(o.t, B.ton), aktivitaeten: budget(o.a, B.aktivitaeten),
+        ...Object.fromEntries(SCALAR_KEYS.map((k) => [k, scalar(o.s?.[k])])),
+        figurenkompetenz: figures.length ? figures : null,
+        priorities: Array.isArray(o.p) ? o.p.filter((p) => PRIORITY_OPTIONS.some(([k]) => k === p)).slice(0, PRIORITY_MAX) : [],
+      },
+    };
+  } catch { return null; }
+}
+
+// Gruppenwertung: 60 % Durchschnitt + 40 % schwächster Einzelwert. Oben
+// landet, womit alle gut leben können -- ein Spiel, das eine Person begeistert
+// und eine andere gar nicht abholt, rutscht nach unten.
+function scoreForGroup(game, members) {
+  const single = members.map((m) => scoreGame(game, m.profile));
+  if (single.length === 1) return { ...single[0], perPerson: [single[0].score] };
+  const scores = single.map((r) => r.score);
+  const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+  return { ...game, score: 0.6 * mean + 0.4 * Math.min(...scores), perPerson: scores };
+}
+
+// ------------------------------------------------------------ Klartext
+const joinDe = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} und ${items.at(-1)}`);
+const lowerFirst = (t) => (/^(Genre|Ton) /.test(t) ? t : t[0].toLowerCase() + t.slice(1));
+
+function explain(game, members) {
+  const chips = members.map((m) => makeChips(game, m.profile));
+  if (members.length === 1) {
+    const { good, warnings } = chips[0];
+    return {
+      good: good.length ? `Passt: ${joinDe(good.map(lowerFirst))}.` : '',
+      warn: warnings.length ? `Weicht ab: ${joinDe(warnings.map(lowerFirst))}.` : '',
+    };
+  }
+  const common = chips[0].good.filter((t) => chips.every((c) => c.good.includes(t)));
+  const warn = chips.map((c, i) => (c.warnings.length ? `${members[i].name}: ${joinDe(c.warnings.map(lowerFirst))}` : '')).filter(Boolean);
+  return {
+    good: common.length ? `Passt für alle: ${joinDe(common.map(lowerFirst))}.` : '',
+    warn: warn.length ? `Weicht ab – ${warn.join(' · ')}.` : '',
+  };
+}
+
+// ------------------------------------------------------- Netzdiagramm
+const RADAR_AXES = [
+  ['welt_fremdheit', 'Welt', 'Welt-Fremdheit'], ['gefahr', 'Bedrohung', 'Bedrohung & Druck'],
+  ['handlungsfreiheit', 'Freiheit', 'Handlungsfreiheit'], ['letalitaet', 'Scheitern', 'Scheitern-Folgen'],
+  ['figurenkompetenz', 'Figuren', 'Figurenkompetenz'], ['crunch', 'Crunch', 'Crunch'],
+  ['narrativ', 'Narrativ', 'Narrative Mitgestaltung'], ['fluff', 'Fluff', 'Welt-Ausarbeitung'],
+];
+const fmtNum = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+
+// Wunschwert einer Achse, gemittelt über alle, die sie nicht auf „Egal“
+// gelassen haben (Figurenbild: Mittel der gewählten Stufen).
+function wishValue(members, key) {
+  const vals = members.map((m) => m.profile[key])
+    .filter((v) => v != null && !(Array.isArray(v) && !v.length))
+    .map((v) => (Array.isArray(v) ? v.reduce((a, b) => a + b, 0) / v.length : v));
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+}
+
+function radarSvg(game, members) {
+  const w = 380; const h = 290; const cx = w / 2; const cy = h / 2; const r = 100;
+  const n = RADAR_AXES.length;
+  const pt = (i, v) => {
+    const a = -Math.PI / 2 + (i / n) * 2 * Math.PI;
+    return [cx + Math.cos(a) * (v / 5) * r, cy + Math.sin(a) * (v / 5) * r].map((x) => Math.round(x * 10) / 10);
+  };
+  const poly = (pts) => pts.map((p) => p.join(',')).join(' ');
+  const rings = [1, 2, 3, 4, 5].map((v) => `<polygon points="${poly(RADAR_AXES.map((_, i) => pt(i, v)))}" class="radar-grid${v === 3 ? ' mid' : ''}"/>`).join('');
+  const spokes = RADAR_AXES.map((_, i) => { const [x, y] = pt(i, 5); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" class="radar-grid"/>`; }).join('');
+  const gamePts = RADAR_AXES.map(([k], i) => pt(i, Number(game[k] ?? 3)));
+  const wish = RADAR_AXES.map(([k], i) => { const v = wishValue(members, k); return v == null ? null : pt(i, v); }).filter(Boolean);
+  const labels = RADAR_AXES.map(([, label], i) => {
+    const [x, y] = pt(i, 5.75);
+    const anchor = Math.abs(x - cx) < 2 ? 'middle' : x > cx ? 'start' : 'end';
+    return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle">${label}</text>`;
+  }).join('');
+  const title = `Profil von ${game.title}${wish.length ? ' im Vergleich mit euren Wünschen' : ''}`;
+  return `<svg viewBox="0 0 ${w} ${h}" class="radar" role="img" aria-label="${esc(title)}">
+    ${rings}${spokes}
+    <polygon points="${poly(gamePts)}" class="radar-game"/>
+    ${wish.length >= 3 ? `<polygon points="${poly(wish)}" class="radar-wish"/>` : ''}
+    ${wish.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.5" class="radar-wish-dot"/>`).join('')}
+    ${labels}
+  </svg>`;
+}
+
+function radarTable(game, members) {
+  return `<table class="radar-table"><thead><tr><th>Achse</th><th>Spiel</th><th>${members.length > 1 ? 'Gruppe (Ø)' : 'Wunsch'}</th></tr></thead><tbody>${RADAR_AXES.map(([k, , long]) => {
+    const v = wishValue(members, k);
+    return `<tr><td>${long}</td><td>${fmtNum(Number(game[k] ?? 3))}</td><td>${v == null ? 'egal' : fmtNum(v)}</td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+// ------------------------------------------------------- Gruppenbild
+// Wo liegen die Wünsche nah beieinander, wo weit auseinander? Hilft beim
+// Gespräch, warum das Gruppenergebnis so aussieht.
+function groupPicture(members) {
+  const agree = [];
+  const differ = [];
+  RADAR_AXES.forEach(([key, , long]) => {
+    const vals = members.map((m) => ({ name: m.name, v: wishValue([m], key) })).filter((x) => x.v != null);
+    if (vals.length < 2) return;
+    const spread = Math.max(...vals.map((x) => x.v)) - Math.min(...vals.map((x) => x.v));
+    if (spread <= 1) agree.push(long);
+    else if (spread >= 2) differ.push(`${long} (${vals.map((x) => `${x.name} ${fmtNum(x.v)}`).join(' · ')})`);
+  });
+  const shared = (key) => Object.entries(B[key].labels).filter(([k]) => members.every((m) => (m.profile[key][k] || 0) > 0)).map(([, label]) => label);
+  const row = (label, items, empty) => `<div><dt>${label}</dt><dd>${items.length ? esc(items.join(', ')) : `<span class="faint">${empty}</span>`}</dd></div>`;
+  return `<section class="panel wahlomat-group">
+    <h3>Gruppenbild</h3>
+    <dl>
+      ${row('Gemeinsame Genres', shared('genre'), 'keine Überschneidung')}
+      ${row('Gemeinsamer Ton', shared('ton'), 'keine Überschneidung')}
+      ${row('Gemeinsamer Spielstil', shared('aktivitaeten'), 'keine Überschneidung')}
+      ${row('Einig bei', agree, '–')}
+      ${row('Weit auseinander', differ, 'nirgends – ihr liegt überall nah beieinander')}
+    </dl>
+  </section>`;
+}
+
+// Wie oft und wann ein Spiel zuletzt am Tisch lag (aus dem Spielabend-Protokoll).
+function playHistory(sessions) {
+  const map = new Map();
+  sessions.forEach((s) => {
+    if (!s.slug) return;
+    const h = map.get(s.slug) || { count: 0, last: '' };
+    h.count += 1;
+    if (s.played_on > h.last) h.last = s.played_on;
+    map.set(s.slug, h);
+  });
+  return map;
+}
+const fmtDay = (v) => new Date(v).toLocaleDateString('de-DE');
+
 // ---------------------------------------------------------------- Rendering
-export async function renderWahlomat(root) {
+export async function renderWahlomat(root, params) {
   root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:220px"></div></div>';
   document.title = 'RPG-Wahlomat – RPG-Katalog';
 
   let games;
+  let played = new Map();
   try {
-    const data = await api('/api/wahlomat.json');
+    // Das Protokoll ist nur Beiwerk: Fehlt es, läuft der Wahlomat ohne
+    // „zuletzt gespielt“ weiter.
+    const [data, log] = await Promise.all([api('/api/wahlomat.json'), api('/api/play-sessions.json').catch(() => null)]);
     // Auswahllisten für Genre & Ton live aus den tatsächlich vergebenen
     // Top-Tags bauen -- so tauchen alle Top-Genres/-Tones automatisch auf,
     // auch neu hinzugekommene, ohne Codeänderung.
@@ -323,20 +504,29 @@ export async function renderWahlomat(root) {
     B.ton.labels = Object.fromEntries([...tonSet].sort().map((t) => [t, t]));
 
     games = buildGames(data);
+    played = playHistory(log?.sessions || []);
   } catch (e) {
     root.innerHTML = '';
     root.appendChild(el(`<div class="empty"><h3>Wahlomat nicht verfügbar</h3><p class="muted">${esc(e.message)}</p></div>`));
     toast(e.message, 'err');
     return;
   }
+  const gamesById = new Map(games.map((g) => [g.id, g]));
+
+  // Personen aus einem geteilten Link.
+  const members = (params?.getAll('p') || []).map(decodeMember).filter(Boolean).slice(0, MAX_MEMBERS);
+  members.forEach((m, i) => { if (!m.name) m.name = `Person ${i + 1}`; });
 
   root.innerHTML = '';
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat</h1>
-    <p class="lede">Sieben kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln, Fluff und euren Prioritäten — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele).</p>
+    <p class="lede">Sieben kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln, Fluff und euren Prioritäten — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele). Allein oder als Gruppe.</p>
     <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Regler stehen anfangs auf „Egal“ und zählen erst, wenn ihr sie bewegt – was euch nicht wichtig ist, lasst ihr einfach stehen. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
   </section>`);
   root.appendChild(head);
+
+  const resumeWrap = el('<div></div>');
+  root.appendChild(resumeWrap);
 
   const progress = el(`<div class="panel wahlomat-progress">
     <div class="wahlomat-progress-head"><span id="wProgressText"></span><span class="muted" id="wProgressPct"></span></div>
@@ -360,6 +550,9 @@ export async function renderWahlomat(root) {
 
   const state = {
     step: 1,
+    name: '',
+    // Index der Person, deren Antworten gerade bearbeitet werden; null = neue Person.
+    editIndex: null,
     genre: freshBudget('genre'),
     ton: freshBudget('ton'),
     aktivitaeten: freshBudget('aktivitaeten'),
@@ -371,6 +564,17 @@ export async function renderWahlomat(root) {
     crunch: null, narrativ: null, fluff: null,
     priorities: [],
   };
+
+  // Lädt die Antworten einer Person in den Fragebogen (oder leert ihn).
+  function loadState(member) {
+    const p = member?.profile;
+    state.step = 1;
+    state.name = member?.name || '';
+    ['genre', 'ton', 'aktivitaeten'].forEach((k) => { state[k] = { ...freshBudget(k), ...(p?.[k] || {}) }; });
+    SCALAR_KEYS.forEach((k) => { state[k] = p?.[k] ?? null; });
+    state.figurenkompetenz = p?.figurenkompetenz ? [...p.figurenkompetenz] : null;
+    state.priorities = p ? [...p.priorities] : [];
+  }
 
   function budgetSum(key) { return Object.values(state[key]).reduce((a, b) => a + b, 0); }
 
@@ -490,6 +694,15 @@ export async function renderWahlomat(root) {
     return wrap;
   }
 
+  function nameField() {
+    const wrap = el(`<label class="wahlomat-name">
+      <span>Wer füllt aus? <span class="faint">(optional – praktisch im Gruppenmodus)</span></span>
+      <input type="text" maxlength="40" placeholder="Name" value="${esc(state.name)}">
+    </label>`);
+    wrap.querySelector('input').addEventListener('input', (e) => { state.name = e.target.value; });
+    return wrap;
+  }
+
   let errorBox;
   // Die Meldung erscheint erst, wenn jemand auf "Weiter" geklickt hat --
   // vorher stand bei jedem Punkteschritt sofort rot "aktuell 0/7" da.
@@ -513,6 +726,12 @@ export async function renderWahlomat(root) {
     return !errorBox.textContent;
   }
 
+  // Wer gerade ausfüllt, sobald schon andere im Ergebnis stehen.
+  function personLabel() {
+    const idx = state.editIndex ?? members.length;
+    return state.name.trim() || members[idx]?.name || `Person ${idx + 1}`;
+  }
+
   function renderStep() {
     const s = STEPS[state.step - 1];
     quizWrap.innerHTML = '';
@@ -521,6 +740,7 @@ export async function renderWahlomat(root) {
       <p class="muted">${esc(s.lede)}</p>
     </section>`);
 
+    if (s.n === 1) section.appendChild(nameField());
     if (s.budget) {
       const cfg = B[s.budget];
       const fs = el(`<fieldset class="wahlomat-field"><legend>${esc(s.budgetLegend)}</legend><small>Verteilt genau ${cfg.total} Punkte, höchstens ${cfg.max} je Option.</small></fieldset>`);
@@ -537,16 +757,24 @@ export async function renderWahlomat(root) {
     section.appendChild(errorBox);
 
     const nav = el('<div class="row-actions" style="justify-content:space-between;margin-top:var(--space-4)"></div>');
+    const left = el('<div class="row-actions"></div>');
     const back = el('<button type="button" class="btn">Zurück</button>');
     back.disabled = state.step === 1;
     back.addEventListener('click', () => { state.step -= 1; renderStep(); });
+    left.appendChild(back);
+    // Wer eine Person hinzufügt oder bearbeitet, kommt ohne Änderung zurück.
+    if (members.length) {
+      const cancel = el('<button type="button" class="btn btn-ghost">Abbrechen</button>');
+      cancel.addEventListener('click', () => renderResults());
+      left.appendChild(cancel);
+    }
     const next = el(`<button type="button" class="btn btn-primary">${state.step === STEPS.length ? 'Ergebnisse anzeigen' : 'Weiter'}</button>`);
     next.addEventListener('click', () => {
       if (!stepValid()) return;
-      if (state.step === STEPS.length) { renderResults(); return; }
+      if (state.step === STEPS.length) { finishQuiz(); return; }
       state.step += 1; renderStep();
     });
-    nav.appendChild(back); nav.appendChild(next);
+    nav.appendChild(left); nav.appendChild(next);
     section.appendChild(nav);
 
     quizWrap.innerHTML = '';
@@ -555,13 +783,13 @@ export async function renderWahlomat(root) {
     errorBox.textContent = '';
 
     const pct = Math.round(state.step / STEPS.length * 100);
-    progress.querySelector('#wProgressText').textContent = `Schritt ${state.step} von ${STEPS.length}`;
+    progress.querySelector('#wProgressText').textContent = `${members.length ? `${personLabel()} · ` : ''}Schritt ${state.step} von ${STEPS.length}`;
     progress.querySelector('#wProgressPct').textContent = `${pct} %`;
     progress.querySelector('#wProgressBar').style.width = `${pct}%`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function groupProfile() {
+  function currentProfile() {
     return {
       genre: state.genre, ton: state.ton, aktivitaeten: state.aktivitaeten,
       welt_fremdheit: state.welt_fremdheit, gefahr: state.gefahr, handlungsfreiheit: state.handlungsfreiheit,
@@ -571,61 +799,178 @@ export async function renderWahlomat(root) {
     };
   }
 
+  function startQuiz(member = null, editIndex = null) {
+    loadState(member);
+    state.editIndex = editIndex;
+    resumeWrap.innerHTML = '';
+    quizWrap.hidden = false;
+    progress.hidden = false;
+    resultsWrap.hidden = true;
+    renderStep();
+  }
+
+  function finishQuiz() {
+    const idx = state.editIndex ?? members.length;
+    const member = { name: personLabel(), profile: currentProfile() };
+    members[idx] = member;
+    // Für „Letzte Antworten“ beim nächsten Besuch – nur in diesem Browser.
+    try { localStorage.setItem(STORAGE_KEY, encodeMember(member)); } catch { /* privat/gesperrt */ }
+    renderResults();
+  }
+
+  function shareHash() {
+    const qs = members.map((m) => `p=${encodeMember(m)}`).join('&');
+    return `#/wahlomat${qs ? `?${qs}` : ''}`;
+  }
+  function syncUrl() {
+    const hash = shareHash();
+    if (location.hash !== hash) history.replaceState(null, '', hash);
+  }
+
+  async function share() {
+    const url = `${location.origin}${location.pathname}${shareHash()}`;
+    const text = members.length > 1 ? 'Unser Gruppenergebnis im RPG-Wahlomat' : 'Mein Ergebnis im RPG-Wahlomat – füg dich hinzu!';
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+      try { await navigator.share({ title: 'RPG-Wahlomat', text, url }); return; } catch (e) { if (e.name === 'AbortError') return; }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Link kopiert – einfach in die Gruppe schicken.');
+    } catch {
+      window.prompt('Link zum Kopieren:', url);
+    }
+  }
+
+  function restart() {
+    if (members.length > 1 && !window.confirm('Alle Antworten der Gruppe verwerfen und neu starten?')) return;
+    members.length = 0;
+    syncUrl();
+    startQuiz();
+  }
+
+  function resultCard(g, rank, group) {
+    const score = Math.round(g.score);
+    const why = explain(g, members);
+    const h = played.get(g.id);
+    const langLabel = (l) => (l === 'de' ? 'Deutsch' : l === 'en' ? 'Englisch' : l || 'Sprache offen');
+    const playedHtml = h
+      ? `<span class="wahlomat-played">${h.count}× gespielt, zuletzt ${esc(fmtDay(h.last))}</span>`
+      : '<span class="wahlomat-played is-new">noch nie gespielt</span>';
+    const perPerson = group
+      ? `<div class="tag-row">${members.map((m, j) => `<span class="badge">${esc(m.name)}: <strong>${Math.round(g.perPerson[j])}</strong></span>`).join('')}</div>`
+      : '';
+    const breakdown = group ? '' : `<details><summary>Punkteaufschlüsselung</summary><div class="tag-row" style="margin-top:var(--space-2)">${Object.entries(g.breakdown).map(([n, v]) => `<span class="badge">${esc(n)}: <strong>${v.toFixed(1)}</strong></span>`).join(' ')}</div></details>`;
+    return `<article class="card wahlomat-result">
+      <div class="wahlomat-result-top">
+        <span class="faint">#${rank}</span>
+        <div><h3><a href="#/spiele/${esc(g.id)}">${esc(g.title)}</a></h3><div class="muted" style="font-size:var(--text-xs)">${esc(g.system_family || '–')} · ${esc(langLabel(g.language))} · ${playedHtml}</div></div>
+        <span class="badge badge-lang">${score}/100</span>
+      </div>
+      <div class="bar"><i style="width:${score}%"></i></div>
+      ${why.good || why.warn ? `<p class="wahlomat-why">${why.good ? `<span class="is-good">✓ ${esc(why.good)}</span>` : ''}${why.warn ? `<span class="is-warn">△ ${esc(why.warn)}</span>` : ''}</p>` : ''}
+      ${perPerson}
+      <div class="wahlomat-more">
+        <details class="wahlomat-radar" data-id="${esc(g.id)}"><summary>Profilvergleich</summary><div class="radar-slot"></div></details>
+        ${breakdown}
+      </div>
+    </article>`;
+  }
+
   function renderResults() {
-    const profile = groupProfile();
-    const skippedLabels = Object.entries(SCALAR_TO_PRIORITY).filter(([axis]) => profile[axis] == null)
-      .map(([, key]) => PRIORITY_OPTIONS.find(([k]) => k === key)[1]);
-    const skippedNote = skippedLabels.length ? ` Nicht gewertet (als „Egal“ abgewählt): ${esc(skippedLabels.join(', '))}.` : '';
-    const results = games.map((g) => scoreGame(g, profile)).sort((a, b) => b.score - a.score);
+    syncUrl();
+    resumeWrap.innerHTML = '';
+    const group = members.length > 1;
+    const results = games.map((g) => scoreForGroup(g, members)).sort((a, b) => b.score - a.score);
+    let skippedNote = '';
+    if (!group) {
+      const skippedLabels = Object.entries(SCALAR_TO_PRIORITY).filter(([axis]) => members[0].profile[axis] == null)
+        .map(([, key]) => PRIORITY_OPTIONS.find(([k]) => k === key)[1]);
+      skippedNote = skippedLabels.length ? ` Nicht gewertet (als „Egal“ abgewählt): ${esc(skippedLabels.join(', '))}.` : '';
+    }
 
     quizWrap.hidden = true;
     progress.hidden = true;
     resultsWrap.hidden = false;
     resultsWrap.innerHTML = '';
 
-    const langLabel = (l) => (l === 'de' ? 'Deutsch' : l === 'en' ? 'Englisch' : l || 'Sprache offen');
-    const listHtml = results.map((g, i) => {
-      const score = Math.round(g.score);
-      const chips = makeChips(g, profile);
-      const breakdown = Object.entries(g.breakdown).map(([n, v]) => `<span class="badge">${esc(n)}: <strong>${v.toFixed(1)}</strong></span>`).join(' ');
-      return `<article class="card wahlomat-result">
-        <div class="wahlomat-result-top">
-          <span class="faint">#${i + 1}</span>
-          <div><h3><a href="#/spiele/${esc(g.id)}">${esc(g.title)}</a></h3><div class="muted" style="font-size:var(--text-xs)">${esc(g.system_family || '–')} · ${esc(langLabel(g.language))}</div></div>
-          <span class="badge badge-lang">${score}/100</span>
-        </div>
-        <div class="bar"><i style="width:${score}%"></i></div>
-        <div class="tag-row">
-          ${chips.good.map((t) => `<span class="badge">✓ ${esc(t)}</span>`).join('')}
-          ${chips.warnings.map((t) => `<span class="badge" style="color:var(--warn);border-color:var(--warn)">△ ${esc(t)}</span>`).join('')}
-        </div>
-        <details><summary class="muted" style="font-size:var(--text-xs);cursor:pointer">Punkteaufschlüsselung</summary><div class="tag-row" style="margin-top:var(--space-2)">${breakdown}</div></details>
-      </article>`;
-    }).join('');
-
     const section = el(`<section>
       <div class="result-bar">
-        <div><p class="faint" style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.07em;margin:0 0 .2rem">Euer Ergebnis</p><h2>Passende Spiele</h2></div>
-        <button type="button" class="btn" id="wRestart">Neu starten</button>
+        <div><p class="eyebrow">${group ? 'Gruppenergebnis' : 'Euer Ergebnis'}</p><h2>Passende Spiele</h2></div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-primary" id="wShare">Link teilen</button>
+          <button type="button" class="btn" id="wRestart">Neu starten</button>
+        </div>
       </div>
+      <div class="panel wahlomat-members">
+        <div class="wahlomat-members-head">
+          <strong>${group ? `Gruppe · ${members.length} Personen` : 'Spielt ihr zu mehreren?'}</strong>
+          <p class="muted">${group
+    ? 'Das Ranking verbindet alle Antworten: 60 % Durchschnitt, 40 % der schwächste Einzelwert. Oben steht also, womit alle gut leben können.'
+    : 'Lasst weitere Personen ausfüllen – hier am selben Gerät oder per „Link teilen“: Die anderen tippen im Link auf „Person hinzufügen“ und schicken den neuen Link zurück. Das Ranking sucht dann, womit alle gut leben können.'}</p>
+        </div>
+        <div class="wahlomat-member-list"></div>
+      </div>
+      ${group ? groupPicture(members) : ''}
       <div class="help-box">Bewertet wurden alle ${results.length} veröffentlichten Spiele aus dem Katalog.${skippedNote}</div>
-      <div class="wahlomat-results">${listHtml}</div>
+      ${played.size ? '<label class="wahlomat-skip wahlomat-filter"><input type="checkbox" id="wUnplayed"> Nur Spiele, die noch nie am Tisch lagen</label>' : ''}
+      <div class="wahlomat-results"></div>
     </section>`);
-    section.querySelector('#wRestart').addEventListener('click', () => {
-      state.step = 1;
-      state.genre = freshBudget('genre');
-      state.ton = freshBudget('ton');
-      state.aktivitaeten = freshBudget('aktivitaeten');
-      state.priorities = [];
-      Object.keys(SCALAR_TO_PRIORITY).forEach((axis) => { state[axis] = null; });
-      quizWrap.hidden = false;
-      progress.hidden = false;
-      resultsWrap.hidden = true;
-      renderStep();
+
+    const memberList = section.querySelector('.wahlomat-member-list');
+    members.forEach((m, i) => {
+      const chip = el(`<span class="wahlomat-member"><span>${esc(m.name)}</span>
+        <button type="button" class="wahlomat-member-btn" title="Antworten von ${esc(m.name)} ändern" aria-label="Antworten von ${esc(m.name)} ändern">✎</button>
+        ${group ? `<button type="button" class="wahlomat-member-btn" title="${esc(m.name)} entfernen" aria-label="${esc(m.name)} entfernen">×</button>` : ''}
+      </span>`);
+      const [editBtn, removeBtn] = chip.querySelectorAll('button');
+      editBtn.addEventListener('click', () => startQuiz(m, i));
+      removeBtn?.addEventListener('click', () => { members.splice(i, 1); renderResults(); });
+      memberList.appendChild(chip);
     });
+    if (members.length < MAX_MEMBERS) {
+      const add = el('<button type="button" class="btn btn-sm">+ Person hinzufügen</button>');
+      add.addEventListener('click', () => startQuiz());
+      memberList.appendChild(add);
+    }
+
+    const listWrap = section.querySelector('.wahlomat-results');
+    const unplayed = section.querySelector('#wUnplayed');
+    const renderList = () => {
+      const shown = unplayed?.checked ? results.filter((g) => !played.has(g.id)) : results;
+      listWrap.innerHTML = shown.map((g, i) => resultCard(g, i + 1, group)).join('') || '<p class="muted">Alle passenden Spiele lagen schon am Tisch.</p>';
+      // Das Netzdiagramm entsteht erst beim Aufklappen.
+      listWrap.querySelectorAll('details.wahlomat-radar').forEach((d) => d.addEventListener('toggle', () => {
+        if (!d.open || d.dataset.ready) return;
+        d.dataset.ready = '1';
+        const g = gamesById.get(d.dataset.id);
+        d.querySelector('.radar-slot').innerHTML = `<div class="radar-wrap">${radarSvg(g, members)}
+          <div class="radar-legend"><span><i class="lg-game"></i>${esc(g.title)}</span><span><i class="lg-wish"></i>${group ? 'Gruppe (Ø)' : 'Euer Wunsch'}</span></div>
+          ${radarTable(g, members)}</div>`;
+      }));
+    };
+    unplayed?.addEventListener('change', renderList);
+    renderList();
+
+    section.querySelector('#wShare').addEventListener('click', share);
+    section.querySelector('#wRestart').addEventListener('click', restart);
     resultsWrap.appendChild(section);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  renderStep();
+  if (members.length) { renderResults(); return; }
+
+  // Ohne Link: frühere Antworten aus diesem Browser anbieten.
+  let saved = null;
+  try { saved = decodeMember(localStorage.getItem(STORAGE_KEY)); } catch { /* privat/gesperrt */ }
+  startQuiz();
+  if (saved) {
+    const box = el(`<div class="help-box wahlomat-resume">
+      <span>Du hast den Wahlomat hier schon einmal ausgefüllt${saved.name ? ` (als ${esc(saved.name)})` : ''}.</span>
+      <span class="row-actions"><button type="button" class="btn btn-sm btn-primary">Letztes Ergebnis ansehen</button><button type="button" class="btn btn-sm">Antworten bearbeiten</button></span>
+    </div>`);
+    const [showBtn, editBtn] = box.querySelectorAll('button');
+    showBtn.addEventListener('click', () => { members.push({ ...saved, name: saved.name || 'Person 1' }); renderResults(); });
+    editBtn.addEventListener('click', () => startQuiz(saved, 0));
+    resumeWrap.appendChild(box);
+  }
 }

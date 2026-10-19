@@ -1,6 +1,6 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
 import { api, setArchiveToken, hasArchiveToken, hasToken } from './api.js';
-import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, coverUrl } from './ui.js';
+import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignHref, coverUrl } from './ui.js';
 
 // Deep-Link-Ziel im privaten "Schwarzen Regal" (separate PDF-Datenbank,
 // siehe handoff_archive_link.md). Format: #<archive_slug> -- das Regal läuft in
@@ -136,7 +136,7 @@ export async function renderDetail(root, slug, ctx) {
   if (showCampaign) {
     layout.querySelectorAll('.session-campaign-cell').forEach((cell, i) => {
       const s = sessions[i];
-      const badges = campaignSessionBadges(s, sessions.filter((x) => x.campaign === s.campaign));
+      const badges = campaignSessionBadges(s, sessions.filter((x) => x.campaign === s.campaign), { href: campaignHref({ ...s, slug: g.slug }) });
       if (badges) { cell.textContent = ''; cell.appendChild(badges); }
     });
   }

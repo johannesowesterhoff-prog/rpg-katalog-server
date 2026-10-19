@@ -446,8 +446,78 @@ tbody tr:hover { background: var(--surface-2); }
 .wahlomat-error { min-height: 1.2em; color: var(--danger); font-size: var(--text-sm); margin: 0; }
 .wahlomat-results { display: grid; gap: var(--space-4); }
 .wahlomat-result-top { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-3); align-items: center; }
+.wahlomat-result { padding: var(--space-4); display: grid; gap: var(--space-2); }
 .wahlomat-result h3 { font-size: var(--text-md); }
 input[type=range] { accent-color: var(--accent); }
+
+/* Reine Anzeige-Tags (kein Link/Filter) reagieren nicht auf Hover. */
+span.tag { cursor: default; }
+span.tag:hover { color: var(--text-muted); border-color: transparent; background: var(--surface-2); }
+.tag.tag-live, .tag.tag-live:hover { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+.eyebrow { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); margin: 0 0 .2rem; }
+.eyebrow a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------- Wahlomat: Gruppe, Klartext, Netzdiagramm ---------- */
+.wahlomat-name { display: grid; gap: .35rem; margin: 0 0 var(--space-5); font-weight: 700; font-size: var(--text-base); }
+.wahlomat-name input { max-width: 320px; font-weight: 400; }
+.wahlomat-resume { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); max-width: 760px; margin-inline: auto; margin-bottom: var(--space-5); }
+.wahlomat-members { margin-bottom: var(--space-4); display: grid; gap: var(--space-3); }
+.wahlomat-members-head p { margin: .25rem 0 0; font-size: var(--text-sm); max-width: 75ch; }
+.wahlomat-member-list { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.wahlomat-member { display: inline-flex; align-items: center; gap: .15rem; padding: .2rem .25rem .2rem .7rem; border-radius: var(--radius-full); background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line); font-weight: 700; font-size: var(--text-sm); }
+.wahlomat-member-btn { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; line-height: 1; padding: .2rem .4rem; border-radius: var(--radius-full); }
+.wahlomat-member-btn:hover { background: var(--surface-hover); }
+.wahlomat-group { margin-bottom: var(--space-4); }
+.wahlomat-group h3 { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); font-family: var(--font-body); margin: 0 0 var(--space-3); }
+.wahlomat-group dl { display: grid; gap: var(--space-2); margin: 0; }
+.wahlomat-group dl > div { display: grid; grid-template-columns: 190px 1fr; gap: var(--space-3); font-size: var(--text-sm); }
+.wahlomat-group dt { color: var(--text-muted); }
+.wahlomat-group dd { margin: 0; }
+.wahlomat-filter { margin-bottom: var(--space-3); font-size: var(--text-sm); }
+.wahlomat-played.is-new { color: var(--accent); font-weight: 700; }
+.wahlomat-why { margin: var(--space-1) 0 0; display: grid; gap: .3rem; font-size: var(--text-sm); line-height: 1.45; }
+.wahlomat-why .is-warn { color: var(--warn); }
+.wahlomat-more { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
+.wahlomat-more > details { font-size: var(--text-xs); }
+.wahlomat-more > details[open] { flex-basis: 100%; }
+.wahlomat-more summary { cursor: pointer; color: var(--text-muted); width: fit-content; }
+.radar-wrap { display: grid; grid-template-columns: minmax(0, 380px) 1fr; gap: var(--space-2) var(--space-5); align-items: center; margin-top: var(--space-2); }
+.radar { width: 100%; height: auto; }
+.radar text { font-size: 11px; fill: var(--text-muted); font-family: var(--font-body); }
+.radar-grid { fill: none; stroke: var(--border); stroke-width: 1; }
+.radar-grid.mid { stroke: var(--border-strong); }
+.radar-game { fill: color-mix(in srgb, var(--accent) 22%, transparent); stroke: var(--accent); stroke-width: 2; }
+.radar-wish { fill: none; stroke: var(--warn); stroke-width: 2; stroke-dasharray: 5 4; }
+.radar-wish-dot { fill: var(--warn); }
+.radar-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); color: var(--text-muted); grid-column: 1; justify-content: center; }
+.radar-legend i { display: inline-block; width: 14px; height: 10px; margin-right: .35rem; vertical-align: middle; border-radius: 2px; }
+.radar-legend .lg-game { background: color-mix(in srgb, var(--accent) 35%, transparent); border: 2px solid var(--accent); }
+.radar-legend .lg-wish { border: 2px dashed var(--warn); }
+.radar-table { grid-column: 2; grid-row: 1 / span 2; font-size: var(--text-xs); }
+.radar-table td, .radar-table th { padding: .25rem .6rem; }
+.radar-table td:not(:first-child), .radar-table th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- Kampagnen ---------- */
+.campaign-name-link { font-weight: 700; color: var(--text); text-decoration: underline; text-decoration-color: var(--accent-line); text-underline-offset: 3px; }
+.campaign-name-link:hover { color: var(--accent); }
+.campaign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4); }
+.campaign-card { padding: var(--space-4); display: grid; gap: var(--space-3); align-content: start; }
+.campaign-card h3 { font-size: var(--text-md); margin: 0 0 .15rem; }
+.campaign-card h3 a { color: var(--text); }
+.campaign-card h3 a:hover { color: var(--accent); }
+.campaign-card-meta { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+.campaign-card-more { font-size: var(--text-sm); justify-self: start; }
+.campaign-back { margin: 0 0 var(--space-3); font-size: var(--text-sm); }
+.campaign-timeline { list-style: none; margin: 0; padding: 0 0 0 var(--space-5); border-left: 2px solid var(--accent-line); display: grid; gap: var(--space-4); }
+.campaign-entry { position: relative; }
+.campaign-entry::before { content: ''; position: absolute; left: calc(-1 * var(--space-5) - 7px); top: .35rem; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent); }
+.campaign-entry-head { display: flex; gap: var(--space-3); align-items: baseline; flex-wrap: wrap; }
+.campaign-entry-meta { font-size: var(--text-sm); margin: .15rem 0 .4rem; }
+@media (max-width: 720px) {
+  .wahlomat-group dl > div { grid-template-columns: 1fr; gap: 0; }
+  .radar-wrap { grid-template-columns: 1fr; }
+  .radar-legend, .radar-table { grid-column: 1; grid-row: auto; }
+}
 
 /* ---------- Mobil ---------- */
 @media (max-width: 1080px) {

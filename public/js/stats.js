@@ -1,7 +1,7 @@
 // Statistik-Seite: aggregierte Kennzahlen über die veröffentlichte Sammlung
 // (Verteilungen, Skalen-Durchschnitte, Spielabend-Auswertung).
 import { api } from './api.js';
-import { el, esc, emptyState, CAMPAIGN_KIND_LABEL, PLAY_MODE_LABEL, campaignSessionBadges } from './ui.js';
+import { el, esc, emptyState, CAMPAIGN_KIND_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignSessionParts, campaignId, campaignHref } from './ui.js';
 
 function barSection(title, rows) {
   const max = Math.max(1, ...rows.map((r) => r.count));
@@ -88,13 +88,14 @@ function dotPlot(label, games, field) {
 
 // Reiter oben auf der Statistikseite: Übersicht und das Spielabend-Protokoll.
 function statsTabs(active) {
-  const items = [['#/statistik', 'Übersicht', 'overview'], ['#/statistik/spielabende', 'Spielabende', 'sessions']];
+  const items = [['#/statistik', 'Übersicht', 'overview'], ['#/statistik/spielabende', 'Spielabende', 'sessions'], ['#/statistik/kampagnen', 'Kampagnen', 'campaigns']];
   return `<nav class="admin-tabs" aria-label="Statistik">${items.map(([href, label, key]) =>
     `<a href="${href}"${key === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>`;
 }
 
-export async function renderStats(root, sub, params) {
+export async function renderStats(root, sub, params, id) {
   if (sub === 'spielabende') return renderSessionLog(root, params);
+  if (sub === 'kampagnen') return id ? renderCampaign(root, decodeURIComponent(id)) : renderCampaignList(root);
   root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:220px"></div></div>';
   document.title = 'Statistik – RPG-Katalog';
 
@@ -180,7 +181,7 @@ export async function renderStats(root, sub, params) {
   if (s.campaigns?.length) {
     const kindTag = (c) => (CAMPAIGN_KIND_LABEL[c.campaign_kind] ? `, ${CAMPAIGN_KIND_LABEL[c.campaign_kind]}` : '');
     const campaignsHtml = `<ol class="stat-list">${s.campaigns.map((c) => `<li>
-        <b>${esc(c.campaign)}</b> <span class="faint" style="font-size:var(--text-xs)">(${c.campaign_status === 'abgeschlossen' ? 'abgeschlossen' : 'laufend'}${kindTag(c)})</span>
+        <a href="${campaignHref(c)}" class="campaign-name-link">${esc(c.campaign)}</a> <span class="faint" style="font-size:var(--text-xs)">(${c.campaign_status === 'abgeschlossen' ? 'abgeschlossen' : 'laufend'}${kindTag(c)})</span>
         ${c.campaign_announcement_url ? `<a href="${esc(c.campaign_announcement_url)}" target="_blank" rel="noopener" class="tag tag-link">Aushang ↗</a>` : ''}
         <br>${titleLink(c.title, c.slug)}
         <span class="muted">${c.sessions}× gespielt, zuletzt ${fmtDateOnly(c.last_played)}</span>
@@ -338,7 +339,7 @@ async function renderSessionLog(root, params) {
     list.querySelectorAll('.session-campaign-cell').forEach((cell, i) => {
       const s = sessions[i];
       const group = all.filter((x) => x.campaign && x.campaign === s.campaign && gameKey(x) === gameKey(s));
-      const badges = campaignSessionBadges(s, group, { onNameClick: () => { state.campaign = s.campaign; campSel.value = s.campaign; update(); } });
+      const badges = campaignSessionBadges(s, group, { href: campaignHref(s) });
       if (badges) { cell.textContent = ''; cell.appendChild(badges); }
     });
     list.querySelectorAll('th[data-sort] button').forEach((btn) => btn.addEventListener('click', () => {
@@ -363,4 +364,157 @@ async function renderSessionLog(root, params) {
     update();
   });
   renderContent();
+}
+
+// ------------------------------------------------------------ Kampagnen
+// Eine Seite je Kampagne mit allen Abenden, Zusammenfassungen und dem
+// Aushang an einem Ort. Kampagnen werden wie im Spielabend-Protokoll über
+// Name + Spiel gebildet; die Adresse ist #/statistik/kampagnen/<name>--<spiel>.
+const ROLE_LABEL = { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' };
+const gameLink = (title, slug) => (slug ? `<a href="#/spiele/${esc(slug)}">${esc(title)}</a>` : esc(title));
+
+// Mitspieler:innen stehen als Freitext ("Anna, Ben und Cem") im Abend;
+// Klammern wie "(Dennis)" zählen als dieselbe Person.
+function splitPeople(v) {
+  return String(v || '').split(/\s*(?:,|;|\/|&|\bund\b|\+)\s*/i).map((x) => x.replace(/[()]/g, '').trim()).filter(Boolean);
+}
+
+function buildCampaigns(sessions) {
+  const map = new Map();
+  sessions.filter((s) => s.campaign).forEach((s) => {
+    const id = campaignId(s);
+    if (!map.has(id)) map.set(id, { id, sessions: [] });
+    map.get(id).sessions.push(s);
+  });
+  return [...map.values()].map((c) => {
+    const list = c.sessions.sort((a, b) => a.played_on.localeCompare(b.played_on) || ((a.session_number ?? 0) - (b.session_number ?? 0)));
+    const newest = list.at(-1);
+    const parts = campaignSessionParts(newest, list);
+    const people = new Map();
+    list.forEach((s) => splitPeople(s.participants).forEach((n) => people.set(n, (people.get(n) || 0) + 1)));
+    return {
+      ...c,
+      name: newest.campaign,
+      title: newest.title,
+      slug: newest.slug,
+      kindLabel: parts.kindLabel,
+      closed: parts.statusLabel === 'abgeschlossen',
+      total: Number(parts.sessionLabel.split('/')[1]),
+      first: list[0].played_on,
+      last: newest.played_on,
+      announcementUrl: [...list].reverse().find((s) => s.campaign_announcement_url)?.campaign_announcement_url || null,
+      people: [...people.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'de')),
+      summaries: list.filter((s) => s.summary_url).length,
+    };
+  });
+}
+
+async function loadCampaigns(root, title) {
+  root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:220px"></div></div>';
+  document.title = title;
+  try {
+    const data = await api('/api/play-sessions.json');
+    return buildCampaigns(data.sessions);
+  } catch (e) {
+    root.innerHTML = '';
+    root.appendChild(emptyState('Kampagnen nicht verfügbar', e.message));
+    return null;
+  }
+}
+
+const sessionsWord = (n) => (n === 1 ? '1 Session' : `${n} Sessions`);
+const dateRange = (c) => (c.first === c.last ? fmtDateOnly(c.first) : `${fmtDateOnly(c.first)} – ${fmtDateOnly(c.last)}`);
+
+async function renderCampaignList(root) {
+  const campaigns = await loadCampaigns(root, 'Kampagnen – Statistik – RPG-Katalog');
+  if (!campaigns) return;
+  // Laufende zuerst, innerhalb davon zuletzt gespielte oben.
+  campaigns.sort((a, b) => (a.closed - b.closed) || b.last.localeCompare(a.last));
+  const running = campaigns.filter((c) => !c.closed).length;
+
+  root.innerHTML = '';
+  root.appendChild(el(`<section class="catalog-head">
+    <h1>Statistik</h1>
+    <p class="lede">Alle Kampagnen mit ihren Spielabenden, Zusammenfassungen und Aushängen.</p>
+  </section>`));
+  root.appendChild(el(statsTabs('campaigns')));
+  if (!campaigns.length) { root.appendChild(emptyState('Noch keine Kampagnen', 'Sobald ein Spielabend einer Kampagne zugeordnet ist, erscheint sie hier.')); return; }
+  root.appendChild(el(`<div class="tiles">
+    <div class="card tile"><span class="num">${campaigns.length}</span><span class="lbl">Kampagnen</span></div>
+    <div class="card tile"><span class="num">${running}</span><span class="lbl">laufend</span></div>
+    <div class="card tile"><span class="num">${campaigns.length - running}</span><span class="lbl">abgeschlossen</span></div>
+  </div>`));
+  root.appendChild(el(`<div class="campaign-grid">${campaigns.map((c) => `<article class="card campaign-card">
+    <div class="campaign-card-head">
+      <h3><a href="#/statistik/kampagnen/${esc(c.id)}">${esc(c.name)}</a></h3>
+      <div class="muted" style="font-size:var(--text-xs)">${gameLink(c.title, c.slug)}</div>
+    </div>
+    <div class="tag-row">
+      ${c.kindLabel ? `<span class="tag">${esc(c.kindLabel)}</span>` : ''}
+      <span class="tag ${c.closed ? '' : 'tag-live'}">${c.closed ? 'abgeschlossen' : 'laufend'}</span>
+      ${c.announcementUrl ? `<a href="${esc(c.announcementUrl)}" target="_blank" rel="noopener" class="tag tag-link">Aushang ↗</a>` : ''}
+    </div>
+    <p class="campaign-card-meta">${sessionsWord(c.total)} · ${esc(dateRange(c))}${c.summaries ? ` · ${c.summaries === 1 ? '1 Zusammenfassung' : `${c.summaries} Zusammenfassungen`}` : ''}</p>
+    <a class="campaign-card-more" href="#/statistik/kampagnen/${esc(c.id)}">Zur Kampagne →</a>
+  </article>`).join('')}</div>`));
+}
+
+async function renderCampaign(root, id) {
+  const campaigns = await loadCampaigns(root, 'Kampagne – RPG-Katalog');
+  if (!campaigns) return;
+  const c = campaigns.find((x) => x.id === id);
+  root.innerHTML = '';
+  if (!c) {
+    root.appendChild(emptyState('Kampagne nicht gefunden', 'Diese Kampagne gibt es nicht (mehr) – vielleicht wurde sie umbenannt.', '<p><a class="btn btn-sm" href="#/statistik/kampagnen">Alle Kampagnen</a></p>'));
+    return;
+  }
+  document.title = `${c.name} – Kampagne – RPG-Katalog`;
+  const logged = c.sessions.length;
+  root.appendChild(el(`<section class="catalog-head">
+    <p class="campaign-back"><a href="#/statistik/kampagnen">← Alle Kampagnen</a></p>
+    <p class="eyebrow">Kampagne · ${gameLink(c.title, c.slug)}</p>
+    <h1>${esc(c.name)}</h1>
+    <div class="tag-row" style="margin-top:var(--space-3)">
+      ${c.kindLabel ? `<span class="tag">${esc(c.kindLabel)}</span>` : ''}
+      <span class="tag ${c.closed ? '' : 'tag-live'}">${c.closed ? 'abgeschlossen' : 'laufend'}</span>
+      ${c.announcementUrl ? `<a href="${esc(c.announcementUrl)}" target="_blank" rel="noopener" class="tag tag-link">Aushang ↗</a>` : ''}
+    </div>
+  </section>`));
+  root.appendChild(el(`<div class="tiles">
+    <div class="card tile"><span class="num">${c.total}</span><span class="lbl">Sessions${c.total > logged ? ` · ${logged} protokolliert` : ''}</span></div>
+    <div class="card tile"><span class="num" style="font-size:1.2rem">${esc(dateRange(c))}</span><span class="lbl">${c.first === c.last ? 'gespielt am' : 'Zeitraum'}</span></div>
+    <div class="card tile"><span class="num">${c.people.length}</span><span class="lbl">Mitspieler:innen</span></div>
+    <div class="card tile"><span class="num">${c.summaries}</span><span class="lbl">Zusammenfassungen</span></div>
+  </div>`));
+
+  if (c.people.length) {
+    root.appendChild(el(`<section class="section"><h2>Am Tisch</h2>
+      <div class="tag-row">${c.people.map(([n, k]) => `<span class="tag">${esc(n)} <span class="faint">· ${k}×</span></span>`).join('')}</div>
+    </section>`));
+  }
+
+  const section = el(`<section class="section">
+    <div class="section-head-row"><h2>Verlauf</h2><button type="button" class="btn btn-sm" id="cp-order"></button></div>
+    <ol class="campaign-timeline"></ol>
+  </section>`);
+  const listEl = section.querySelector('.campaign-timeline');
+  const orderBtn = section.querySelector('#cp-order');
+  // Laufende Kampagnen: Neuestes oben, abgeschlossene lesen sich chronologisch.
+  let newestFirst = !c.closed;
+  const renderTimeline = () => {
+    orderBtn.textContent = newestFirst ? 'Älteste zuerst' : 'Neueste zuerst';
+    const ordered = newestFirst ? [...c.sessions].reverse() : c.sessions;
+    listEl.innerHTML = ordered.map((s) => {
+      const label = campaignSessionParts(s, c.sessions).sessionLabel.split('/')[0];
+      const meta = [s.participants, PLAY_MODE_LABEL[s.play_mode], ROLE_LABEL[s.role] && `als ${ROLE_LABEL[s.role]}`].filter(Boolean).map(esc).join(' · ');
+      return `<li class="campaign-entry">
+        <div class="campaign-entry-head"><strong>${esc(label)}</strong><span class="muted">${esc(fmtDateOnly(s.played_on))}</span></div>
+        ${meta ? `<div class="muted campaign-entry-meta">${meta}</div>` : ''}
+        ${s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="tag tag-link">Zusammenfassung ↗</a>` : ''}
+      </li>`;
+    }).join('');
+  };
+  orderBtn.addEventListener('click', () => { newestFirst = !newestFirst; renderTimeline(); });
+  renderTimeline();
+  root.appendChild(section);
 }
