@@ -480,17 +480,34 @@ function playHistory(sessions) {
 }
 const fmtDay = (v) => new Date(v).toLocaleDateString('de-DE');
 
+// Server-Gruppen: Die Tokens zum Ändern/Entfernen bleiben auf dem Gerät,
+// das den Eintrag (bzw. die Gruppe) angelegt hat.
+const groupKey = (id) => `rpg-wahlomat:group:${id}`;
+function loadGroupStore(id) {
+  try { return { members: {}, ...JSON.parse(localStorage.getItem(groupKey(id)) || '{}') }; } catch { return { members: {} }; }
+}
+function saveGroupStore(id, data) {
+  try { localStorage.setItem(groupKey(id), JSON.stringify(data)); } catch { /* privat/gesperrt */ }
+}
+const groupPath = (id) => `#/wahlomat/gruppe/${encodeURIComponent(id)}`;
+
 // ---------------------------------------------------------------- Rendering
-export async function renderWahlomat(root, params) {
+export async function renderWahlomat(root, params, groupId = null) {
   root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:220px"></div></div>';
   document.title = 'RPG-Wahlomat – RPG-Katalog';
 
   let games;
   let played = new Map();
+  let groupData = null;
   try {
     // Das Protokoll ist nur Beiwerk: Fehlt es, läuft der Wahlomat ohne
     // „zuletzt gespielt“ weiter.
-    const [data, log] = await Promise.all([api('/api/wahlomat.json'), api('/api/play-sessions.json').catch(() => null)]);
+    const [data, log, grp] = await Promise.all([
+      api('/api/wahlomat.json'),
+      api('/api/play-sessions.json').catch(() => null),
+      groupId ? api(`/api/wahlomat/groups/${encodeURIComponent(groupId)}`) : null,
+    ]);
+    groupData = grp;
     // Auswahllisten für Genre & Ton live aus den tatsächlich vergebenen
     // Top-Tags bauen -- so tauchen alle Top-Genres/-Tones automatisch auf,
     // auch neu hinzugekommene, ohne Codeänderung.
@@ -507,19 +524,39 @@ export async function renderWahlomat(root, params) {
     played = playHistory(log?.sessions || []);
   } catch (e) {
     root.innerHTML = '';
+    if (groupId && e.status === 404) {
+      root.appendChild(el(`<div class="empty"><h3>Gruppe nicht gefunden</h3><p class="muted">${esc(e.message)} Vielleicht ist der Link unvollständig.</p><p><a class="btn btn-sm" href="#/wahlomat">Zum Wahlomat</a></p></div>`));
+      return;
+    }
     root.appendChild(el(`<div class="empty"><h3>Wahlomat nicht verfügbar</h3><p class="muted">${esc(e.message)}</p></div>`));
     toast(e.message, 'err');
     return;
   }
   const gamesById = new Map(games.map((g) => [g.id, g]));
 
-  // Personen aus einem geteilten Link.
-  const members = (params?.getAll('p') || []).map(decodeMember).filter(Boolean).slice(0, MAX_MEMBERS);
-  members.forEach((m, i) => { if (!m.name) m.name = `Person ${i + 1}`; });
+  // Gruppe vom Server oder Personen aus einem geteilten Ergebnis-Link.
+  const members = [];
+  let group = null;
+  let store = { members: {} };
+  function applyGroup(d) {
+    group = { id: d.id, name: d.name };
+    members.length = 0;
+    d.members.forEach((x) => { const m = decodeMember(x.answers); if (m) members.push({ ...m, name: x.name, id: x.id }); });
+  }
+  async function reloadGroup() { applyGroup(await api(`/api/wahlomat/groups/${encodeURIComponent(group.id)}`)); }
+  if (groupData) {
+    applyGroup(groupData);
+    store = loadGroupStore(group.id);
+    document.title = `${group.name} – RPG-Wahlomat – RPG-Katalog`;
+  } else {
+    (params?.getAll('p') || []).map(decodeMember).filter(Boolean).slice(0, MAX_MEMBERS).forEach((m) => members.push(m));
+    members.forEach((m, i) => { if (!m.name) m.name = `Person ${i + 1}`; });
+  }
+  const isMine = (m) => !!(group && m.id != null && store.members[m.id]);
 
   root.innerHTML = '';
   const head = el(`<section class="catalog-head">
-    <h1>RPG-Wahlomat</h1>
+    <h1>RPG-Wahlomat${group ? ` <span class="wahlomat-group-title">· ${esc(group.name)}</span>` : ''}</h1>
     <p class="lede">Sieben kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln, Fluff und euren Prioritäten — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele). Allein oder als Gruppe.</p>
     <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Regler stehen anfangs auf „Egal“ und zählen erst, wenn ihr sie bewegt – was euch nicht wichtig ist, lasst ihr einfach stehen. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
   </section>`);
@@ -696,10 +733,10 @@ export async function renderWahlomat(root, params) {
 
   function nameField() {
     const wrap = el(`<label class="wahlomat-name">
-      <span>Wer füllt aus? <span class="faint">(optional – praktisch im Gruppenmodus)</span></span>
-      <input type="text" maxlength="40" placeholder="Name" value="${esc(state.name)}">
+      <span>${group ? 'Dein Name <span class="faint">(Pflicht – so sehen die anderen, wer ausgefüllt hat)</span>' : 'Wer füllt aus? <span class="faint">(optional)</span>'}</span>
+      <input type="text" maxlength="40" placeholder="Name" value="${esc(state.name)}" ${group ? 'required' : ''}>
     </label>`);
-    wrap.querySelector('input').addEventListener('input', (e) => { state.name = e.target.value; });
+    wrap.querySelector('input').addEventListener('input', (e) => { state.name = e.target.value; updateError(); });
     return wrap;
   }
 
@@ -717,6 +754,11 @@ export async function renderWahlomat(root, params) {
       if (sum !== cfg.total) msg = `Bitte verteilt genau ${cfg.total} Punkte (aktuell ${sum}/${cfg.total}).`;
     }
     if (s.n === 4 && state.figurenkompetenz && !state.figurenkompetenz.length) msg = 'Bitte wählt mindestens ein Figurenbild – oder hakt „Egal“ an.';
+    if (s.n === 1 && group) {
+      const n = state.name.trim();
+      if (!n) msg = 'Bitte trag deinen Namen ein.';
+      else if (members.some((m, i) => i !== state.editIndex && m.name.toLowerCase() === n.toLowerCase())) msg = `„${n}“ ist in dieser Gruppe schon vergeben – bitte einen anderen Namen wählen.`;
+    }
     errorBox.textContent = msg;
   }
 
@@ -728,6 +770,7 @@ export async function renderWahlomat(root, params) {
 
   // Wer gerade ausfüllt, sobald schon andere im Ergebnis stehen.
   function personLabel() {
+    if (group) return state.name.trim();
     const idx = state.editIndex ?? members.length;
     return state.name.trim() || members[idx]?.name || `Person ${idx + 1}`;
   }
@@ -763,7 +806,7 @@ export async function renderWahlomat(root, params) {
     back.addEventListener('click', () => { state.step -= 1; renderStep(); });
     left.appendChild(back);
     // Wer eine Person hinzufügt oder bearbeitet, kommt ohne Änderung zurück.
-    if (members.length) {
+    if (members.length || group) {
       const cancel = el('<button type="button" class="btn btn-ghost">Abbrechen</button>');
       cancel.addEventListener('click', () => renderResults());
       left.appendChild(cancel);
@@ -771,7 +814,11 @@ export async function renderWahlomat(root, params) {
     const next = el(`<button type="button" class="btn btn-primary">${state.step === STEPS.length ? 'Ergebnisse anzeigen' : 'Weiter'}</button>`);
     next.addEventListener('click', () => {
       if (!stepValid()) return;
-      if (state.step === STEPS.length) { finishQuiz(); return; }
+      if (state.step === STEPS.length) {
+        next.disabled = true;
+        finishQuiz().finally(() => { next.disabled = false; });
+        return;
+      }
       state.step += 1; renderStep();
     });
     nav.appendChild(left); nav.appendChild(next);
@@ -783,7 +830,7 @@ export async function renderWahlomat(root, params) {
     errorBox.textContent = '';
 
     const pct = Math.round(state.step / STEPS.length * 100);
-    progress.querySelector('#wProgressText').textContent = `${members.length ? `${personLabel()} · ` : ''}Schritt ${state.step} von ${STEPS.length}`;
+    progress.querySelector('#wProgressText').textContent = `${(members.length || group) && personLabel() ? `${personLabel()} · ` : ''}Schritt ${state.step} von ${STEPS.length}`;
     progress.querySelector('#wProgressPct').textContent = `${pct} %`;
     progress.querySelector('#wProgressBar').style.width = `${pct}%`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -809,13 +856,55 @@ export async function renderWahlomat(root, params) {
     renderStep();
   }
 
-  function finishQuiz() {
+  async function finishQuiz() {
     const idx = state.editIndex ?? members.length;
     const member = { name: personLabel(), profile: currentProfile() };
-    members[idx] = member;
     // Für „Letzte Antworten“ beim nächsten Besuch – nur in diesem Browser.
     try { localStorage.setItem(STORAGE_KEY, encodeMember(member)); } catch { /* privat/gesperrt */ }
-    renderResults();
+    if (!group) { members[idx] = member; renderResults(); return; }
+    const existing = state.editIndex != null ? members[state.editIndex] : null;
+    const body = { name: member.name, answers: encodeMember(member) };
+    if (existing?.id != null) Object.assign(body, { memberId: existing.id, token: store.members[existing.id] });
+    try {
+      const r = await api(`/api/wahlomat/groups/${encodeURIComponent(group.id)}/members`, { method: 'POST', body });
+      if (r.token) { store.members[r.memberId] = r.token; saveGroupStore(group.id, store); }
+      await reloadGroup();
+      renderResults();
+      toast('Gespeichert – deine Antworten zählen jetzt im Gruppenergebnis.');
+    } catch (e) {
+      toast(e.message, 'err');
+      if (e.status === 409) { state.step = 1; renderStep(); }
+    }
+  }
+
+  // Neue Gruppe anlegen; optional gleich die erste Person mit ihren Antworten.
+  async function createGroup(name, firstMember = null) {
+    const g = await api('/api/wahlomat/groups', { method: 'POST', body: { name } });
+    const st = { adminToken: g.adminToken, members: {} };
+    if (firstMember) {
+      const r = await api(`/api/wahlomat/groups/${encodeURIComponent(g.id)}/members`, { method: 'POST', body: { name: firstMember.name, answers: encodeMember(firstMember) } });
+      st.members[r.memberId] = r.token;
+    }
+    saveGroupStore(g.id, st);
+    location.hash = groupPath(g.id);
+  }
+
+  function createGroupForm({ withMe = null } = {}) {
+    const form = el(`<form class="wahlomat-join">
+      <input type="text" name="group" maxlength="60" required placeholder="Gruppenname, z. B. Donnerstagsrunde" aria-label="Gruppenname">
+      ${withMe ? `<input type="text" name="me" maxlength="40" required placeholder="Dein Name" aria-label="Dein Name" value="${esc(/^Person \d+$/.test(withMe.name) ? '' : withMe.name)}">` : ''}
+      <button type="submit" class="btn btn-primary">Gruppe erstellen</button>
+    </form>`);
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const btn = form.querySelector('button');
+      btn.disabled = true;
+      try {
+        const name = form.group.value.trim();
+        await createGroup(name, withMe ? { ...withMe, name: form.me.value.trim() } : null);
+      } catch (e) { toast(e.message, 'err'); btn.disabled = false; }
+    });
+    return form;
   }
 
   function shareHash() {
@@ -823,19 +912,20 @@ export async function renderWahlomat(root, params) {
     return `#/wahlomat${qs ? `?${qs}` : ''}`;
   }
   function syncUrl() {
+    if (group) return;
     const hash = shareHash();
     if (location.hash !== hash) history.replaceState(null, '', hash);
   }
 
   async function share() {
-    const url = `${location.origin}${location.pathname}${shareHash()}`;
-    const text = members.length > 1 ? 'Unser Gruppenergebnis im RPG-Wahlomat' : 'Mein Ergebnis im RPG-Wahlomat – füg dich hinzu!';
+    const url = `${location.origin}${location.pathname}${group ? groupPath(group.id) : shareHash()}`;
+    const text = group ? `Mach mit beim RPG-Wahlomat der Gruppe „${group.name}“: Namen eintragen, Fragen beantworten – dann sehen wir, welches Spiel zu uns allen passt.` : 'Mein Ergebnis im RPG-Wahlomat';
     if (navigator.share && matchMedia('(pointer: coarse)').matches) {
       try { await navigator.share({ title: 'RPG-Wahlomat', text, url }); return; } catch (e) { if (e.name === 'AbortError') return; }
     }
     try {
       await navigator.clipboard.writeText(url);
-      toast('Link kopiert – einfach in die Gruppe schicken.');
+      toast(group ? 'Gruppenlink kopiert – einfach an alle schicken.' : 'Link kopiert.');
     } catch {
       window.prompt('Link zum Kopieren:', url);
     }
@@ -876,13 +966,76 @@ export async function renderWahlomat(root, params) {
     </article>`;
   }
 
+  // Personen-Leiste: Namen mit ✎/× und – je nach Modus – Mitmachen,
+  // weitere Person am selben Gerät oder Gruppe erstellen.
+  function membersPanel(multi) {
+    const mine = members.filter(isMine).length;
+    const people = members.length === 1 ? '1 Person' : `${members.length} Personen`;
+    const intro = group
+      ? (mine
+        ? 'Schick den Gruppenlink an alle, die mitspielen. Wer ausgefüllt hat, erscheint hier – „Aktualisieren“ holt den neuesten Stand.'
+        : 'Trag dich mit deinem Namen ein und beantworte die Fragen. Danach siehst du hier das gemeinsame Ergebnis.')
+      : 'Spielt ihr zu mehreren? Erstellt eine Gruppe und schickt den Link herum: Jede:r trägt sich mit Namen ein und füllt aus, das Ergebnis sammelt sich automatisch.';
+    const rule = multi ? ' Das Ranking verbindet alle Antworten: 60 % Durchschnitt, 40 % der schwächste Einzelwert – oben steht, womit alle gut leben können.' : '';
+    const panel = el(`<div class="panel wahlomat-members">
+      <div class="wahlomat-members-head">
+        <strong>${group ? (members.length ? `${people} dabei` : 'Noch hat niemand ausgefüllt') : (multi ? `Gruppe · ${people}` : 'Als Gruppe spielen')}</strong>
+        <p class="muted">${esc(intro + rule)}</p>
+      </div>
+      <div class="wahlomat-member-list"></div>
+    </div>`);
+    const list = panel.querySelector('.wahlomat-member-list');
+    members.forEach((m, i) => {
+      const canEdit = group ? isMine(m) : members.length === 1;
+      const canRemove = group ? (isMine(m) || !!store.adminToken) : multi;
+      const chip = el(`<span class="wahlomat-member${isMine(m) ? ' is-mine' : ''}"><span>${esc(m.name)}</span>
+        ${canEdit ? `<button type="button" class="wahlomat-member-btn" data-act="edit" title="Antworten von ${esc(m.name)} ändern" aria-label="Antworten von ${esc(m.name)} ändern">✎</button>` : ''}
+        ${canRemove ? `<button type="button" class="wahlomat-member-btn" data-act="remove" title="${esc(m.name)} entfernen" aria-label="${esc(m.name)} entfernen">×</button>` : ''}
+      </span>`);
+      chip.querySelector('[data-act=edit]')?.addEventListener('click', () => startQuiz(m, i));
+      chip.querySelector('[data-act=remove]')?.addEventListener('click', async () => {
+        if (!group) { members.splice(i, 1); renderResults(); return; }
+        if (!window.confirm(`${m.name} aus der Gruppe entfernen?`)) return;
+        try {
+          await api(`/api/wahlomat/groups/${encodeURIComponent(group.id)}/members/${m.id}`, { method: 'DELETE', body: { token: store.members[m.id], adminToken: store.adminToken } });
+          delete store.members[m.id];
+          saveGroupStore(group.id, store);
+          await reloadGroup();
+          renderResults();
+        } catch (e) { toast(e.message, 'err'); }
+      });
+      list.appendChild(chip);
+    });
+    if (group && !mine) {
+      const join = el(`<form class="wahlomat-join">
+        <input type="text" maxlength="40" required placeholder="Dein Name" aria-label="Dein Name">
+        <button type="submit" class="btn btn-primary">Mitmachen</button>
+      </form>`);
+      join.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const name = join.querySelector('input').value.trim();
+        if (members.some((m) => m.name.toLowerCase() === name.toLowerCase())) { toast(`„${name}“ ist in dieser Gruppe schon vergeben – bitte einen anderen Namen wählen.`, 'err'); return; }
+        startQuiz({ name });
+      });
+      panel.appendChild(join);
+    } else if (group && members.length < 20) {
+      const add = el('<button type="button" class="btn btn-sm">+ Weitere Person an diesem Gerät</button>');
+      add.addEventListener('click', () => startQuiz());
+      list.appendChild(add);
+    } else if (!group && members.length === 1) {
+      panel.appendChild(el('<p class="faint wahlomat-join-hint">Deine Antworten werden in die neue Gruppe übernommen.</p>'));
+      panel.appendChild(createGroupForm({ withMe: members[0] }));
+    }
+    return panel;
+  }
+
   function renderResults() {
     syncUrl();
     resumeWrap.innerHTML = '';
-    const group = members.length > 1;
-    const results = games.map((g) => scoreForGroup(g, members)).sort((a, b) => b.score - a.score);
+    const multi = members.length > 1;
+    const results = members.length ? games.map((g) => scoreForGroup(g, members)).sort((a, b) => b.score - a.score) : [];
     let skippedNote = '';
-    if (!group) {
+    if (members.length === 1) {
       const skippedLabels = Object.entries(SCALAR_TO_PRIORITY).filter(([axis]) => members[0].profile[axis] == null)
         .map(([, key]) => PRIORITY_OPTIONS.find(([k]) => k === key)[1]);
       skippedNote = skippedLabels.length ? ` Nicht gewertet (als „Egal“ abgewählt): ${esc(skippedLabels.join(', '))}.` : '';
@@ -895,74 +1048,59 @@ export async function renderWahlomat(root, params) {
 
     const section = el(`<section>
       <div class="result-bar">
-        <div><p class="eyebrow">${group ? 'Gruppenergebnis' : 'Euer Ergebnis'}</p><h2>Passende Spiele</h2></div>
+        <div><p class="eyebrow">${group ? 'Gruppenergebnis' : multi ? 'Gruppenergebnis' : 'Euer Ergebnis'}</p><h2>${members.length ? 'Passende Spiele' : 'Noch keine Antworten'}</h2></div>
         <div class="row-actions">
-          <button type="button" class="btn btn-primary" id="wShare">Link teilen</button>
-          <button type="button" class="btn" id="wRestart">Neu starten</button>
+          <button type="button" class="btn btn-primary" id="wShare">${group ? 'Gruppenlink teilen' : 'Link teilen'}</button>
+          ${group ? '<button type="button" class="btn" id="wReload">Aktualisieren</button>' : '<button type="button" class="btn" id="wRestart">Neu starten</button>'}
         </div>
       </div>
-      <div class="panel wahlomat-members">
-        <div class="wahlomat-members-head">
-          <strong>${group ? `Gruppe · ${members.length} Personen` : 'Spielt ihr zu mehreren?'}</strong>
-          <p class="muted">${group
-    ? 'Das Ranking verbindet alle Antworten: 60 % Durchschnitt, 40 % der schwächste Einzelwert. Oben steht also, womit alle gut leben können.'
-    : 'Lasst weitere Personen ausfüllen – hier am selben Gerät oder per „Link teilen“: Die anderen tippen im Link auf „Person hinzufügen“ und schicken den neuen Link zurück. Das Ranking sucht dann, womit alle gut leben können.'}</p>
-        </div>
-        <div class="wahlomat-member-list"></div>
-      </div>
-      ${group ? groupPicture(members) : ''}
-      <div class="help-box">Bewertet wurden alle ${results.length} veröffentlichten Spiele aus dem Katalog.${skippedNote}</div>
+      <div id="wMembersSlot"></div>
+      ${multi ? groupPicture(members) : ''}
+      ${members.length ? `<div class="help-box">Bewertet wurden alle ${results.length} veröffentlichten Spiele aus dem Katalog.${skippedNote}</div>
       ${played.size ? '<label class="wahlomat-skip wahlomat-filter"><input type="checkbox" id="wUnplayed"> Nur Spiele, die noch nie am Tisch lagen</label>' : ''}
-      <div class="wahlomat-results"></div>
+      <div class="wahlomat-results"></div>` : ''}
     </section>`);
-
-    const memberList = section.querySelector('.wahlomat-member-list');
-    members.forEach((m, i) => {
-      const chip = el(`<span class="wahlomat-member"><span>${esc(m.name)}</span>
-        <button type="button" class="wahlomat-member-btn" title="Antworten von ${esc(m.name)} ändern" aria-label="Antworten von ${esc(m.name)} ändern">✎</button>
-        ${group ? `<button type="button" class="wahlomat-member-btn" title="${esc(m.name)} entfernen" aria-label="${esc(m.name)} entfernen">×</button>` : ''}
-      </span>`);
-      const [editBtn, removeBtn] = chip.querySelectorAll('button');
-      editBtn.addEventListener('click', () => startQuiz(m, i));
-      removeBtn?.addEventListener('click', () => { members.splice(i, 1); renderResults(); });
-      memberList.appendChild(chip);
-    });
-    if (members.length < MAX_MEMBERS) {
-      const add = el('<button type="button" class="btn btn-sm">+ Person hinzufügen</button>');
-      add.addEventListener('click', () => startQuiz());
-      memberList.appendChild(add);
-    }
+    section.querySelector('#wMembersSlot').replaceWith(membersPanel(multi));
 
     const listWrap = section.querySelector('.wahlomat-results');
     const unplayed = section.querySelector('#wUnplayed');
     const renderList = () => {
       const shown = unplayed?.checked ? results.filter((g) => !played.has(g.id)) : results;
-      listWrap.innerHTML = shown.map((g, i) => resultCard(g, i + 1, group)).join('') || '<p class="muted">Alle passenden Spiele lagen schon am Tisch.</p>';
+      listWrap.innerHTML = shown.map((g, i) => resultCard(g, i + 1, multi)).join('') || '<p class="muted">Alle passenden Spiele lagen schon am Tisch.</p>';
       // Das Netzdiagramm entsteht erst beim Aufklappen.
       listWrap.querySelectorAll('details.wahlomat-radar').forEach((d) => d.addEventListener('toggle', () => {
         if (!d.open || d.dataset.ready) return;
         d.dataset.ready = '1';
         const g = gamesById.get(d.dataset.id);
         d.querySelector('.radar-slot').innerHTML = `<div class="radar-wrap">${radarSvg(g, members)}
-          <div class="radar-legend"><span><i class="lg-game"></i>${esc(g.title)}</span><span><i class="lg-wish"></i>${group ? 'Gruppe (Ø)' : 'Euer Wunsch'}</span></div>
+          <div class="radar-legend"><span><i class="lg-game"></i>${esc(g.title)}</span><span><i class="lg-wish"></i>${multi ? 'Gruppe (Ø)' : 'Euer Wunsch'}</span></div>
           ${radarTable(g, members)}</div>`;
       }));
     };
-    unplayed?.addEventListener('change', renderList);
-    renderList();
+    if (listWrap) { unplayed?.addEventListener('change', renderList); renderList(); }
 
     section.querySelector('#wShare').addEventListener('click', share);
-    section.querySelector('#wRestart').addEventListener('click', restart);
+    section.querySelector('#wRestart')?.addEventListener('click', restart);
+    section.querySelector('#wReload')?.addEventListener('click', async (ev) => {
+      ev.target.disabled = true;
+      try { await reloadGroup(); renderResults(); toast('Auf dem neuesten Stand.'); } catch (e) { toast(e.message, 'err'); ev.target.disabled = false; }
+    });
     resultsWrap.appendChild(section);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  if (members.length) { renderResults(); return; }
+  // Gruppe: immer erst die Gruppenansicht (Mitmachen bzw. Ergebnis).
+  if (group || members.length) { renderResults(); return; }
 
-  // Ohne Link: frühere Antworten aus diesem Browser anbieten.
+  // Ohne Link: Gruppe erstellen anbieten und frühere Antworten aus diesem Browser.
   let saved = null;
   try { saved = decodeMember(localStorage.getItem(STORAGE_KEY)); } catch { /* privat/gesperrt */ }
   startQuiz();
+  const groupBox = el(`<details class="panel wahlomat-start-group">
+    <summary><strong>Als Gruppe spielen?</strong> <span class="muted">Gruppe erstellen, Link verschicken – jede:r trägt sich mit Namen ein und füllt aus.</span></summary>
+  </details>`);
+  groupBox.appendChild(createGroupForm());
+  resumeWrap.appendChild(groupBox);
   if (saved) {
     const box = el(`<div class="help-box wahlomat-resume">
       <span>Du hast den Wahlomat hier schon einmal ausgefüllt${saved.name ? ` (als ${esc(saved.name)})` : ''}.</span>

@@ -22,6 +22,7 @@ import {
   listPlaySessions, getGameLookup, createPlaySession, updatePlaySession, deletePlaySession,
 } from './src/catalog.js';
 import { stagingPreview, getImportRun, commitImport } from './src/importer.js';
+import { createGroup, getGroup, saveMember, removeMember } from './src/wahlomatGroups.js';
 import {
   getCoverImage, getCoverMeta, setCoverFromUrl, setCoverFromUpload, updateCoverSettings, deleteCover,
   trimStoredCovers,
@@ -137,6 +138,37 @@ app.get('/api/games/:slug/cover', attachAdminFlag, asyncRoute(async (req, res) =
 
 app.get('/api/wahlomat.json', asyncRoute(async (_req, res) => {
   res.json(await getWahlomatData());
+}));
+
+// Wahlomat-Gruppen: öffentlich, daher mit einfachem Limit je IP gegen
+// Massenanlage (Anlegen von Gruppen) bzw. Dauerfeuer (Einträge).
+function simpleRateLimit(max, windowMs, message) {
+  const hits = new Map();
+  return (req, res, next) => {
+    const ip = req.ip || 'unknown';
+    const now = Date.now();
+    const e = hits.get(ip);
+    if (!e || now - e.start > windowMs) { hits.set(ip, { n: 1, start: now }); return next(); }
+    e.n += 1;
+    if (e.n > max) return res.status(429).json({ error: message });
+    if (hits.size > 5000) hits.clear();
+    next();
+  };
+}
+const groupCreateLimit = simpleRateLimit(20, 60 * 60 * 1000, 'Zu viele neue Gruppen – bitte später noch einmal versuchen.');
+const groupWriteLimit = simpleRateLimit(120, 10 * 60 * 1000, 'Zu viele Änderungen – bitte kurz warten.');
+app.post('/api/wahlomat/groups', groupCreateLimit, asyncRoute(async (req, res) => {
+  res.status(201).json(await createGroup(req.body));
+}));
+app.get('/api/wahlomat/groups/:id', asyncRoute(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(await getGroup(req.params.id));
+}));
+app.post('/api/wahlomat/groups/:id/members', groupWriteLimit, asyncRoute(async (req, res) => {
+  res.json(await saveMember(req.params.id, req.body));
+}));
+app.delete('/api/wahlomat/groups/:id/members/:memberId', groupWriteLimit, asyncRoute(async (req, res) => {
+  res.json(await removeMember(req.params.id, req.params.memberId, req.body));
 }));
 
 app.get('/api/stats.json', asyncRoute(async (_req, res) => {
