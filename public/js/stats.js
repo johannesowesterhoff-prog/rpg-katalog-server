@@ -190,6 +190,68 @@ export async function renderStats(root, sub, params, id) {
   }
 }
 
+// ------------------------------------------------------------ Kalender
+// Ein Kalender je Jahr (Wochen als Spalten, Mo–So als Zeilen), Farbstufe =
+// Zahl der Spielabende an dem Tag. Folgt den Filtern der Spielabend-Liste.
+const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const DAY_MS = 864e5;
+function calendarYear(sessions, year) {
+  const byDay = new Map();
+  sessions.filter((s) => s.played_on.startsWith(`${year}-`)).forEach((s) => {
+    if (!byDay.has(s.played_on)) byDay.set(s.played_on, []);
+    byDay.get(s.played_on).push(s);
+  });
+  const start = Date.UTC(year, 0, 1);
+  const offset = (new Date(start).getUTCDay() + 6) % 7; // Montag = 0
+  const days = (Date.UTC(year + 1, 0, 1) - start) / DAY_MS;
+  let cells = '';
+  let months = '';
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start + i * DAY_MS);
+    const iso = d.toISOString().slice(0, 10);
+    const col = Math.floor((i + offset) / 7) + 1;
+    const row = ((i + offset) % 7) + 1;
+    const list = byDay.get(iso) || [];
+    const info = list.map((s) => `${s.title}${s.campaign ? ` – ${s.campaign}` : ''}`).join('\n');
+    cells += `<span class="cal-day lvl-${Math.min(3, list.length)}" style="grid-column:${col};grid-row:${row}" data-date="${iso}" data-info="${esc(info)}"${list.length ? ` aria-label="${esc(`${fmtDateOnly(iso)}: ${info.replace(/\n/g, ', ')}`)}" role="img"` : ''}></span>`;
+    if (d.getUTCDate() === 1) months += `<span style="grid-column:${col}">${MONTHS[d.getUTCMonth()]}</span>`;
+  }
+  const count = [...byDay.values()].reduce((n, l) => n + l.length, 0);
+  return `<div class="cal-year">
+    <div class="cal-year-head"><strong>${year}</strong><span class="muted">${count === 1 ? '1 Spielabend' : `${count} Spielabende`}${count !== byDay.size ? ` an ${byDay.size} Tagen` : ''}</span></div>
+    <div class="scroll-x"><div class="cal">
+      <div class="cal-months">${months}</div>
+      <div class="cal-wd"><span>Mo</span><span></span><span>Mi</span><span></span><span>Fr</span><span></span><span>So</span></div>
+      <div class="cal-grid">${cells}</div>
+    </div></div>
+  </div>`;
+}
+
+function calendarSection(sessions, years) {
+  const section = el(`<section class="section cal-section">
+    <div class="section-head-row"><h2>Kalender</h2>
+      <span class="cal-legend" aria-hidden="true">weniger <i class="cal-day lvl-0"></i><i class="cal-day lvl-1"></i><i class="cal-day lvl-2"></i><i class="cal-day lvl-3"></i> mehr</span>
+    </div>
+    ${years.map((y) => calendarYear(sessions, y)).join('')}
+    <div class="cal-tip" hidden></div>
+  </section>`);
+  const tip = section.querySelector('.cal-tip');
+  section.querySelectorAll('.cal-grid .cal-day').forEach((cell) => {
+    cell.addEventListener('pointerenter', () => {
+      const info = cell.dataset.info;
+      tip.innerHTML = `<strong>${esc(new Date(cell.dataset.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }))}</strong><br>${info ? esc(info).replace(/\n/g, '<br>') : '<span class="faint">kein Spielabend</span>'}`;
+      tip.hidden = false;
+      const r = cell.getBoundingClientRect();
+      const host = section.getBoundingClientRect();
+      const x = Math.min(r.left - host.left, host.width - tip.offsetWidth - 4);
+      tip.style.left = `${Math.max(0, x)}px`;
+      tip.style.top = `${r.bottom - host.top + 6}px`;
+    });
+    cell.addEventListener('pointerleave', () => { tip.hidden = true; });
+  });
+  return section;
+}
+
 // ------------------------------------------------------------ Spielabende
 // Alle protokollierten Spielabende, filterbar nach Jahr, Spiel, Kampagne und
 // Freitext (Spiel, Kampagne, Mitspieler:innen; Notizen sind nicht öffentlich). Die Filter stehen in der URL, z. B.
@@ -320,6 +382,9 @@ async function renderSessionLog(root, params) {
       <div class="card tile"><span class="num">${sessions.filter((s) => s.role === 'spielleiter').length}</span><span class="lbl">× Spielleiter:in</span></div>
       <div class="card tile"><span class="num">${sessions.filter((s) => s.role === 'spieler').length}</span><span class="lbl">× Spieler:in</span></div>
     </div>`));
+
+    const calYears = state.year ? [state.year] : [...new Set(sessions.map(yearOf))].sort((a, b) => b - a);
+    if (sessions.length) content.appendChild(calendarSection(sessions, calYears));
 
     const list = el(`<section class="section">
       <h2>Spielabende (${sessions.length})</h2>

@@ -107,7 +107,9 @@ export function renderCatalog(root, ctx) {
       <div class="result-bar">
         <div class="result-count" id="count">Lade …</div>
         <div class="chips" id="chips"></div>
+        <button type="button" class="btn btn-sm" id="roulette-btn" title="Zufälliges Spiel aus der aktuellen Auswahl">🎲 Regal-Roulette</button>
       </div>
+      <div id="roulette"></div>
       <div id="results"></div>
     </div>
   </div>`);
@@ -159,6 +161,8 @@ export function renderCatalog(root, ctx) {
     chipBox.appendChild(reset);
   }
 
+  layout.querySelector('#roulette-btn').addEventListener('click', () => openRoulette(layout.querySelector('#roulette'), s));
+
   results.appendChild(skeletonGrid(6));
 
   // ---- Daten laden
@@ -189,6 +193,57 @@ export function renderCatalog(root, ctx) {
       results.appendChild(emptyState('Katalog nicht erreichbar', e.message + ' Bitte Seite neu laden.'));
       toast(e.message, 'err');
     });
+}
+
+// ------------------------------------------------------------ Regal-Roulette
+// Zieht ein zufälliges Spiel aus der aktuellen Auswahl (alle gesetzten Filter
+// gelten), auf Wunsch nur aus Spielen ohne protokollierten Spielabend.
+async function openRoulette(box, s) {
+  const qs = queryFromState({ ...s, page: 1 });
+  qs.delete('page');
+  qs.set('pageSize', '100');
+  let pool = [];
+  try {
+    for (let page = 1, pages = 1; page <= pages && page <= 20; page++) {
+      qs.set('page', String(page));
+      const d = await api('/api/games?' + qs);
+      pool.push(...d.games);
+      pages = d.pages;
+    }
+  } catch (e) { toast(e.message, 'err'); return; }
+  let last = null;
+  const panel = el(`<section class="panel roulette" aria-live="polite">
+    <div class="roulette-head">
+      <strong>🎲 Wie wär's mit …</strong>
+      <label class="roulette-opt"><input type="checkbox" id="roulette-new"> nur ungespielte</label>
+      <span class="roulette-actions">
+        <button type="button" class="btn btn-sm btn-primary" id="roulette-again">Nochmal würfeln</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="roulette-close" aria-label="Schließen">×</button>
+      </span>
+    </div>
+    <p class="faint roulette-from"></p>
+    <div class="roulette-card"></div>
+  </section>`);
+  const roll = () => {
+    const onlyNew = panel.querySelector('#roulette-new').checked;
+    const candidates = pool.filter((g) => !onlyNew || !g.session_count);
+    const from = panel.querySelector('.roulette-from');
+    const slot = panel.querySelector('.roulette-card');
+    from.textContent = `Gezogen aus ${candidates.length} ${candidates.length === 1 ? 'Spiel' : 'Spielen'} der aktuellen Auswahl${onlyNew ? ' ohne Spielabend' : ''}.`;
+    slot.innerHTML = '';
+    if (!candidates.length) { slot.appendChild(el('<p class="muted">Keine passenden Spiele – Filter lockern oder „nur ungespielte“ abwählen.</p>')); return; }
+    const choices = candidates.length > 1 ? candidates.filter((g) => g.slug !== last) : candidates;
+    const g = choices[Math.floor(Math.random() * choices.length)];
+    last = g.slug;
+    slot.appendChild(gameCard(g));
+  };
+  panel.querySelector('#roulette-again').addEventListener('click', roll);
+  panel.querySelector('#roulette-new').addEventListener('change', roll);
+  panel.querySelector('#roulette-close').addEventListener('click', () => { box.innerHTML = ''; });
+  box.innerHTML = '';
+  box.appendChild(panel);
+  roll();
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function pagination(data, push) {

@@ -45,11 +45,10 @@ const PRIORITY_OPTIONS = [
   ['Genre', 'Genre'],
   ['Setting', 'Welt-Fremdheit'],
   ['Ton', 'Ton'],
-  ['Bedrohung', 'Bedrohung & Druck'],
+  ['Härte', 'Härte (Bedrohung & Scheitern)'],
   ['Spielstil', 'Spielstil / Aktivitäten'],
   ['Freiheit', 'Handlungsfreiheit'],
   ['Figurenbild', 'Figurenkompetenz'],
-  ['Scheitern', 'Scheitern-Folgen'],
   ['Crunch', 'Crunch (Regelstruktur)'],
   ['Narrativ', 'Narrative Mitgestaltung'],
   ['Fluff', 'Welt-Ausarbeitung (Fluff)'],
@@ -57,24 +56,34 @@ const PRIORITY_OPTIONS = [
 const PRIORITY_MAX = 3;
 // Regler-Schlüssel -> internes Komponenten-Label (für "Egal": abgewählte Regler
 // im Prioritäten-Schritt sperren und im Ergebnis benennen).
-const SCALAR_TO_PRIORITY = { welt_fremdheit: 'Setting', gefahr: 'Bedrohung', handlungsfreiheit: 'Freiheit', letalitaet: 'Scheitern', figurenkompetenz: 'Figurenbild', crunch: 'Crunch', narrativ: 'Narrativ', fluff: 'Fluff' };
+const SCALAR_TO_PRIORITY = { welt_fremdheit: 'Setting', gefahr: 'Härte', handlungsfreiheit: 'Freiheit', letalitaet: 'Härte', figurenkompetenz: 'Figurenbild', crunch: 'Crunch', narrativ: 'Narrativ', fluff: 'Fluff' };
 const PRIORITY_BOOST = 1.5;
 
 // Einzelfragen mit Regler 1-5, je Schritt zugeordnet.
 const RANGES = {
   1: [['welt_fremdheit', 'Wie fremd soll die Welt im Vergleich zu unserer sein?', '1 = wie unsere Realität · 5 = völlig fremdartig (andere Welt, andere Regeln der Natur)']],
-  2: [['gefahr', 'Wie intensiv sollen Bedrohung und Druck sein?', '1 = entspannt und sicher · 5 = existenziell bedrohlich (unabhängig vom Genre)']],
   3: [['handlungsfreiheit', 'Wie offen soll die Handlung sein?', '1 = klarer Auftrag · 5 = Gruppe setzt Ziele und Richtung']],
-  4: [['letalitaet', 'Wie folgenreich darf Scheitern sein?', '1 = Auch bei Fehlschlägen geht die Handlung weiter · 5 = Scheitern ist scheitern – echter Verlust (bis hin zum Charaktertod) ist möglich']],
+  // Eine Frage für Bedrohung UND Scheitern-Folgen: Die beiden wurden fast
+  // immer gleich beantwortet. Der Wert gilt für beide Achsen.
+  4: [['gefahr', 'Wie hart soll es werden?', '1 = gemütlich, Scheitern kostet wenig · 5 = gnadenlos, Figurentod jederzeit möglich']],
   5: [['crunch', 'Wie viel Regelstruktur möchtet ihr aktiv nutzen?', '1 = sehr leicht, kaum Optionen · 5 = viele Regeln, Optionen und taktische Tiefe (z.B. Charakterbau, Builds)'], ['narrativ', 'Wie stark gestaltet ihr Handlung und Welt direkt mit?', '1 = Spielleitung führt klar · 5 = Welt gemeinsam gestalten']],
   6: [['fluff', 'Wie stark soll die Spielwelt bereits ausgearbeitet sein?', '1 = offen, wenig vorgegeben, viel selbst ausdenken · 5 = stark ausgearbeitete Welt mit viel Hintergrundmaterial']],
+};
+// Ein Satz je Stufe: Unter dem Regler steht, was der gewählte Wert bedeutet.
+const RANGE_DESC = {
+  welt_fremdheit: ['Unsere Welt, wie wir sie kennen – Alltag, reale Orte.', 'Vertraut mit einem Dreh – etwa etwas Übernatürliches im Alltag.', 'Eigene Welt aus vertrauten Bausteinen, z. B. klassische Fantasy.', 'Deutlich fremd – ungewohnte Kulturen, Technik oder Magie.', 'Völlig fremdartig – andere Naturgesetze, kaum etwas Bekanntes.'],
+  gefahr: ['Gemütlich – kaum Gefahr, Scheitern sorgt höchstens für Umwege.', 'Leichte Spannung – Rückschläge, aber selten ernste Folgen.', 'Spürbare Gefahr – Scheitern tut weh, die Figuren kommen meist durch.', 'Hart – ständiger Druck, Verluste und Figurentod sind möglich.', 'Gnadenlos – existenzielle Bedrohung, Figuren sterben schnell.'],
+  handlungsfreiheit: ['Klarer Auftrag – die Handlung ist weitgehend vorgegeben.', 'Feste Abenteuer mit Spielraum, wie ihr sie löst.', 'Mischung aus vorbereiteten Abenteuern und eigenen Zielen.', 'Offene Welt – die Gruppe entscheidet meist selbst, wohin es geht.', 'Sandbox – ihr setzt Ziele und Richtung komplett selbst.'],
+  crunch: ['Kaum Regeln – ein Wurf entscheidet, in Minuten erklärt.', 'Ein paar Werte, kaum Sonderregeln, in 15 Minuten erklärt.', 'Solides Regelwerk mit Fertigkeiten und einigen Optionen.', 'Viele Regeln und Optionen – Charakterbau lohnt sich.', 'Regelsimulation – Taktik, Builds und Details bis ins Kleinste.'],
+  narrativ: ['Die Spielleitung erzählt die Welt, ihr steuert nur eure Figuren.', 'Ab und zu steuert ihr kleine Details bei.', 'Ausgewogen – die Spielleitung führt, ihr gestaltet spürbar mit.', 'Ihr erfindet regelmäßig Orte, Fakten und Wendungen mit.', 'Welt und Handlung entstehen gemeinsam am Tisch.'],
+  fluff: ['Loser Rahmen – fast alles denkt ihr euch selbst aus.', 'Knappe Welt mit ein paar Eckpunkten.', 'Solide ausgearbeitete Welt mit Orten und Fraktionen.', 'Umfangreiche Welt mit viel Hintergrund und Abenteuern.', 'Enzyklopädisch – Geschichte, Karten und Material ohne Ende.'],
 };
 
 const STEPS = [
   { n: 1, title: 'Genre & Setting', lede: 'Welche Art Welt soll eure Geschichte tragen?', budget: 'genre', budgetLegend: 'Welche Welten interessieren euch?' },
   { n: 2, title: 'Ton & Themen', lede: 'Welche Stimmung soll eure Runde prägen?', budget: 'ton', budgetLegend: 'Welcher Grundton passt zu euch?' },
   { n: 3, title: 'Spielstil', lede: 'Was möchtet ihr am Tisch überwiegend tun?', budget: 'aktivitaeten', budgetLegend: 'Verteilt euren Spielfokus' },
-  { n: 4, title: 'Figuren & Gefahr', lede: 'Wer seid ihr — und wie hart darf die Welt sein?' },
+  { n: 4, title: 'Figuren & Härte', lede: 'Wer seid ihr — und wie hart darf die Welt sein?' },
   { n: 5, title: 'Regeln & Erzählweise', lede: 'Wie viel System und wie viel gemeinsame Gestaltung wollt ihr?' },
   { n: 6, title: 'Fluff & Welttiefe', lede: 'Wie viel Hintergrund und Welterkundung soll das Spiel tragen?' },
   { n: 7, title: 'Prioritäten', lede: 'Optional: Was soll im Ergebnis besonders stark zählen?' },
@@ -83,11 +92,11 @@ const STEPS = [
 // Kurze Erklärungen ("Was ist gemeint?") je Frage – bewusst ohne Beispielspiele,
 // damit die Antworten nicht durch bekannte Titel vorgeprägt werden.
 const HELP = {
-  genre: { text: 'Die Art Welt, in der eure Geschichten spielen. Mehr Punkte = reizt euch mehr, 0 = nicht gewünscht. Spiele, die mehrere eurer Wunschgenres verbinden (z. B. Sci-Fi und Horror), rutschen nach oben.' },
+  genre: { text: 'Die Art Welt, in der eure Geschichten spielen. „Will ich“ zählt doppelt so stark wie „Gern“, „Egal“ zählt nicht. Spiele, die mehrere eurer Wunschgenres verbinden (z. B. Sci-Fi und Horror), rutschen nach oben.' },
   ton: { text: 'Die Grundstimmung am Tisch – unabhängig vom Setting. Eine Fantasywelt kann gemütlich-humorvoll oder bitter-düster sein; hier geht es um das Gefühl, nicht um die Welt.' },
   aktivitaeten: { text: 'Womit verbringt ihr die meiste Spielzeit? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
   welt_fremdheit: { text: 'Wie weit weicht die Spielwelt von unserem Alltag ab – Natur, Technik, Magie, Gesellschaft? Gemeint ist nicht, wie gefährlich sie ist, sondern wie viel ihr euch neu vorstellen müsst.' },
-  gefahr: { text: 'Wie viel Druck spüren die Figuren die ganze Zeit: Feinde, Hunger, eine feindliche Welt? Das ist unabhängig vom Genre – auch ein Fantasyspiel kann sehr behaglich sein.' },
+  gefahr: { text: 'Wie viel Druck spüren die Figuren – und was passiert, wenn etwas schiefgeht? Niedrig: gemütlich, Rückschläge bleiben ohne große Folgen. Hoch: ständige Bedrohung, Figuren können sterben oder dauerhaft verlieren. Das ist unabhängig vom Genre – auch ein Fantasyspiel kann sehr behaglich sein.' },
   handlungsfreiheit: { text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die ihr löst? Oder entscheidet ihr selbst, wohin ihr geht und was ihr erreichen wollt (Sandbox)?' },
   letalitaet: { text: 'Was passiert, wenn etwas schiefgeht? Niedrig: Rückschläge und Komplikationen, die Geschichte läuft weiter. Hoch: Figuren können sterben oder dauerhaft verlieren – Vorsicht und Planung lohnen sich.' },
   figurenkompetenz: { text: 'Wie fähig sind eure Figuren zu Beginn im Vergleich zur Welt? Kleine Leute, die über sich hinauswachsen – oder Profis und Held:innen, die von Anfang an glänzen?' },
@@ -250,7 +259,9 @@ function scoreGame(game, profile) {
   ];
   // Bis zu drei per "Prioritäten"-Schritt gewählte Dimensionen zählen stärker.
   const priorities = profile.priorities || [];
-  const weightOf = (label, base) => (priorities.includes(label) ? base * PRIORITY_BOOST : base);
+  // „Härte“ steht für Bedrohung und Scheitern zusammen (eine Frage, zwei Achsen).
+  const boosted = (label) => priorities.includes(label) || (priorities.includes('Härte') && (label === 'Bedrohung' || label === 'Scheitern'));
+  const weightOf = (label, base) => (boosted(label) ? base * PRIORITY_BOOST : base);
   const activeWeight = components.reduce((sum, [label, weight, active]) => sum + (active ? weightOf(label, weight) : 0), 0) || 1;
   const breakdown = {};
   let raw = 0;
@@ -630,6 +641,8 @@ export async function renderWahlomat(root, params, groupId = null) {
     welt_fremdheit: null, gefahr: null, handlungsfreiheit: null, letalitaet: null,
     crunch: null, narrativ: null, fluff: null,
     priorities: [],
+    // Spiel, mit dessen Profil vorbelegt wurde (nur zur Anzeige).
+    baseGame: null,
   };
 
   // Lädt die Antworten einer Person in den Fragebogen (oder leert ihn).
@@ -639,31 +652,36 @@ export async function renderWahlomat(root, params, groupId = null) {
     state.name = member?.name || '';
     ['genre', 'ton', 'aktivitaeten'].forEach((k) => { state[k] = { ...freshBudget(k), ...(p?.[k] || {}) }; });
     SCALAR_KEYS.forEach((k) => { state[k] = p?.[k] ?? null; });
+    // Ältere Antworten hatten zwei getrennte Regler; jetzt gilt einer für beide.
+    state.gefahr = state.gefahr ?? state.letalitaet;
+    state.letalitaet = state.gefahr;
     state.figurenkompetenz = p?.figurenkompetenz ? [...p.figurenkompetenz] : null;
     state.priorities = p ? [...p.priorities] : [];
+    state.baseGame = null;
   }
 
   function budgetSum(key) { return Object.values(state[key]).reduce((a, b) => a + b, 0); }
 
+  // Je Option „Will ich“ (4), „Gern“ (2) oder „Egal“ (0). Die Wertung
+  // arbeitet relativ zu den vergebenen Werten, eine feste Punktsumme braucht
+  // es nicht. Ältere Antworten mit 1–4 Punkten werden als Gern/Will ich gezeigt.
+  const TAP_LEVELS = [[4, 'Will ich'], [2, 'Gern'], [0, 'Egal']];
   function renderBudget(config) {
-    const wrap = el('<div class="wahlomat-budget"></div>');
+    const wrap = el('<div class="wahlomat-taps"></div>');
     Object.entries(config.labels).forEach(([key, label]) => {
-      const row = el(`<label class="wahlomat-budget-row">
+      const row = el(`<div class="wahlomat-tap-row">
         <span>${esc(label)}</span>
-        <input type="range" min="0" max="${config.max}" step="1" value="${state[config.key][key]}">
-        <output>${state[config.key][key]}</output>
-      </label>`);
-      const input = row.querySelector('input');
-      const output = row.querySelector('output');
-      input.addEventListener('input', () => {
-        let v = Number(input.value);
-        const others = budgetSum(config.key) - state[config.key][key];
-        if (others + v > config.total) v = Math.max(0, config.total - others);
-        input.value = String(v);
-        state[config.key][key] = v;
-        output.textContent = String(v);
-        updateError();
-      });
+        <div class="wahlomat-seg" role="group" aria-label="${esc(label)}">${TAP_LEVELS.map(([v, t]) => `<button type="button" data-v="${v}" aria-pressed="false">${t}</button>`).join('')}</div>
+      </div>`);
+      const btns = row.querySelectorAll('button');
+      const sync = () => {
+        const cur = state[config.key][key] || 0;
+        const level = cur >= 3 ? 4 : cur > 0 ? 2 : 0;
+        btns.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === level)));
+        row.classList.toggle('is-set', level > 0);
+      };
+      btns.forEach((b) => b.addEventListener('click', () => { state[config.key][key] = Number(b.dataset.v); sync(); updateError(); }));
+      sync();
       wrap.appendChild(row);
     });
     return wrap;
@@ -678,19 +696,32 @@ export async function renderWahlomat(root, params, groupId = null) {
         <output>${state[name] ?? 3}</output>
         <label class="wahlomat-skip"><input type="checkbox"> Egal</label>
       </div>
+      <p class="wahlomat-range-desc" aria-live="polite"></p>
     </fieldset>`);
     const input = wrap.querySelector('input[type=range]');
     const output = wrap.querySelector('output');
     const skip = wrap.querySelector('.wahlomat-skip input');
+    const desc = wrap.querySelector('.wahlomat-range-desc');
+    // Die Härte-Frage setzt Bedrohung und Scheitern-Folgen gemeinsam.
+    const mirror = name === 'gefahr' ? 'letalitaet' : null;
+    const setValue = (v) => { state[name] = v; if (mirror) state[mirror] = v; };
+    const describe = () => {
+      const v = state[name];
+      if (v == null) { desc.textContent = 'Egal – zählt nicht ins Ergebnis.'; return; }
+      const texts = RANGE_DESC[name];
+      const lo = texts?.[Math.floor(v) - 1];
+      const hi = texts?.[Math.ceil(v) - 1];
+      desc.textContent = !texts ? '' : lo === hi ? lo : `Zwischen „${lo}“ und „${hi}“`;
+    };
     // "Egal" setzt den Wert auf null -> die Komponente zählt in scoreGame()
     // weder im Zähler noch im Nenner. Vorher hieß ein unberührter Regler
     // "3 = Mittelmaß gewünscht" und bevorzugte mittige Spiele.
     const range = wrap.querySelector('.wahlomat-range');
-    const sync = () => { skip.checked = state[name] == null; range.classList.toggle('is-egal', skip.checked); };
+    const sync = () => { skip.checked = state[name] == null; range.classList.toggle('is-egal', skip.checked); describe(); };
     sync();
     // Bewegen des Reglers hebt "Egal" auf; der Regler bleibt dafür bedienbar.
-    input.addEventListener('input', () => { state[name] = Number(input.value); output.textContent = String(state[name]); sync(); });
-    skip.addEventListener('change', () => { state[name] = skip.checked ? null : Number(input.value); sync(); });
+    input.addEventListener('input', () => { setValue(Number(input.value)); output.textContent = String(state[name]); sync(); });
+    skip.addEventListener('change', () => { setValue(skip.checked ? null : Number(input.value)); sync(); });
     const help = helpBox(name);
     if (help) wrap.querySelector('small').after(help);
     return wrap;
@@ -761,6 +792,42 @@ export async function renderWahlomat(root, params, groupId = null) {
     return wrap;
   }
 
+  // Optional: alle Antworten mit dem Profil eines bekannten Spiels vorbelegen.
+  function baseGameField() {
+    const sorted = [...games].sort((a, b) => a.title.localeCompare(b.title, 'de'));
+    const wrap = el(`<div class="wahlomat-base">
+      <label for="wBase"><strong>Mit einem Spiel starten</strong> <span class="faint">(optional)</span></label>
+      <p class="muted">Wählt ein Spiel, das euch gefallen hat: Alle Antworten werden so vorbelegt, wie dieses Spiel eingeordnet ist. Danach ändert ihr nur, was anders sein soll – z. B. gleiche Stimmung, aber weniger tödlich.</p>
+      <div class="wahlomat-base-row">
+        <select id="wBase"><option value="">– Spiel wählen –</option>${sorted.map((g) => `<option value="${esc(g.id)}">${esc(g.title)}</option>`).join('')}</select>
+        <button type="button" class="btn btn-sm">Übernehmen</button>
+      </div>
+      ${state.baseGame ? `<p class="wahlomat-base-note">✓ Vorbelegt mit „${esc(gamesById.get(state.baseGame)?.title || '')}“ – geht die Fragen durch und passt an, was abweichen soll.</p>` : ''}
+    </div>`);
+    const select = wrap.querySelector('select');
+    select.value = state.baseGame || '';
+    wrap.querySelector('button').addEventListener('click', () => {
+      const g = gamesById.get(select.value);
+      if (!g) { toast('Bitte zuerst ein Spiel wählen.', 'err'); return; }
+      applyGameProfile(g);
+      renderStep();
+    });
+    return wrap;
+  }
+
+  function applyGameProfile(g) {
+    ['genre', 'ton'].forEach((k) => { state[k] = freshBudget(k); g[k].forEach((t) => { if (t in state[k]) state[k][t] = 4; }); });
+    state.aktivitaeten = freshBudget('aktivitaeten');
+    Object.entries(g.aktivitaeten).forEach(([k, v]) => { if (v >= 3) state.aktivitaeten[k] = 4; });
+    // Ohne erkannten Spielstil bleibt nichts gewählt – dann fragt Schritt 3 nach.
+    ['welt_fremdheit', 'handlungsfreiheit', 'crunch', 'narrativ', 'fluff'].forEach((k) => { state[k] = Math.round(g[k] * 2) / 2; });
+    state.gefahr = Math.round(((g.gefahr + g.letalitaet) / 2) * 2) / 2;
+    state.letalitaet = state.gefahr;
+    const nearest = FIGURE_OPTIONS.map(([v]) => v).sort((a, b) => Math.abs(a - g.figurenkompetenz) - Math.abs(b - g.figurenkompetenz))[0];
+    state.figurenkompetenz = [nearest];
+    state.baseGame = g.id;
+  }
+
   function nameField() {
     const wrap = el(`<label class="wahlomat-name">
       <span>${group ? 'Dein Name <span class="faint">(Pflicht – so sehen die anderen, wer ausgefüllt hat)</span>' : 'Wer füllt aus? <span class="faint">(optional)</span>'}</span>
@@ -779,9 +846,8 @@ export async function renderWahlomat(root, params, groupId = null) {
     const s = STEPS[state.step - 1];
     let msg = '';
     if (s.budget) {
-      const cfg = B[s.budget];
       const sum = budgetSum(s.budget);
-      if (sum !== cfg.total) msg = `Bitte verteilt genau ${cfg.total} Punkte (aktuell ${sum}/${cfg.total}).`;
+      if (!sum) msg = 'Bitte wählt mindestens eine Option mit „Will ich“ oder „Gern“.';
     }
     if (s.n === 4 && state.figurenkompetenz && !state.figurenkompetenz.length) msg = 'Bitte wählt mindestens ein Figurenbild – oder hakt „Egal“ an.';
     if (s.n === 1 && group) {
@@ -813,10 +879,10 @@ export async function renderWahlomat(root, params, groupId = null) {
       <p class="muted">${esc(s.lede)}</p>
     </section>`);
 
-    if (s.n === 1) section.appendChild(nameField());
+    if (s.n === 1) { section.appendChild(nameField()); section.appendChild(baseGameField()); }
     if (s.budget) {
       const cfg = B[s.budget];
-      const fs = el(`<fieldset class="wahlomat-field"><legend>${esc(s.budgetLegend)}</legend><small>Verteilt genau ${cfg.total} Punkte, höchstens ${cfg.max} je Option.</small></fieldset>`);
+      const fs = el(`<fieldset class="wahlomat-field"><legend>${esc(s.budgetLegend)}</legend><small>Tippt an, was euch reizt: „Will ich“ zählt doppelt so stark wie „Gern“. Alles andere bleibt „Egal“.</small></fieldset>`);
       const help = helpBox(s.budget);
       if (help) fs.appendChild(help);
       fs.appendChild(renderBudget(cfg));
@@ -1069,8 +1135,8 @@ export async function renderWahlomat(root, params, groupId = null) {
     const results = members.length ? games.map((g) => scoreForGroup(g, members)).sort((a, b) => b.score - a.score) : [];
     let skippedNote = '';
     if (members.length === 1) {
-      const skippedLabels = Object.entries(SCALAR_TO_PRIORITY).filter(([axis]) => members[0].profile[axis] == null)
-        .map(([, key]) => PRIORITY_OPTIONS.find(([k]) => k === key)[1]);
+      const skippedLabels = [...new Set(Object.entries(SCALAR_TO_PRIORITY).filter(([axis]) => members[0].profile[axis] == null)
+        .map(([, key]) => PRIORITY_OPTIONS.find(([k]) => k === key)[1]))];
       skippedNote = skippedLabels.length ? ` Nicht gewertet (als „Egal“ abgewählt): ${esc(skippedLabels.join(', '))}.` : '';
     }
 
