@@ -482,7 +482,8 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .wahlomat-group dl > div { display: grid; grid-template-columns: 190px 1fr; gap: var(--space-3); font-size: var(--text-sm); }
 .wahlomat-group dt { color: var(--text-muted); }
 .wahlomat-group dd { margin: 0; }
-.wahlomat-filter { margin-bottom: var(--space-3); font-size: var(--text-sm); }
+.wahlomat-filters { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin-bottom: var(--space-3); }
+.wahlomat-filter { font-size: var(--text-sm); }
 .wahlomat-played.is-new { color: var(--accent); font-weight: 700; }
 .wahlomat-why { margin: var(--space-1) 0 0; display: grid; gap: .3rem; font-size: var(--text-sm); line-height: 1.45; }
 .wahlomat-why .is-warn { color: var(--warn); }

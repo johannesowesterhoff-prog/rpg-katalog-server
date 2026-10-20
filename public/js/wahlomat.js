@@ -1090,16 +1090,21 @@ export async function renderWahlomat(root, params, groupId = null) {
       <div id="wMembersSlot"></div>
       ${multi ? groupPicture(members) : ''}
       ${members.length ? `<div class="help-box">Bewertet wurden alle ${results.length} veröffentlichten Spiele aus dem Katalog.${skippedNote}</div>
-      ${played.size ? '<label class="wahlomat-skip wahlomat-filter"><input type="checkbox" id="wUnplayed"> Nur Spiele, die noch nie am Tisch lagen</label>' : ''}
+      <div class="wahlomat-filters">
+        <label class="wahlomat-skip wahlomat-filter"><input type="checkbox" id="wGerman"> Nur deutschsprachige Spiele</label>
+        ${played.size ? '<label class="wahlomat-skip wahlomat-filter"><input type="checkbox" id="wUnplayed"> Nur Spiele, die noch nie am Tisch lagen</label>' : ''}
+      </div>
       <div class="wahlomat-results"></div>` : ''}
     </section>`);
     section.querySelector('#wMembersSlot').replaceWith(membersPanel(multi));
 
     const listWrap = section.querySelector('.wahlomat-results');
     const unplayed = section.querySelector('#wUnplayed');
+    const german = section.querySelector('#wGerman');
+    // Filter blenden nur aus; das Ranking selbst bleibt unverändert.
     const renderList = () => {
-      const shown = unplayed?.checked ? results.filter((g) => !played.has(g.id)) : results;
-      listWrap.innerHTML = shown.map((g, i) => resultCard(g, i + 1, multi)).join('') || '<p class="muted">Alle passenden Spiele lagen schon am Tisch.</p>';
+      const shown = results.filter((g) => (!unplayed?.checked || !played.has(g.id)) && (!german?.checked || g.language === 'de'));
+      listWrap.innerHTML = shown.map((g, i) => resultCard(g, i + 1, multi)).join('') || '<p class="muted">Keine Spiele für diese Filter.</p>';
       // Das Netzdiagramm entsteht erst beim Aufklappen.
       listWrap.querySelectorAll('details.wahlomat-radar').forEach((d) => d.addEventListener('toggle', () => {
         if (!d.open || d.dataset.ready) return;
@@ -1112,7 +1117,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       // Die ersten drei Treffer zeigen ihr Netzdiagramm gleich aufgeklappt.
       [...listWrap.querySelectorAll('details.wahlomat-radar')].slice(0, 3).forEach((d) => { d.open = true; });
     };
-    if (listWrap) { unplayed?.addEventListener('change', renderList); renderList(); }
+    if (listWrap) { [unplayed, german].forEach((f) => f?.addEventListener('change', renderList)); renderList(); }
 
     section.querySelector('#wShare').addEventListener('click', share);
     section.querySelector('#wRestart')?.addEventListener('click', restart);
