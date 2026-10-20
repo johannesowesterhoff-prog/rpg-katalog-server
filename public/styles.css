@@ -465,11 +465,13 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .wahlomat-tap-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); padding: .45rem var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); font-size: var(--text-sm); }
 .wahlomat-tap-row.is-set { border-color: var(--accent-line); }
 .wahlomat-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--radius-full); overflow: hidden; }
-.wahlomat-seg button { font: inherit; font-size: var(--text-xs); padding: .35rem .75rem; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; min-width: 4.2rem; }
+.wahlomat-seg button { font: inherit; font-size: var(--text-xs); padding: .35rem .6rem; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; min-width: 3.9rem; white-space: nowrap; }
 .wahlomat-seg button + button { border-left: 1px solid var(--border-strong); }
 .wahlomat-seg button:hover { background: var(--surface-hover); }
 .wahlomat-seg button[aria-pressed=true] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 .wahlomat-seg button[data-v="4"][aria-pressed=true] { background: var(--accent); color: var(--bg); }
+.wahlomat-seg button[data-v="-1"][aria-pressed=true] { background: var(--warn-soft); color: var(--warn); }
+.wahlomat-tap-row.is-meh > span { color: var(--text-muted); }
 .wahlomat-range-desc { margin: var(--space-2) 0 0; font-size: var(--text-sm); color: var(--text); min-height: 1.4em; }
 .wahlomat-range.is-egal + .wahlomat-range-desc { color: var(--text-faint); }
 .wahlomat-base { margin: 0 0 var(--space-5); padding: var(--space-3) var(--space-4); border: 1px dashed var(--accent-line); border-radius: var(--radius-md); }

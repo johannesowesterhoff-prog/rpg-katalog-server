@@ -92,7 +92,7 @@ const STEPS = [
 // Kurze Erklärungen ("Was ist gemeint?") je Frage – bewusst ohne Beispielspiele,
 // damit die Antworten nicht durch bekannte Titel vorgeprägt werden.
 const HELP = {
-  genre: { text: 'Die Art Welt, in der eure Geschichten spielen. „Will ich“ zählt doppelt so stark wie „Gern“, „Egal“ zählt nicht. Spiele, die mehrere eurer Wunschgenres verbinden (z. B. Sci-Fi und Horror), rutschen nach oben.' },
+  genre: { text: 'Die Art Welt, in der eure Geschichten spielen. „Sehr gern“ zählt doppelt so stark wie „Gern“, „Eher nicht“ zieht leicht ab, „Egal“ zählt nicht. Spiele, die mehrere eurer Wunschgenres verbinden (z. B. Sci-Fi und Horror), rutschen nach oben.' },
   ton: { text: 'Die Grundstimmung am Tisch – unabhängig vom Setting. Eine Fantasywelt kann gemütlich-humorvoll oder bitter-düster sein; hier geht es um das Gefühl, nicht um die Welt.' },
   aktivitaeten: { text: 'Womit verbringt ihr die meiste Spielzeit? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
   welt_fremdheit: { text: 'Wie weit weicht die Spielwelt von unserem Alltag ab – Natur, Technik, Magie, Gesellschaft? Gemeint ist nicht, wie gefährlich sie ist, sondern wie viel ihr euch neu vorstellen müsst.' },
@@ -214,26 +214,34 @@ function proximity(gameValue, desiredValue) { return Math.max(0, 1 - Math.abs(Nu
 // "Sci-Fi + Horror" ein Spiel mit beiden Genres vor einem reinen Horrorspiel.
 // Bei 70/30 gewannen Spiele mit drei Genres fast immer: Sie trafen dreimal so
 // oft irgendeinen Wunsch und verloren für die Beliebigkeit kaum etwas.
+// „Eher nicht“ (Wert -1) ist kein Ausschluss: Je größer der Anteil solcher
+// Tags an einem Spiel, desto mehr wird abgezogen – höchstens ein Viertel
+// der Komponente, also nur wenige Punkte im Gesamtergebnis.
+const DISLIKE_PENALTY = 0.25;
+const hasWish = (tags, wishes) => tags.some((t) => (wishes[t] || 0) > 0);
+const disliked = (tags, wishes) => tags.filter((t) => (wishes[t] || 0) < 0);
 function tagScore(tags, wishes) {
   const given = Object.values(wishes).filter((v) => v > 0).sort((a, b) => b - a);
   if (!tags.length || !given.length) return 0;
-  const hits = tags.map((tag) => wishes[tag] || 0);
+  const hits = tags.map((tag) => Math.max(0, wishes[tag] || 0));
   const best = Math.max(...hits) / given[0];
   const ideal = given.slice(0, tags.length).reduce((a, b) => a + b, 0);
   const fit = hits.reduce((a, b) => a + b, 0) / ideal;
-  return 0.5 * best + 0.5 * fit;
+  return 0.5 * best + 0.5 * fit - DISLIKE_PENALTY * (disliked(tags, wishes).length / tags.length);
 }
 // Spielstil: Anteil der Wunschpunkte, die das Spiel abdeckt (60 %), plus
 // wie viele seiner eigenen Schwerpunkte gewünscht sind (40 %). Der zweite
 // Teil bremst Spiele mit vier Schwerpunkten, die sonst jede Kombination
 // abdecken; bei 20 % kostete ein überzähliger Schwerpunkt fast nichts.
 function activityScore(activities, wishes) {
-  const total = Object.values(wishes).reduce((sum, v) => sum + v, 0) || 1;
+  const wanted = Object.entries(wishes).filter(([, v]) => v > 0);
+  const total = wanted.reduce((sum, [, v]) => sum + v, 0) || 1;
   const has = (key) => (activities[key] || 0) >= 3;
-  const coverage = Object.entries(wishes).reduce((sum, [key, points]) => sum + points * (has(key) ? 1 : 0.15), 0) / total;
+  const coverage = wanted.reduce((sum, [key, points]) => sum + points * (has(key) ? 1 : 0.15), 0) / total;
   const own = Object.keys(activities).filter(has);
   const precision = own.length ? own.filter((key) => (wishes[key] || 0) > 0).length / own.length : 0;
-  return 0.6 * coverage + 0.4 * precision;
+  const unwanted = own.length ? own.filter((key) => (wishes[key] || 0) < 0).length / own.length : 0;
+  return 0.6 * coverage + 0.4 * precision - DISLIKE_PENALTY * unwanted;
 }
 // Figurenbild: Jede gewählte Stufe deckt ±0,5 ab. Die Katalogwerte liegen
 // oft auf 2,5/3,5/4,5, also zwischen den Optionen -- ohne Toleranz bekämen
@@ -294,8 +302,9 @@ function makeChips(game, profile) {
   const genre = highest(profile.genre);
   const tone = highest(profile.ton);
   const activity = highest(profile.aktivitaeten);
-  const genreHit = tagScore(game.genre, profile.genre) > 0;
-  const tonHit = tagScore(game.ton, profile.ton) > 0;
+  const genreHit = hasWish(game.genre, profile.genre);
+  const tonHit = hasWish(game.ton, profile.ton);
+  [...disliked(game.genre, profile.genre), ...disliked(game.ton, profile.ton)].forEach((t) => warnings.push(`„${t}“ eher nicht gewünscht`));
   if (genreHit) good.push(`Genre „${genre && game.genre.includes(genre) ? genre : game.genre[0]}“`);
   else warnings.push('Kein Wunschgenre getroffen');
   if (tonHit) good.push(`Ton „${tone && game.ton.includes(tone) ? tone : game.ton[0]}“`);
@@ -334,7 +343,7 @@ function fromB64url(code) {
 }
 
 function encodeMember({ name, profile }) {
-  const positive = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v > 0));
+  const positive = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== 0));
   return toB64url(JSON.stringify({
     n: name,
     g: positive(profile.genre), t: positive(profile.ton), a: positive(profile.aktivitaeten),
@@ -350,7 +359,7 @@ function decodeMember(code) {
   try {
     const o = JSON.parse(fromB64url(code));
     const budget = (src, cfg) => Object.fromEntries(Object.entries(src || {})
-      .filter(([k, v]) => Object.hasOwn(cfg.labels, k) && Number.isInteger(v) && v > 0 && v <= cfg.max));
+      .filter(([k, v]) => Object.hasOwn(cfg.labels, k) && Number.isInteger(v) && v !== 0 && v >= -1 && v <= cfg.max));
     const scalar = (v) => (v != null && Number(v) >= 1 && Number(v) <= 5 ? Number(v) : null);
     const figureValues = FIGURE_OPTIONS.map(([v]) => v);
     const figures = Array.isArray(o.f) ? o.f.filter((v) => figureValues.includes(v)) : [];
@@ -389,8 +398,10 @@ const AXIS_WEIGHT = { crunch: W.crunch, narrativ: W.narrativ, fluff: W.fluff, ge
 // Genre/Ton oder der Regler mit dem größten gewichteten Abstand.
 function mainWarning(game, profile) {
   const candidates = [];
-  if (tagScore(game.genre, profile.genre) === 0) candidates.push([W.genre, 'kein Wunschgenre']);
-  if (tagScore(game.ton, profile.ton) === 0) candidates.push([W.tone, 'kein Wunschton']);
+  if (!hasWish(game.genre, profile.genre)) candidates.push([W.genre, 'kein Wunschgenre']);
+  if (!hasWish(game.ton, profile.ton)) candidates.push([W.tone, 'kein Wunschton']);
+  disliked(game.genre, profile.genre).forEach((t) => candidates.push([W.genre * DISLIKE_PENALTY, `„${t}“ eher nicht`]));
+  disliked(game.ton, profile.ton).forEach((t) => candidates.push([W.tone * DISLIKE_PENALTY, `„${t}“ eher nicht`]));
   for (const [key, , warnHigh, warnLow] of SCALAR_AXES) {
     const desired = profile[key];
     if (desired == null || Math.abs(game[key] - desired) < 1.5) continue;
@@ -670,12 +681,11 @@ export async function renderWahlomat(root, params, groupId = null) {
     state.baseGame = null;
   }
 
-  function budgetSum(key) { return Object.values(state[key]).reduce((a, b) => a + b, 0); }
 
-  // Je Option „Will ich“ (4), „Gern“ (2) oder „Egal“ (0). Die Wertung
+  // Je Option „Sehr gern“ (4), „Gern“ (2), „Egal“ (0) oder „Eher nicht“ (-1). Die Wertung
   // arbeitet relativ zu den vergebenen Werten, eine feste Punktsumme braucht
-  // es nicht. Ältere Antworten mit 1–4 Punkten werden als Gern/Will ich gezeigt.
-  const TAP_LEVELS = [[4, 'Will ich'], [2, 'Gern'], [0, 'Egal']];
+  // es nicht. Ältere Antworten mit 1–4 Punkten werden als Gern/Sehr gern gezeigt.
+  const TAP_LEVELS = [[4, 'Sehr gern'], [2, 'Gern'], [0, 'Egal'], [-1, 'Eher nicht']];
   function renderBudget(config) {
     const wrap = el('<div class="wahlomat-taps"></div>');
     Object.entries(config.labels).forEach(([key, label]) => {
@@ -686,9 +696,10 @@ export async function renderWahlomat(root, params, groupId = null) {
       const btns = row.querySelectorAll('button');
       const sync = () => {
         const cur = state[config.key][key] || 0;
-        const level = cur >= 3 ? 4 : cur > 0 ? 2 : 0;
+        const level = cur >= 3 ? 4 : cur > 0 ? 2 : cur < 0 ? -1 : 0;
         btns.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === level)));
         row.classList.toggle('is-set', level > 0);
+        row.classList.toggle('is-meh', level < 0);
       };
       btns.forEach((b) => b.addEventListener('click', () => { state[config.key][key] = Number(b.dataset.v); sync(); updateError(); }));
       sync();
@@ -856,8 +867,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     const s = STEPS[state.step - 1];
     let msg = '';
     if (s.budget) {
-      const sum = budgetSum(s.budget);
-      if (!sum) msg = 'Bitte wählt mindestens eine Option mit „Will ich“ oder „Gern“.';
+      if (!Object.values(state[s.budget]).some((v) => v > 0)) msg = 'Bitte wählt mindestens eine Option mit „Sehr gern“ oder „Gern“.';
     }
     if (s.n === 4 && state.figurenkompetenz && !state.figurenkompetenz.length) msg = 'Bitte wählt mindestens ein Figurenbild – oder hakt „Egal“ an.';
     if (s.n === 1 && group) {
@@ -892,7 +902,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     if (s.n === 1) { section.appendChild(nameField()); section.appendChild(baseGameField()); }
     if (s.budget) {
       const cfg = B[s.budget];
-      const fs = el(`<fieldset class="wahlomat-field"><legend>${esc(s.budgetLegend)}</legend><small>Tippt an, was euch reizt: „Will ich“ zählt doppelt so stark wie „Gern“. Alles andere bleibt „Egal“.</small></fieldset>`);
+      const fs = el(`<fieldset class="wahlomat-field"><legend>${esc(s.budgetLegend)}</legend><small>Tippt an, was euch reizt – alles andere bleibt „Egal“.</small></fieldset>`);
       const help = helpBox(s.budget);
       if (help) fs.appendChild(help);
       fs.appendChild(renderBudget(cfg));
@@ -1214,10 +1224,16 @@ export async function renderWahlomat(root, params, groupId = null) {
   resumeWrap.appendChild(groupBox);
   if (saved) {
     const box = el(`<div class="help-box wahlomat-resume">
-      <span>Du hast den Wahlomat hier schon einmal ausgefüllt${saved.name ? ` (als ${esc(saved.name)})` : ''}.</span>
-      <span class="row-actions"><button type="button" class="btn btn-sm btn-primary">Letztes Ergebnis ansehen</button><button type="button" class="btn btn-sm">Antworten bearbeiten</button></span>
+      <span>Du hast den Wahlomat hier schon einmal ausgefüllt${saved.name && !/^Person \d+$/.test(saved.name) ? ` (als ${esc(saved.name)})` : ''}.</span>
+      <span class="row-actions"><button type="button" class="btn btn-sm btn-primary">Letztes Ergebnis ansehen</button><button type="button" class="btn btn-sm">Antworten bearbeiten</button><button type="button" class="btn btn-sm btn-ghost">Vergessen</button></span>
     </div>`);
-    const [showBtn, editBtn] = box.querySelectorAll('button');
+    const [showBtn, editBtn, forgetBtn] = box.querySelectorAll('button');
+    // Löscht die gespeicherten Antworten aus diesem Browser.
+    forgetBtn.addEventListener('click', () => {
+      try { localStorage.removeItem(STORAGE_KEY); } catch { /* privat/gesperrt */ }
+      box.remove();
+      toast('Gespeicherte Antworten gelöscht.');
+    });
     showBtn.addEventListener('click', () => { members.push({ ...saved, name: saved.name || 'Person 1' }); renderResults(); });
     editBtn.addEventListener('click', () => startQuiz(saved, 0));
     resumeWrap.appendChild(box);
