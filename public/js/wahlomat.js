@@ -370,6 +370,24 @@ function scoreForGroup(game, members) {
 const joinDe = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} und ${items.at(-1)}`);
 const lowerFirst = (t) => (/^(Genre|Ton) /.test(t) ? t : t[0].toLowerCase() + t.slice(1));
 
+// Gewicht je Regler-Achse (wie in scoreGame), um die teuerste Abweichung
+// einer Person zu finden.
+const AXIS_WEIGHT = { crunch: W.crunch, narrativ: W.narrativ, fluff: W.fluff, gefahr: W.threat, letalitaet: W.lethality, handlungsfreiheit: W.agency, welt_fremdheit: W.setting };
+
+// Die Abweichung, die eine Person die meisten Punkte kostet: verfehltes
+// Genre/Ton oder der Regler mit dem größten gewichteten Abstand.
+function mainWarning(game, profile) {
+  const candidates = [];
+  if (tagScore(game.genre, profile.genre) === 0) candidates.push([W.genre, 'kein Wunschgenre']);
+  if (tagScore(game.ton, profile.ton) === 0) candidates.push([W.tone, 'kein Wunschton']);
+  for (const [key, , warnHigh, warnLow] of SCALAR_AXES) {
+    const desired = profile[key];
+    if (desired == null || Math.abs(game[key] - desired) < 1.5) continue;
+    candidates.push([AXIS_WEIGHT[key] * (1 - proximity(game[key], desired)), lowerFirst(game[key] > desired ? warnHigh : warnLow)]);
+  }
+  return candidates.sort((a, b) => b[0] - a[0])[0]?.[1] || '';
+}
+
 function explain(game, members) {
   const chips = members.map((m) => makeChips(game, m.profile));
   if (members.length === 1) {
@@ -377,13 +395,25 @@ function explain(game, members) {
     return {
       good: good.length ? `Passt: ${joinDe(good.map(lowerFirst))}.` : '',
       warn: warnings.length ? `Weicht ab: ${joinDe(warnings.map(lowerFirst))}.` : '',
+      details: [],
     };
   }
-  const common = chips[0].good.filter((t) => chips.every((c) => c.good.includes(t)));
-  const warn = chips.map((c, i) => (c.warnings.length ? `${members[i].name}: ${joinDe(c.warnings.map(lowerFirst))}` : '')).filter(Boolean);
+  // Gruppe: zählen, für wie viele ein Punkt passt; gezeigt wird, was für
+  // alle oder die Mehrheit passt (höchstens vier Punkte).
+  const n = members.length;
+  const counts = new Map();
+  chips.forEach((c) => new Set(c.good).forEach((t) => counts.set(t, (counts.get(t) || 0) + 1)));
+  const min = Math.max(2, Math.ceil(n / 2));
+  const shown = [...counts.entries()].filter(([, k]) => k >= min).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const byCount = new Map();
+  shown.forEach(([t, k]) => byCount.set(k, [...(byCount.get(k) || []), lowerFirst(t)]));
+  const good = [...byCount.entries()].map(([k, items]) => `Passt für ${k === n ? 'alle' : `${k} von ${n}`}: ${joinDe(items)}`).join(' · ');
+  // Pro Person nur die teuerste Abweichung; die volle Liste gibt es aufklappbar.
+  const warn = members.map((m) => { const w = mainWarning(game, m.profile); return w ? `${m.name}: ${w}` : ''; }).filter(Boolean);
   return {
-    good: common.length ? `Passt für alle: ${joinDe(common.map(lowerFirst))}.` : '',
-    warn: warn.length ? `Weicht ab – ${warn.join(' · ')}.` : '',
+    good: good ? `${good}.` : '',
+    warn: warn.length ? `Hakt bei ${warn.join(' · ')}.` : '',
+    details: chips.map((c, i) => [members[i].name, c.warnings.map(lowerFirst)]).filter(([, w]) => w.length),
   };
 }
 
@@ -964,6 +994,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       <div class="wahlomat-more">
         <details class="wahlomat-radar" data-id="${esc(g.id)}"><summary>Profilvergleich</summary><div class="radar-slot"></div></details>
         ${breakdown}
+        ${why.details.length ? `<details><summary>Alle Abweichungen</summary><ul class="wahlomat-deviations">${why.details.map(([name, w]) => `<li><strong>${esc(name)}:</strong> ${esc(joinDe(w))}</li>`).join('')}</ul></details>` : ''}
       </div>
     </article>`;
   }
