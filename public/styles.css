@@ -470,7 +470,7 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .wahlomat-seg button:hover { background: var(--surface-hover); }
 .wahlomat-seg button[aria-pressed=true] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 .wahlomat-seg button[data-v="4"][aria-pressed=true] { background: var(--accent); color: var(--bg); }
-.wahlomat-seg button[data-v="-1"][aria-pressed=true] { background: var(--warn-soft); color: var(--warn); }
+.wahlomat-seg button[data-v="-2"][aria-pressed=true] { background: var(--warn-soft); color: var(--warn); }
 .wahlomat-tap-row.is-meh > span { color: var(--text-muted); }
 .wahlomat-range-desc { margin: var(--space-2) 0 0; font-size: var(--text-sm); color: var(--text); min-height: 1.4em; }
 .wahlomat-range.is-egal + .wahlomat-range-desc { color: var(--text-faint); }

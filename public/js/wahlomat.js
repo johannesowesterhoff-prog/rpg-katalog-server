@@ -92,7 +92,7 @@ const STEPS = [
 // Kurze Erklärungen ("Was ist gemeint?") je Frage – bewusst ohne Beispielspiele,
 // damit die Antworten nicht durch bekannte Titel vorgeprägt werden.
 const HELP = {
-  genre: { text: 'Die Art Welt, in der eure Geschichten spielen. „Sehr gern“ zählt doppelt so stark wie „Gern“, „Eher nicht“ zieht leicht ab, „Egal“ zählt nicht. Spiele, die mehrere eurer Wunschgenres verbinden (z. B. Sci-Fi und Horror), rutschen nach oben.' },
+  genre: { text: 'Die Art Welt, in der eure Geschichten spielen. „Sehr gern“ zählt doppelt so stark wie „Gern“, „Eher nicht“ zieht so viel ab, wie „Gern“ dazugibt, „Egal“ zählt nicht. Spiele, die mehrere eurer Wunschgenres verbinden (z. B. Sci-Fi und Horror), rutschen nach oben.' },
   ton: { text: 'Die Grundstimmung am Tisch – unabhängig vom Setting. Eine Fantasywelt kann gemütlich-humorvoll oder bitter-düster sein; hier geht es um das Gefühl, nicht um die Welt.' },
   aktivitaeten: { text: 'Womit verbringt ihr die meiste Spielzeit? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
   welt_fremdheit: { text: 'Wie weit weicht die Spielwelt von unserem Alltag ab – Natur, Technik, Magie, Gesellschaft? Gemeint ist nicht, wie gefährlich sie ist, sondern wie viel ihr euch neu vorstellen müsst.' },
@@ -214,34 +214,39 @@ function proximity(gameValue, desiredValue) { return Math.max(0, 1 - Math.abs(Nu
 // "Sci-Fi + Horror" ein Spiel mit beiden Genres vor einem reinen Horrorspiel.
 // Bei 70/30 gewannen Spiele mit drei Genres fast immer: Sie trafen dreimal so
 // oft irgendeinen Wunsch und verloren für die Beliebigkeit kaum etwas.
-// „Eher nicht“ (Wert -1) ist kein Ausschluss: Je größer der Anteil solcher
-// Tags an einem Spiel, desto mehr wird abgezogen – höchstens ein Viertel
-// der Komponente, also nur wenige Punkte im Gesamtergebnis.
-const DISLIKE_PENALTY = 0.25;
+// „Eher nicht“ ist das Gegenstück zu „Gern“: Es zählt -2, genau so viel,
+// wie „Gern“ (+2) dazugibt – kein Ausschluss, ein Spiel kann über andere
+// Treffer trotzdem weit oben landen. Ältere Antworten mit -1 gelten als -2.
+const MEH = -2;
 const hasWish = (tags, wishes) => tags.some((t) => (wishes[t] || 0) > 0);
 const disliked = (tags, wishes) => tags.filter((t) => (wishes[t] || 0) < 0);
 function tagScore(tags, wishes) {
   const given = Object.values(wishes).filter((v) => v > 0).sort((a, b) => b - a);
   if (!tags.length || !given.length) return 0;
-  const hits = tags.map((tag) => Math.max(0, wishes[tag] || 0));
+  const hits = tags.map((tag) => wishes[tag] || 0);
   const best = Math.max(...hits) / given[0];
   const ideal = given.slice(0, tags.length).reduce((a, b) => a + b, 0);
   const fit = hits.reduce((a, b) => a + b, 0) / ideal;
-  return 0.5 * best + 0.5 * fit - DISLIKE_PENALTY * (disliked(tags, wishes).length / tags.length);
+  return 0.5 * best + 0.5 * fit;
 }
 // Spielstil: Anteil der Wunschpunkte, die das Spiel abdeckt (60 %), plus
 // wie viele seiner eigenen Schwerpunkte gewünscht sind (40 %). Der zweite
 // Teil bremst Spiele mit vier Schwerpunkten, die sonst jede Kombination
 // abdecken; bei 20 % kostete ein überzähliger Schwerpunkt fast nichts.
 function activityScore(activities, wishes) {
-  const wanted = Object.entries(wishes).filter(([, v]) => v > 0);
-  const total = wanted.reduce((sum, [, v]) => sum + v, 0) || 1;
+  const total = Object.values(wishes).filter((v) => v > 0).reduce((sum, v) => sum + v, 0) || 1;
   const has = (key) => (activities[key] || 0) >= 3;
-  const coverage = wanted.reduce((sum, [key, points]) => sum + points * (has(key) ? 1 : 0.15), 0) / total;
+  // Gewünschte Schwerpunkte zählen positiv, „eher nicht“ gewünschte, die das
+  // Spiel hat, mit demselben Betrag negativ.
+  const coverage = Object.entries(wishes).reduce((sum, [key, points]) => {
+    if (points > 0) return sum + points * (has(key) ? 1 : 0.15);
+    if (points < 0 && has(key)) return sum + points;
+    return sum;
+  }, 0) / total;
   const own = Object.keys(activities).filter(has);
-  const precision = own.length ? own.filter((key) => (wishes[key] || 0) > 0).length / own.length : 0;
-  const unwanted = own.length ? own.filter((key) => (wishes[key] || 0) < 0).length / own.length : 0;
-  return 0.6 * coverage + 0.4 * precision - DISLIKE_PENALTY * unwanted;
+  const sign = (key) => Math.sign(wishes[key] || 0);
+  const precision = own.length ? own.reduce((sum, key) => sum + sign(key), 0) / own.length : 0;
+  return 0.6 * coverage + 0.4 * precision;
 }
 // Figurenbild: Jede gewählte Stufe deckt ±0,5 ab. Die Katalogwerte liegen
 // oft auf 2,5/3,5/4,5, also zwischen den Optionen -- ohne Toleranz bekämen
@@ -276,7 +281,7 @@ function scoreGame(game, profile) {
   // Mit "Egal" abgewählte Regler (Wert null) sind inaktiv: Sie zählen weder
   // im Zähler noch im Nenner und tauchen in der Aufschlüsselung nicht auf.
   components.forEach(([label, weight, active, value]) => { if (!active) return; const c = weightOf(label, weight) * value; breakdown[label] = c; raw += c; });
-  return { ...game, score: (raw / activeWeight) * 100, breakdown };
+  return { ...game, score: Math.max(0, (raw / activeWeight) * 100), breakdown };
 }
 
 // Für jede skalare Achse (1-5) symmetrisch prüfen: nah dran -> gut-Chip,
@@ -359,7 +364,8 @@ function decodeMember(code) {
   try {
     const o = JSON.parse(fromB64url(code));
     const budget = (src, cfg) => Object.fromEntries(Object.entries(src || {})
-      .filter(([k, v]) => Object.hasOwn(cfg.labels, k) && Number.isInteger(v) && v !== 0 && v >= -1 && v <= cfg.max));
+      .filter(([k, v]) => Object.hasOwn(cfg.labels, k) && Number.isInteger(v) && v !== 0 && v >= -cfg.max && v <= cfg.max)
+      .map(([k, v]) => [k, v < 0 ? MEH : v]));
     const scalar = (v) => (v != null && Number(v) >= 1 && Number(v) <= 5 ? Number(v) : null);
     const figureValues = FIGURE_OPTIONS.map(([v]) => v);
     const figures = Array.isArray(o.f) ? o.f.filter((v) => figureValues.includes(v)) : [];
@@ -400,8 +406,8 @@ function mainWarning(game, profile) {
   const candidates = [];
   if (!hasWish(game.genre, profile.genre)) candidates.push([W.genre, 'kein Wunschgenre']);
   if (!hasWish(game.ton, profile.ton)) candidates.push([W.tone, 'kein Wunschton']);
-  disliked(game.genre, profile.genre).forEach((t) => candidates.push([W.genre * DISLIKE_PENALTY, `„${t}“ eher nicht`]));
-  disliked(game.ton, profile.ton).forEach((t) => candidates.push([W.tone * DISLIKE_PENALTY, `„${t}“ eher nicht`]));
+  disliked(game.genre, profile.genre).forEach((t) => candidates.push([W.genre * 0.5, `„${t}“ eher nicht`]));
+  disliked(game.ton, profile.ton).forEach((t) => candidates.push([W.tone * 0.5, `„${t}“ eher nicht`]));
   for (const [key, , warnHigh, warnLow] of SCALAR_AXES) {
     const desired = profile[key];
     if (desired == null || Math.abs(game[key] - desired) < 1.5) continue;
@@ -682,10 +688,10 @@ export async function renderWahlomat(root, params, groupId = null) {
   }
 
 
-  // Je Option „Sehr gern“ (4), „Gern“ (2), „Egal“ (0) oder „Eher nicht“ (-1). Die Wertung
+  // Je Option „Sehr gern“ (4), „Gern“ (2), „Egal“ (0) oder „Eher nicht“ (-2). Die Wertung
   // arbeitet relativ zu den vergebenen Werten, eine feste Punktsumme braucht
   // es nicht. Ältere Antworten mit 1–4 Punkten werden als Gern/Sehr gern gezeigt.
-  const TAP_LEVELS = [[4, 'Sehr gern'], [2, 'Gern'], [0, 'Egal'], [-1, 'Eher nicht']];
+  const TAP_LEVELS = [[4, 'Sehr gern'], [2, 'Gern'], [0, 'Egal'], [MEH, 'Eher nicht']];
   function renderBudget(config) {
     const wrap = el('<div class="wahlomat-taps"></div>');
     Object.entries(config.labels).forEach(([key, label]) => {
@@ -696,7 +702,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       const btns = row.querySelectorAll('button');
       const sync = () => {
         const cur = state[config.key][key] || 0;
-        const level = cur >= 3 ? 4 : cur > 0 ? 2 : cur < 0 ? -1 : 0;
+        const level = cur >= 3 ? 4 : cur > 0 ? 2 : cur < 0 ? MEH : 0;
         btns.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === level)));
         row.classList.toggle('is-set', level > 0);
         row.classList.toggle('is-meh', level < 0);
