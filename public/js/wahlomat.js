@@ -92,7 +92,7 @@ const STEPS = [
 // Kurze Erklärungen ("Was ist gemeint?") je Frage – bewusst ohne Beispielspiele,
 // damit die Antworten nicht durch bekannte Titel vorgeprägt werden.
 const HELP = {
-  genre: { text: 'Die Art Welt, in der eure Geschichten spielen. „Sehr gern“ zählt doppelt so stark wie „Gern“, „Eher nicht“ zieht so viel ab, wie „Gern“ dazugibt, „Egal“ zählt nicht. Spiele, die mehrere eurer Wunschgenres verbinden (z. B. Sci-Fi und Horror), rutschen nach oben.' },
+  genre: { text: 'Die Art Welt, in der eure Geschichten spielen. „Sehr gern“ zählt doppelt so stark wie „Gern“, „Eher nicht“ zieht so viel ab, wie „Gern“ dazugibt, „Egal“ zählt nicht. Pro Spiel zählt der beste Treffer einmal; hat es etwas mit „Eher nicht“, wird einmal abgezogen.' },
   ton: { text: 'Die Grundstimmung am Tisch – unabhängig vom Setting. Eine Fantasywelt kann gemütlich-humorvoll oder bitter-düster sein; hier geht es um das Gefühl, nicht um die Welt.' },
   aktivitaeten: { text: 'Womit verbringt ihr die meiste Spielzeit? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
   welt_fremdheit: { text: 'Wie weit weicht die Spielwelt von unserem Alltag ab – Natur, Technik, Magie, Gesellschaft? Gemeint ist nicht, wie gefährlich sie ist, sondern wie viel ihr euch neu vorstellen müsst.' },
@@ -208,45 +208,25 @@ function buildGames(catalog) {
 // 2,5 und 3 -- alle acht Regler zusammen machten nur ein Fünftel der
 // Score-Unterschiede aus, Genre/Ton/Spielstil den Rest.
 function proximity(gameValue, desiredValue) { return Math.max(0, 1 - Math.abs(Number(gameValue) - Number(desiredValue)) / 3); }
-// Genre/Ton: je zur Hälfte der beste Treffer (relativ zum höchsten vergebenen
-// Wunschwert, damit 4 Punkte nicht über 100 % hinausschießen) und wie gut die
-// Tags des Spiels insgesamt zu den Wünschen passen. So landet z.B. bei
-// "Sci-Fi + Horror" ein Spiel mit beiden Genres vor einem reinen Horrorspiel.
-// Bei 70/30 gewannen Spiele mit drei Genres fast immer: Sie trafen dreimal so
-// oft irgendeinen Wunsch und verloren für die Beliebigkeit kaum etwas.
-// „Eher nicht“ ist das Gegenstück zu „Gern“: Es zählt -2, genau so viel,
-// wie „Gern“ (+2) dazugibt – kein Ausschluss, ein Spiel kann über andere
-// Treffer trotzdem weit oben landen. Ältere Antworten mit -1 gelten als -2.
+// Genre, Ton und Spielstil: Pro Spiel zählt der beste Treffer EINMAL
+// („Sehr gern“ voll, „Gern“ halb – relativ zum höchsten vergebenen Wunsch),
+// weitere Treffer bringen nichts dazu. Hat das Spiel etwas mit „Eher nicht“,
+// wird ebenfalls einmal abgezogen, und zwar genau so viel, wie „Gern“ gebracht
+// hätte. So bleibt die Rechnung nachvollziehbar und Mischspiele werden nicht
+// bevorzugt, nur weil sie viele Tags tragen.
+// „Eher nicht“ ist das Gegenstück zu „Gern“ (-2 gegen +2), kein Ausschluss.
+// Ältere Antworten mit -1 gelten als -2.
 const MEH = -2;
 const hasWish = (tags, wishes) => tags.some((t) => (wishes[t] || 0) > 0);
 const disliked = (tags, wishes) => tags.filter((t) => (wishes[t] || 0) < 0);
 function tagScore(tags, wishes) {
-  const given = Object.values(wishes).filter((v) => v > 0).sort((a, b) => b - a);
-  if (!tags.length || !given.length) return 0;
-  const hits = tags.map((tag) => wishes[tag] || 0);
-  const best = Math.max(...hits) / given[0];
-  const ideal = given.slice(0, tags.length).reduce((a, b) => a + b, 0);
-  const fit = hits.reduce((a, b) => a + b, 0) / ideal;
-  return 0.5 * best + 0.5 * fit;
+  const top = Math.max(0, ...Object.values(wishes));
+  if (!tags.length || !top) return 0;
+  const values = tags.map((t) => wishes[t] || 0);
+  return (Math.max(0, ...values) + Math.min(0, ...values)) / top;
 }
-// Spielstil: Anteil der Wunschpunkte, die das Spiel abdeckt (60 %), plus
-// wie viele seiner eigenen Schwerpunkte gewünscht sind (40 %). Der zweite
-// Teil bremst Spiele mit vier Schwerpunkten, die sonst jede Kombination
-// abdecken; bei 20 % kostete ein überzähliger Schwerpunkt fast nichts.
 function activityScore(activities, wishes) {
-  const total = Object.values(wishes).filter((v) => v > 0).reduce((sum, v) => sum + v, 0) || 1;
-  const has = (key) => (activities[key] || 0) >= 3;
-  // Gewünschte Schwerpunkte zählen positiv, „eher nicht“ gewünschte, die das
-  // Spiel hat, mit demselben Betrag negativ.
-  const coverage = Object.entries(wishes).reduce((sum, [key, points]) => {
-    if (points > 0) return sum + points * (has(key) ? 1 : 0.15);
-    if (points < 0 && has(key)) return sum + points;
-    return sum;
-  }, 0) / total;
-  const own = Object.keys(activities).filter(has);
-  const sign = (key) => Math.sign(wishes[key] || 0);
-  const precision = own.length ? own.reduce((sum, key) => sum + sign(key), 0) / own.length : 0;
-  return 0.6 * coverage + 0.4 * precision;
+  return tagScore(Object.keys(activities).filter((key) => (activities[key] || 0) >= 3), wishes);
 }
 // Figurenbild: Jede gewählte Stufe deckt ±0,5 ab. Die Katalogwerte liegen
 // oft auf 2,5/3,5/4,5, also zwischen den Optionen -- ohne Toleranz bekämen
