@@ -364,7 +364,32 @@ function decodeMember(code) {
 // Gruppenwertung: 60 % Durchschnitt + 40 % schwächster Einzelwert. Oben
 // landet, womit alle gut leben können -- ein Spiel, das eine Person begeistert
 // und eine andere gar nicht abholt, rutscht nach unten.
+// Gleichstand-Regeln (ändern nicht die Punktzahl, nur die Reihenfolge unter
+// Spielen mit gleicher angezeigter Punktzahl):
+// 1. Wie viele „Sehr gern“-/„Gern“-Wünsche trifft das Spiel insgesamt
+//    (Genre, Ton, Spielstil)?
+// 2. Wie gezielt passt es – welcher Anteil seiner Genres, Töne und
+//    Schwerpunkte ist gewünscht? „Fantasy, düster“ passt zu „Fantasy +
+//    düster“ genauer als „Fantasy, Horror, historisch, düster, tragisch“.
+function wishFit(game, profile) {
+  const ownActivities = Object.keys(game.aktivitaeten).filter((k) => (game.aktivitaeten[k] || 0) >= 3);
+  const parts = [[game.genre, profile.genre], [game.ton, profile.ton], [ownActivities, profile.aktivitaeten]];
+  const matches = parts.reduce((n, [tags, wishes]) => n + tags.filter((t) => (wishes[t] || 0) > 0).length, 0);
+  const total = parts.reduce((n, [tags]) => n + tags.length, 0);
+  return { matches, focus: total ? matches / total : 0 };
+}
+// Sortierung: angezeigte Punktzahl, dann Treffer, dann Zielgenauigkeit, dann exakter Wert.
+function compareResults(a, b) {
+  return Math.round(b.score) - Math.round(a.score) || b.matches - a.matches || b.focus - a.focus || b.score - a.score;
+}
+
 function scoreForGroup(game, members) {
+  const fits = members.map((m) => wishFit(game, m.profile));
+  const matches = fits.reduce((n, f) => n + f.matches, 0);
+  const focus = fits.reduce((n, f) => n + f.focus, 0) / (fits.length || 1);
+  return { ...scoreForGroupRaw(game, members), matches, focus };
+}
+function scoreForGroupRaw(game, members) {
   const single = members.map((m) => scoreGame(game, m.profile));
   if (single.length === 1) return { ...single[0], perPerson: [single[0].score] };
   const scores = single.map((r) => r.score);
@@ -1056,7 +1081,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     const breakdown = group ? '' : `<details><summary>Punkteaufschlüsselung</summary><div class="tag-row" style="margin-top:var(--space-2)">${Object.entries(g.breakdown).map(([n, v]) => `<span class="badge">${esc(n)}: <strong>${v.toFixed(1)}</strong></span>`).join(' ')}</div></details>`;
     return `<article class="card wahlomat-result">
       <div class="wahlomat-result-top">
-        <span class="faint">#${rank}</span>
+        <span class="faint">#${rank}${g.tied ? `<span class="wahlomat-tied" title="Gleiche Punktzahl wie andere Spiele. Die Reihenfolge richtet sich danach, wie viele eurer Wünsche (Genre, Ton, Spielstil) das Spiel insgesamt trifft – und danach, wie gezielt es passt, also ohne viel Ungewünschtes drumherum.">gleichauf</span>` : ''}</span>
         <div><h3><a href="#/spiele/${esc(g.id)}">${esc(g.title)}</a></h3><div class="muted" style="font-size:var(--text-xs)">${esc(g.system_family || '–')} · ${esc(langLabel(g.language))} · ${playedHtml}</div></div>
         <span class="badge badge-lang">${score}/100</span>
       </div>
@@ -1138,7 +1163,11 @@ export async function renderWahlomat(root, params, groupId = null) {
     syncUrl();
     resumeWrap.innerHTML = '';
     const multi = members.length > 1;
-    const results = members.length ? games.map((g) => scoreForGroup(g, members)).sort((a, b) => b.score - a.score) : [];
+    const results = members.length ? games.map((g) => scoreForGroup(g, members)).sort(compareResults) : [];
+    // Spiele mit gleicher angezeigter Punktzahl bekommen den Hinweis „gleichauf“.
+    const scoreCount = new Map();
+    results.forEach((g) => { const k = Math.round(g.score); scoreCount.set(k, (scoreCount.get(k) || 0) + 1); });
+    results.forEach((g) => { g.tied = scoreCount.get(Math.round(g.score)) > 1; });
     let skippedNote = '';
     if (members.length === 1) {
       const skippedLabels = [...new Set(Object.entries(SCALAR_TO_PRIORITY).filter(([axis]) => members[0].profile[axis] == null)

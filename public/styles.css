@@ -451,6 +451,7 @@ tbody tr:hover { background: var(--surface-2); }
 .wahlomat-result-top { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-3); align-items: center; }
 .wahlomat-result { padding: var(--space-4); display: grid; gap: var(--space-2); }
 .wahlomat-result h3 { font-size: var(--text-md); }
+.wahlomat-tied { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); cursor: help; }
 input[type=range] { accent-color: var(--accent); }
 
 /* Reine Anzeige-Tags (kein Link/Filter) reagieren nicht auf Hover. */
