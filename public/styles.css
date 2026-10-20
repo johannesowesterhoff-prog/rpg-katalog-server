@@ -412,6 +412,9 @@ tbody tr:hover { background: var(--surface-2); }
 /* ---------- Wahlomat ---------- */
 .wahlomat-progress { margin-bottom: var(--space-5); position: sticky; top: calc(var(--header-h) + var(--space-3)); z-index: 4; }
 .wahlomat-progress-head { display: flex; justify-content: space-between; font-size: var(--text-sm); margin-bottom: var(--space-2); }
+.wahlomat-progress-right { display: inline-flex; gap: var(--space-3); align-items: baseline; }
+.wahlomat-progress-right .link-btn { font-size: var(--text-xs); color: var(--text-muted); }
+.wahlomat-progress-right .link-btn:hover { color: var(--danger); }
 .wahlomat-step { max-width: 760px; margin-inline: auto; }
 .wahlomat-step h2 { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
 .wahlomat-field { margin: 0 0 var(--space-5); padding: var(--space-4) 0 0; border: 0; border-top: 1px solid var(--border); }

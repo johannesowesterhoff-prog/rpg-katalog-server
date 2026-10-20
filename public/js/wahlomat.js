@@ -607,10 +607,20 @@ export async function renderWahlomat(root, params, groupId = null) {
   root.appendChild(resumeWrap);
 
   const progress = el(`<div class="panel wahlomat-progress">
-    <div class="wahlomat-progress-head"><span id="wProgressText"></span><span class="muted" id="wProgressPct"></span></div>
+    <div class="wahlomat-progress-head"><span id="wProgressText"></span><span class="wahlomat-progress-right"><button type="button" class="link-btn" id="wReset">Antworten zurücksetzen</button><span class="muted" id="wProgressPct"></span></span></div>
     <div class="bar"><i id="wProgressBar" style="width:0%"></i></div>
   </div>`);
   root.appendChild(progress);
+
+  // Alle Antworten im Fragebogen leeren; Name und bearbeitete Person bleiben.
+  progress.querySelector('#wReset').addEventListener('click', () => {
+    if (!window.confirm('Alle Antworten zurücksetzen und bei Schritt 1 neu beginnen?')) return;
+    const { name, editIndex } = state;
+    loadState(null);
+    Object.assign(state, { name, editIndex });
+    renderStep();
+    toast('Antworten zurückgesetzt.');
+  });
 
   const quizWrap = el('<div id="wQuiz"></div>');
   const resultsWrap = el('<div id="wResults" hidden></div>');
@@ -796,13 +806,13 @@ export async function renderWahlomat(root, params, groupId = null) {
   function baseGameField() {
     const sorted = [...games].sort((a, b) => a.title.localeCompare(b.title, 'de'));
     const wrap = el(`<div class="wahlomat-base">
-      <label for="wBase"><strong>Mit einem Spiel starten</strong> <span class="faint">(optional)</span></label>
-      <p class="muted">Wählt ein Spiel, das euch gefallen hat: Alle Antworten werden so vorbelegt, wie dieses Spiel eingeordnet ist. Danach ändert ihr nur, was anders sein soll – z. B. gleiche Stimmung, aber weniger tödlich.</p>
+      <label for="wBase"><strong>Mit einem Spiel als Blaupause starten</strong> <span class="faint">(optional)</span></label>
+      <p class="muted">Wählt ein Spiel, das euch gefallen hat – alle Fragen werden mit seiner Einordnung vorausgefüllt. Ändert dann nur, was anders sein soll.</p>
       <div class="wahlomat-base-row">
         <select id="wBase"><option value="">– Spiel wählen –</option>${sorted.map((g) => `<option value="${esc(g.id)}">${esc(g.title)}</option>`).join('')}</select>
         <button type="button" class="btn btn-sm">Übernehmen</button>
       </div>
-      ${state.baseGame ? `<p class="wahlomat-base-note">✓ Vorbelegt mit „${esc(gamesById.get(state.baseGame)?.title || '')}“ – geht die Fragen durch und passt an, was abweichen soll.</p>` : ''}
+      ${state.baseGame ? `<p class="wahlomat-base-note">✓ Vorausgefüllt mit „${esc(gamesById.get(state.baseGame)?.title || '')}“ – geht die Fragen durch und passt an, was anders sein soll.</p>` : ''}
     </div>`);
     const select = wrap.querySelector('select');
     select.value = state.baseGame || '';
