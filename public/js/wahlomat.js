@@ -1109,6 +1109,8 @@ export async function renderWahlomat(root, params, groupId = null) {
           <div class="radar-legend"><span><i class="lg-game"></i>${esc(g.title)}</span><span><i class="lg-wish"></i>${multi ? 'Gruppe (Ø)' : 'Euer Wunsch'}</span></div>
           ${radarTable(g, members)}</div>`;
       }));
+      // Die ersten drei Treffer zeigen ihr Netzdiagramm gleich aufgeklappt.
+      [...listWrap.querySelectorAll('details.wahlomat-radar')].slice(0, 3).forEach((d) => { d.open = true; });
     };
     if (listWrap) { unplayed?.addEventListener('change', renderList); renderList(); }
 
