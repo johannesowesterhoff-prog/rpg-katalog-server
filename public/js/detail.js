@@ -72,7 +72,7 @@ export async function renderDetail(root, slug, ctx) {
         <h2>Einordnung der drei Skalen</h2>
         <div class="scale-detail">${scaleRow('crunch', 'Crunch')}${scaleRow('narrative', 'Narrativ')}${scaleRow('fluff', 'Fluff')}</div>
         <p class="faint" style="font-size:var(--text-xs);margin-top:var(--space-3)">
-          Crunch = Regeldichte · Narrativ = Erzählmechanik · Fluff = Ausarbeitungsgrad der gesamten offiziell veröffentlichten Spielwelt (unabhängig vom eigenen Bestand).
+          Crunch = Detailgrad der Regeln (was mechanisch simuliert wird) · Narrativ = Erzählmechanik (wie stark die Regeln narratives Spielen unterstützen) · Fluff = Ausarbeitung der Spielwelt (wie viel Lore es gibt, über alle offiziellen Veröffentlichungen – unabhängig vom eigenen Bestand).
         </p>
       </section>
 

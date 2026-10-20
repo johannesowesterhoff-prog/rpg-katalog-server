@@ -5,9 +5,9 @@ export const dec = (v) => (v == null ? null : String(v).replace('.', ','));
 export const fmtScale = (v) => (v == null ? '–' : String(Number(v)).replace('.', ','));
 
 export const SCALE_HELP = {
-  crunch: 'Crunch = Regeldichte: wie viele und wie detaillierte Regeln das Spiel nutzt.',
-  narrative: 'Narrativ = Erzählmechanik: wie stark Regeln das Erzählen und die Fiktion steuern.',
-  fluff: 'Fluff = Ausarbeitungsgrad der gesamten offiziell veröffentlichten Spielwelt – unabhängig davon, was davon im Regal steht.',
+  crunch: 'Crunch = Detailgrad der Regeln: was alles mechanisch simuliert wird.',
+  narrative: 'Narrativ = Erzählmechanik: wie stark die Regeln narratives Spielen unterstützen.',
+  fluff: 'Fluff = Ausarbeitung der Spielwelt: wie viel Lore es gibt – über alle offiziellen Veröffentlichungen, unabhängig davon, was davon im Regal steht.',
 };
 export const SCALE_LABELS = {
   crunch: ['1 = sehr regelleicht', '2 = leicht', '3 = mittel', '4 = regelreich', '5 = Regelsimulation'],

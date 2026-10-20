@@ -49,8 +49,8 @@ const PRIORITY_OPTIONS = [
   ['Spielstil', 'Spielstil / Aktivitäten'],
   ['Freiheit', 'Handlungsfreiheit'],
   ['Figurenbild', 'Figurenkompetenz'],
-  ['Crunch', 'Crunch (Regelstruktur)'],
-  ['Narrativ', 'Narrative Mitgestaltung'],
+  ['Crunch', 'Crunch (Detailgrad der Regeln)'],
+  ['Narrativ', 'Erzählmechanik (Narrativ)'],
   ['Fluff', 'Welt-Ausarbeitung (Fluff)'],
 ];
 const PRIORITY_MAX = 3;
@@ -66,16 +66,16 @@ const RANGES = {
   // Eine Frage für Bedrohung UND Scheitern-Folgen: Die beiden wurden fast
   // immer gleich beantwortet. Der Wert gilt für beide Achsen.
   4: [['gefahr', 'Wie hart soll es werden?', '1 = gemütlich, Scheitern kostet wenig · 5 = gnadenlos, Figurentod jederzeit möglich']],
-  5: [['crunch', 'Wie viel Regelstruktur möchtet ihr aktiv nutzen?', '1 = sehr leicht, kaum Optionen · 5 = viele Regeln, Optionen und taktische Tiefe (z.B. Charakterbau, Builds)'], ['narrativ', 'Wie stark gestaltet ihr Handlung und Welt direkt mit?', '1 = Spielleitung führt klar · 5 = Welt gemeinsam gestalten']],
-  6: [['fluff', 'Wie stark soll die Spielwelt bereits ausgearbeitet sein?', '1 = offen, wenig vorgegeben, viel selbst ausdenken · 5 = stark ausgearbeitete Welt mit viel Hintergrundmaterial']],
+  5: [['crunch', 'Wie detailliert sollen die Regeln sein?', '1 = sehr leicht, kaum etwas wird mechanisch abgebildet · 5 = detaillierte Simulation (Kampf, Verletzungen, Ausrüstung, Charakterbau …)'], ['narrativ', 'Wie stark sollen die Regeln narratives Spiel unterstützen?', '1 = klassisch, Regeln lösen Aktionen auf · 5 = die Regeln drehen sich ums gemeinsame Erzählen']],
+  6: [['fluff', 'Wie ausgearbeitet soll die Spielwelt sein?', '1 = loser Rahmen, viel selbst ausdenken · 5 = viel Lore: Geschichte, Orte, Fraktionen, Hintergrundmaterial']],
 };
 // Ein Satz je Stufe: Unter dem Regler steht, was der gewählte Wert bedeutet.
 const RANGE_DESC = {
   welt_fremdheit: ['Unsere Welt, wie wir sie kennen – Alltag, reale Orte.', 'Vertraut mit einem Dreh – etwa etwas Übernatürliches im Alltag.', 'Eigene Welt aus vertrauten Bausteinen, z. B. klassische Fantasy.', 'Deutlich fremd – ungewohnte Kulturen, Technik oder Magie.', 'Völlig fremdartig – andere Naturgesetze, kaum etwas Bekanntes.'],
   gefahr: ['Gemütlich – kaum Gefahr, Scheitern sorgt höchstens für Umwege.', 'Leichte Spannung – Rückschläge, aber selten ernste Folgen.', 'Spürbare Gefahr – Scheitern tut weh, die Figuren kommen meist durch.', 'Hart – ständiger Druck, Verluste und Figurentod sind möglich.', 'Gnadenlos – existenzielle Bedrohung, Figuren sterben schnell.'],
   handlungsfreiheit: ['Klarer Auftrag – die Handlung ist weitgehend vorgegeben.', 'Feste Abenteuer mit Spielraum, wie ihr sie löst.', 'Mischung aus vorbereiteten Abenteuern und eigenen Zielen.', 'Offene Welt – die Gruppe entscheidet meist selbst, wohin es geht.', 'Sandbox – ihr setzt Ziele und Richtung komplett selbst.'],
-  crunch: ['Kaum Regeln – ein Wurf entscheidet, in Minuten erklärt.', 'Ein paar Werte, kaum Sonderregeln, in 15 Minuten erklärt.', 'Solides Regelwerk mit Fertigkeiten und einigen Optionen.', 'Viele Regeln und Optionen – Charakterbau lohnt sich.', 'Regelsimulation – Taktik, Builds und Details bis ins Kleinste.'],
-  narrativ: ['Die Spielleitung erzählt die Welt, ihr steuert nur eure Figuren.', 'Ab und zu steuert ihr kleine Details bei.', 'Ausgewogen – die Spielleitung führt, ihr gestaltet spürbar mit.', 'Ihr erfindet regelmäßig Orte, Fakten und Wendungen mit.', 'Welt und Handlung entstehen gemeinsam am Tisch.'],
+  crunch: ['Kaum Regeln – ein Wurf entscheidet, fast nichts wird mechanisch abgebildet.', 'Ein paar Werte, kaum Sonderregeln, in 15 Minuten erklärt.', 'Solides Regelwerk – Fertigkeiten, Kampf und einige Sonderregeln.', 'Detailliert – vieles wird mechanisch abgebildet, Charakterbau lohnt sich.', 'Simulation – Kampf, Verletzungen, Ausrüstung und mehr bis ins Detail.'],
+  narrativ: ['Klassisch – Regeln lösen Aktionen auf, erzählt wird frei drumherum.', 'Wenig Erzählmechanik – gutes Rollenspiel wird hier und da belohnt.', 'Ausgewogen – einige Regeln fördern Drama, Charakterspiel und Wendungen.', 'Stark – Mechaniken treiben Szenen und Konflikte an, ihr bringt eigene Fakten ein.', 'Durchgehend narrativ – die Regeln dienen dem Erzählen, ihr gestaltet Handlung und Welt mit.'],
   fluff: ['Loser Rahmen – fast alles denkt ihr euch selbst aus.', 'Knappe Welt mit ein paar Eckpunkten.', 'Solide ausgearbeitete Welt mit Orten und Fraktionen.', 'Umfangreiche Welt mit viel Hintergrund und Abenteuern.', 'Enzyklopädisch – Geschichte, Karten und Material ohne Ende.'],
 };
 
@@ -100,9 +100,9 @@ const HELP = {
   handlungsfreiheit: { text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die ihr löst? Oder entscheidet ihr selbst, wohin ihr geht und was ihr erreichen wollt (Sandbox)?' },
   letalitaet: { text: 'Was passiert, wenn etwas schiefgeht? Niedrig: Rückschläge und Komplikationen, die Geschichte läuft weiter. Hoch: Figuren können sterben oder dauerhaft verlieren – Vorsicht und Planung lohnen sich.' },
   figurenkompetenz: { text: 'Wie fähig sind eure Figuren zu Beginn im Vergleich zur Welt? Kleine Leute, die über sich hinauswachsen – oder Profis und Held:innen, die von Anfang an glänzen?' },
-  crunch: { text: 'Wie viele Regeln wollt ihr aktiv nutzen: Werte, Fertigkeiten, Sonderfähigkeiten, taktische Optionen? Niedrig heißt: in zehn Minuten erklärt, wenige Würfe.' },
-  narrativ: { text: 'Wie viel bestimmen die Spielenden über Handlung und Welt mit – über die eigene Figur hinaus? Niedrig: Die Spielleitung erzählt die Welt, ihr steuert eure Figuren. Hoch: Ihr erfindet Orte, Fakten und Wendungen gemeinsam.' },
-  fluff: { text: 'Wie viel fertige Welt liefert das Spiel mit: Geschichte, Orte, Fraktionen, Abenteuer? Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
+  crunch: { text: 'Wie detailliert sind die Regeln – was wird alles mechanisch simuliert? Niedrig: wenige Werte, die meisten Situationen entscheidet ein einfacher Wurf. Hoch: eigene Regeln für Kampf, Verletzungen, Ausrüstung, Reisen und mehr.' },
+  narrativ: { text: 'Wie stark helfen die Regeln dabei, möglichst narrativ zu spielen? Niedrig: Die Regeln lösen Aktionen auf, die Geschichte entsteht frei drumherum. Hoch: Mechaniken für Szenen, Konflikte, Wendungen und Charakterentwicklung – oft gestaltet ihr dabei auch Fakten der Welt mit (z. B. Aspekte in Fate).' },
+  fluff: { text: 'Wie ausgearbeitet ist die Welt – wie viel Lore gibt es? Gemeint ist alles offiziell Veröffentlichte: Geschichte, Orte, Fraktionen, Abenteuer. Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
   priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was ihr hier ankreuzt, zählt stärker – etwa „Crunch“, wenn euch die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
 };
 
@@ -278,7 +278,7 @@ function scoreGame(game, profile) {
 // wodurch am Ende fast immer nur "Mehr/weniger Lore" als Warnung auftauchte.
 const SCALAR_AXES = [
   ['crunch', 'Passender Regelumfang', 'Mehr Crunch als gewünscht', 'Weniger Crunch als gewünscht'],
-  ['narrativ', 'Passende narrative Mitgestaltung', 'Mehr narrative Mitgestaltung als gewünscht', 'Weniger narrative Mitgestaltung als gewünscht'],
+  ['narrativ', 'Passende Erzählmechanik', 'Mehr Erzählmechanik als gewünscht', 'Weniger Erzählmechanik als gewünscht'],
   ['fluff', 'Passende Welttiefe', 'Mehr Lore als gewünscht', 'Weniger Lore als gewünscht'],
   ['gefahr', 'Passende Bedrohungsintensität', 'Bedrohlicher als gewünscht', 'Harmloser als gewünscht'],
   ['letalitaet', 'Passende Schärfe beim Scheitern', 'Tödlicher als gewünscht', 'Glimpflicher als gewünscht'],
@@ -433,7 +433,7 @@ const RADAR_AXES = [
   ['welt_fremdheit', 'Welt', 'Welt-Fremdheit'], ['gefahr', 'Bedrohung', 'Bedrohung & Druck'],
   ['handlungsfreiheit', 'Freiheit', 'Handlungsfreiheit'], ['letalitaet', 'Scheitern', 'Scheitern-Folgen'],
   ['figurenkompetenz', 'Figuren', 'Figurenkompetenz'], ['crunch', 'Crunch', 'Crunch'],
-  ['narrativ', 'Narrativ', 'Narrative Mitgestaltung'], ['fluff', 'Fluff', 'Welt-Ausarbeitung'],
+  ['narrativ', 'Narrativ', 'Erzählmechanik (Narrativ)'], ['fluff', 'Fluff', 'Welt-Ausarbeitung'],
 ];
 const fmtNum = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
 
