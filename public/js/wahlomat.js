@@ -553,6 +553,24 @@ function saveGroupStore(id, data) {
   try { localStorage.setItem(groupKey(id), JSON.stringify(data)); } catch { /* privat/gesperrt */ }
 }
 const groupPath = (id) => `#/wahlomat/gruppe/${encodeURIComponent(id)}`;
+// Alle Gruppen, die auf diesem Gerät erstellt oder betreten wurden (= für
+// die ein Token gespeichert ist), neueste zuerst.
+function myGroups() {
+  const list = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith('rpg-wahlomat:group:')) continue;
+      const id = key.slice('rpg-wahlomat:group:'.length);
+      const data = loadGroupStore(id);
+      if (data.adminToken || Object.keys(data.members).length) list.push({ id, data });
+    }
+  } catch { /* privat/gesperrt */ }
+  return list.sort((a, b) => (b.data.seenAt || 0) - (a.data.seenAt || 0));
+}
+function forgetGroup(id) {
+  try { localStorage.removeItem(groupKey(id)); } catch { /* privat/gesperrt */ }
+}
 
 // ---------------------------------------------------------------- Rendering
 export async function renderWahlomat(root, params, groupId = null) {
@@ -610,6 +628,10 @@ export async function renderWahlomat(root, params, groupId = null) {
   if (groupData) {
     applyGroup(groupData);
     store = loadGroupStore(group.id);
+    if (store.adminToken || Object.keys(store.members).length) {
+      Object.assign(store, { name: group.name, seenAt: Date.now() });
+      saveGroupStore(group.id, store);
+    }
     document.title = `${group.name} – RPG-Wahlomat – RPG-Katalog`;
   } else {
     (params?.getAll('p') || []).map(decodeMember).filter(Boolean).slice(0, MAX_MEMBERS).forEach((m) => members.push(m));
@@ -832,6 +854,27 @@ export async function renderWahlomat(root, params, groupId = null) {
       const box = el(`<details class="wahlomat-start-group">
         <summary><strong>Als Gruppe spielen?</strong> <span class="muted">Gruppe erstellen, Link verschicken – jede:r trägt sich mit Namen ein und füllt aus.</span></summary>
       </details>`);
+      const mine = myGroups();
+      if (mine.length) {
+        box.open = true;
+        const list = el(`<div class="wahlomat-my-groups"><p class="muted">Deine Gruppen auf diesem Gerät:</p><ul></ul></div>`);
+        const ul = list.querySelector('ul');
+        mine.forEach(({ id, data }) => {
+          const role = data.adminToken ? 'erstellt' : 'dabei';
+          const li = el(`<li><a href="${groupPath(id)}">${esc(data.name || 'Gruppe')}</a> <span class="faint">· ${role}</span>
+            <button type="button" class="wahlomat-member-btn" title="Nur aus dieser Liste entfernen – die Gruppe selbst bleibt bestehen" aria-label="Aus der Liste entfernen">×</button></li>`);
+          li.querySelector('button').addEventListener('click', () => { forgetGroup(id); li.remove(); if (!ul.children.length) list.remove(); });
+          // Ältere Einträge ohne Namen nachladen; gelöschte Gruppen verschwinden.
+          if (!data.name) {
+            api(`/api/wahlomat/groups/${encodeURIComponent(id)}`).then((d) => {
+              saveGroupStore(id, { ...loadGroupStore(id), name: d.name });
+              li.querySelector('a').textContent = d.name;
+            }).catch((e) => { if (e.status === 404) { forgetGroup(id); li.remove(); } });
+          }
+          ul.appendChild(li);
+        });
+        box.appendChild(list);
+      }
       box.appendChild(createGroupForm());
       wrap.appendChild(box);
     }
@@ -1012,7 +1055,9 @@ export async function renderWahlomat(root, params, groupId = null) {
     if (existing?.id != null) Object.assign(body, { memberId: existing.id, token: store.members[existing.id] });
     try {
       const r = await api(`/api/wahlomat/groups/${encodeURIComponent(group.id)}/members`, { method: 'POST', body });
-      if (r.token) { store.members[r.memberId] = r.token; saveGroupStore(group.id, store); }
+      if (r.token) store.members[r.memberId] = r.token;
+      Object.assign(store, { name: group.name, seenAt: Date.now() });
+      saveGroupStore(group.id, store);
       await reloadGroup();
       renderResults();
       toast('Gespeichert – deine Antworten zählen jetzt im Gruppenergebnis.');
@@ -1025,7 +1070,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   // Neue Gruppe anlegen; optional gleich die erste Person mit ihren Antworten.
   async function createGroup(name, firstMember = null) {
     const g = await api('/api/wahlomat/groups', { method: 'POST', body: { name } });
-    const st = { adminToken: g.adminToken, members: {} };
+    const st = { adminToken: g.adminToken, members: {}, name: g.name, seenAt: Date.now() };
     if (firstMember) {
       const r = await api(`/api/wahlomat/groups/${encodeURIComponent(g.id)}/members`, { method: 'POST', body: { name: firstMember.name, answers: encodeMember(firstMember) } });
       st.members[r.memberId] = r.token;
