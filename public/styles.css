@@ -498,10 +498,11 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .wahlomat-setup > * + * { margin-top: var(--space-4); }
 .wahlomat-setup .wahlomat-name { margin-bottom: 0; }
 .wahlomat-setup .wahlomat-base { margin-bottom: 0; }
-.wahlomat-start-group { padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); }
-.wahlomat-start-group summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: .4rem; align-items: baseline; }
-.wahlomat-start-group summary span { font-size: var(--text-sm); }
-.wahlomat-start-group[open] .wahlomat-join { margin-top: var(--space-3); }
+.wahlomat-start-group { padding: var(--space-3) var(--space-4); border: 1px dashed var(--accent-line); border-radius: var(--radius-md); }
+.wahlomat-start-group .wahlomat-join { margin-top: var(--space-3); }
+.wahlomat-start-group > p { margin: .3rem 0 0; font-size: var(--text-xs); }
+.wahlomat-setup-title { font-size: var(--text-md); margin: 0; }
+.wahlomat-setup-title .faint { font-family: var(--font-body); font-size: var(--text-sm); font-weight: 400; }
 .wahlomat-my-groups { margin-top: var(--space-3); font-size: var(--text-sm); }
 .wahlomat-my-groups p { margin: 0 0 var(--space-1); }
 .wahlomat-my-groups ul { margin: 0; padding-left: 1.1rem; display: grid; gap: .15rem; }
@@ -624,3 +625,5 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .cal-legend { display: inline-flex; align-items: center; gap: .4rem; font-size: var(--text-xs); color: var(--text-muted); }
 .cal-legend .cal-d { display: inline-block; text-align: center; }
 .cal-tip { position: absolute; z-index: 5; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: .4rem .6rem; font-size: var(--text-xs); max-width: 260px; pointer-events: none; }
+.wahlomat-setup .wahlomat-start-group > strong, .wahlomat-setup .wahlomat-base label strong { font-size: var(--text-base); }
+.wahlomat-setup .wahlomat-base label { display: block; }

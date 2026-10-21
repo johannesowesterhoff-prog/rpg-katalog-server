@@ -847,16 +847,18 @@ export async function renderWahlomat(root, params, groupId = null) {
   }
 
   function setupPanel() {
-    const wrap = el('<section class="panel wahlomat-step wahlomat-setup"></section>');
+    const wrap = el(`<section class="panel wahlomat-step wahlomat-setup">
+      <h2 class="wahlomat-setup-title">Vor dem Start <span class="faint">${group ? '– Name ist Pflicht, die Blaupause optional' : '– alles optional'}</span></h2>
+    </section>`);
     wrap.appendChild(nameField());
     // „Als Gruppe spielen?“ nur im Einzelmodus, nicht in einer bestehenden Gruppe.
     if (!group && !members.length) {
-      const box = el(`<details class="wahlomat-start-group">
-        <summary><strong>Als Gruppe spielen?</strong> <span class="muted">Gruppe erstellen, Link verschicken – jede:r trägt sich mit Namen ein und füllt aus.</span></summary>
-      </details>`);
+      const box = el(`<div class="wahlomat-start-group">
+        <strong>Als Gruppe spielen?</strong>
+        <p class="muted">Gruppe erstellen, Link verschicken – jede:r trägt sich mit Namen ein und füllt aus.</p>
+      </div>`);
       const mine = myGroups();
       if (mine.length) {
-        box.open = true;
         const list = el(`<div class="wahlomat-my-groups"><p class="muted">Deine Gruppen auf diesem Gerät:</p><ul></ul></div>`);
         const ul = list.querySelector('ul');
         mine.forEach(({ id, data }) => {
@@ -886,11 +888,11 @@ export async function renderWahlomat(root, params, groupId = null) {
   function baseGameField() {
     const sorted = [...games].sort((a, b) => a.title.localeCompare(b.title, 'de'));
     const wrap = el(`<div class="wahlomat-base">
-      <label for="wBase"><strong>Mit einem Spiel als Blaupause starten</strong> <span class="faint">(optional)</span></label>
+      <label for="wBase"><strong>Mit einem Spiel als Blaupause starten</strong></label>
       <p class="muted">Wählt ein Spiel, das euch gefallen hat – alle Fragen werden mit seiner Einordnung vorausgefüllt. Ändert dann nur, was anders sein soll.</p>
       <div class="wahlomat-base-row">
         <select id="wBase"><option value="">– Spiel wählen –</option>${sorted.map((g) => `<option value="${esc(g.id)}">${esc(g.title)}</option>`).join('')}</select>
-        <button type="button" class="btn btn-sm">Übernehmen</button>
+        <button type="button" class="btn btn-primary">Übernehmen</button>
       </div>
       ${state.baseGame ? `<p class="wahlomat-base-note">✓ Vorausgefüllt mit „${esc(gamesById.get(state.baseGame)?.title || '')}“ – geht die Fragen durch und passt an, was anders sein soll.</p>` : ''}
     </div>`);
@@ -920,7 +922,7 @@ export async function renderWahlomat(root, params, groupId = null) {
 
   function nameField() {
     const wrap = el(`<label class="wahlomat-name">
-      <span>${group ? 'Dein Name <span class="faint">(Pflicht – so sehen die anderen, wer ausgefüllt hat)</span>' : 'Wer füllt aus? <span class="faint">(optional)</span>'}</span>
+      <span>${group ? 'Dein Name <span class="faint">(Pflicht – so sehen die anderen, wer ausgefüllt hat)</span>' : 'Wer füllt aus?'}</span>
       <input type="text" maxlength="40" placeholder="Name" value="${esc(state.name)}" ${group ? 'required' : ''}>
     </label>`);
     wrap.querySelector('input').addEventListener('input', (e) => { state.name = e.target.value; updateError(); });
@@ -1076,6 +1078,10 @@ export async function renderWahlomat(root, params, groupId = null) {
       st.members[r.memberId] = r.token;
     }
     saveGroupStore(g.id, st);
+    // Den oben eingetragenen Namen im „Mitmachen“-Feld der neuen Gruppe vorbelegen.
+    if (!firstMember && state.name.trim()) {
+      try { sessionStorage.setItem('rpg-wahlomat:joinName', state.name.trim()); } catch { /* privat/gesperrt */ }
+    }
     location.hash = groupPath(g.id);
   }
 
@@ -1198,8 +1204,10 @@ export async function renderWahlomat(root, params, groupId = null) {
       list.appendChild(chip);
     });
     if (group && !mine) {
+      let pending = '';
+      try { pending = sessionStorage.getItem('rpg-wahlomat:joinName') || ''; sessionStorage.removeItem('rpg-wahlomat:joinName'); } catch { /* privat/gesperrt */ }
       const join = el(`<form class="wahlomat-join">
-        <input type="text" maxlength="40" required placeholder="Dein Name" aria-label="Dein Name">
+        <input type="text" maxlength="40" required placeholder="Dein Name" aria-label="Dein Name" value="${esc(pending)}">
         <button type="submit" class="btn btn-primary">Mitmachen</button>
       </form>`);
       join.addEventListener('submit', (ev) => {
