@@ -824,6 +824,21 @@ export async function renderWahlomat(root, params, groupId = null) {
     return wrap;
   }
 
+  function setupPanel() {
+    const wrap = el('<section class="panel wahlomat-step wahlomat-setup"></section>');
+    wrap.appendChild(nameField());
+    // „Als Gruppe spielen?“ nur im Einzelmodus, nicht in einer bestehenden Gruppe.
+    if (!group && !members.length) {
+      const box = el(`<details class="wahlomat-start-group">
+        <summary><strong>Als Gruppe spielen?</strong> <span class="muted">Gruppe erstellen, Link verschicken – jede:r trägt sich mit Namen ein und füllt aus.</span></summary>
+      </details>`);
+      box.appendChild(createGroupForm());
+      wrap.appendChild(box);
+    }
+    wrap.appendChild(baseGameField());
+    return wrap;
+  }
+
   // Optional: alle Antworten mit dem Profil eines bekannten Spiels vorbelegen.
   function baseGameField() {
     const sorted = [...games].sort((a, b) => a.title.localeCompare(b.title, 'de'));
@@ -910,7 +925,6 @@ export async function renderWahlomat(root, params, groupId = null) {
       <p class="muted">${esc(s.lede)}</p>
     </section>`);
 
-    if (s.n === 1) { section.appendChild(nameField()); section.appendChild(baseGameField()); }
     if (s.budget) {
       const cfg = B[s.budget];
       const fs = el(`<fieldset class="wahlomat-field"><legend>${esc(s.budgetLegend)}</legend><small>Tippt an, was euch reizt – alles andere bleibt „Egal“.</small></fieldset>`);
@@ -952,11 +966,13 @@ export async function renderWahlomat(root, params, groupId = null) {
     section.appendChild(nav);
 
     quizWrap.innerHTML = '';
+    // Seite 1: erst Name, Gruppe und Blaupause, danach die erste Frage.
+    if (s.n === 1) quizWrap.appendChild(setupPanel());
     quizWrap.appendChild(section);
     attempted = false;
     errorBox.textContent = '';
 
-    // „Als Gruppe spielen?“ und „Letzte Antworten“ nur auf der ersten Seite.
+    // „Letzte Antworten“ nur auf der ersten Seite.
     resumeWrap.hidden = state.step !== 1;
     const pct = Math.round(state.step / STEPS.length * 100);
     progress.querySelector('#wProgressText').textContent = `${(members.length || group) && personLabel() ? `${personLabel()} · ` : ''}Schritt ${state.step} von ${STEPS.length}`;
@@ -1228,15 +1244,10 @@ export async function renderWahlomat(root, params, groupId = null) {
   // Gruppe: immer erst die Gruppenansicht (Mitmachen bzw. Ergebnis).
   if (group || members.length) { renderResults(); return; }
 
-  // Ohne Link: Gruppe erstellen anbieten und frühere Antworten aus diesem Browser.
+  // Ohne Link: frühere Antworten aus diesem Browser anbieten.
   let saved = null;
   try { saved = decodeMember(localStorage.getItem(STORAGE_KEY)); } catch { /* privat/gesperrt */ }
   startQuiz();
-  const groupBox = el(`<details class="panel wahlomat-start-group">
-    <summary><strong>Als Gruppe spielen?</strong> <span class="muted">Gruppe erstellen, Link verschicken – jede:r trägt sich mit Namen ein und füllt aus.</span></summary>
-  </details>`);
-  groupBox.appendChild(createGroupForm());
-  resumeWrap.appendChild(groupBox);
   if (saved) {
     const box = el(`<div class="help-box wahlomat-resume">
       <span>Du hast den Wahlomat hier schon einmal ausgefüllt${saved.name && !/^Person \d+$/.test(saved.name) ? ` (als ${esc(saved.name)})` : ''}.</span>

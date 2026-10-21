@@ -494,7 +494,11 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .wahlomat-join { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
 .wahlomat-join input { flex: 1 1 200px; max-width: 320px; }
 .wahlomat-join-hint { margin: 0; font-size: var(--text-xs); }
-.wahlomat-start-group { max-width: 760px; margin: 0 auto var(--space-4); }
+.wahlomat-setup { margin-bottom: var(--space-4); }
+.wahlomat-setup > * + * { margin-top: var(--space-4); }
+.wahlomat-setup .wahlomat-name { margin-bottom: 0; }
+.wahlomat-setup .wahlomat-base { margin-bottom: 0; }
+.wahlomat-start-group { padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .wahlomat-start-group summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: .4rem; align-items: baseline; }
 .wahlomat-start-group summary span { font-size: var(--text-sm); }
 .wahlomat-start-group[open] .wahlomat-join { margin-top: var(--space-3); }
