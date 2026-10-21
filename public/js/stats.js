@@ -387,16 +387,16 @@ async function renderSessionLog(root, params) {
 
     const list = el(`<section class="section">
       <h2>Spielabende (${sessions.length})</h2>
-      ${sessions.length ? `<div class="scroll-x"><table>
+      ${sessions.length ? `<div class="scroll-x"><table class="cards-on-mobile">
         <thead><tr>${sortHead('played_on', 'Datum')}${sortHead('game', 'Spiel')}${sortHead('campaign', 'Kampagne')}${sortHead('participants', 'Mitspieler:innen')}${sortHead('play_mode', 'Spielform')}${sortHead('role', 'Rolle')}${sortHead('summary', 'Zusammenfassung')}</tr></thead>
         <tbody>${sessions.map((s) => `<tr>
-          <td>${esc(fmtDateOnly(s.played_on))}</td>
-          <td>${titleLink(s.title, s.slug)}</td>
-          <td class="session-campaign-cell">–</td>
-          <td>${esc(s.participants || '–')}</td>
-          <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
-          <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
-          <td>${s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="tag tag-link">Zusammenfassung ↗</a>` : '–'}</td>
+          <td data-label="Datum" class="card-title-cell">${esc(fmtDateOnly(s.played_on))}</td>
+          <td data-label="Spiel">${titleLink(s.title, s.slug)}</td>
+          <td data-label="Kampagne" class="session-campaign-cell">–</td>
+          <td data-label="Mitspieler:innen">${esc(s.participants || '–')}</td>
+          <td data-label="Spielform">${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
+          <td data-label="Rolle">${esc(ROLE_LABEL[s.role] || '–')}</td>
+          <td data-label="Zusammenfassung">${s.summary_url ? `<a href="${esc(s.summary_url)}" target="_blank" rel="noopener" class="tag tag-link">Zusammenfassung ↗</a>` : '–'}</td>
         </tr>`).join('')}</tbody></table></div>`
       : `<p class="muted">${all.length ? 'Keine Spielabende für diese Filter.' : 'Noch keine Spielabende protokolliert.'}</p>`}
     </section>`);

@@ -30,7 +30,14 @@ function parseRoute() {
   return { parts: path.split('/').filter(Boolean), params: new URLSearchParams(qs || '') };
 }
 
+// „Admin“ steht nur für Angemeldete (oder im Adminbereich selbst) in der
+// Navigation; alle anderen finden den Zugang unten in der Fußzeile.
+function syncAdminNav(kind) {
+  document.querySelector('.nav-admin').hidden = !(ctx.isAdmin || kind === 'admin');
+}
+
 function markNav(kind) {
+  syncAdminNav(kind);
   document.querySelectorAll('.site-nav a').forEach((a) => {
     if (a.dataset.nav === kind) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
@@ -85,5 +92,6 @@ window.addEventListener('hashchange', route);
 
 api('/api/admin/session').then((s) => {
   ctx.isAdmin = s.isAdmin; ctx.hasArchiveAccess = !!s.hasArchiveAccess; ctx.dbMode = s.dbMode;
-  document.getElementById('db-hint').textContent = `Datenbank: ${s.dbMode === 'postgres' ? 'PostgreSQL-Server (DATABASE_URL)' : 'PostgreSQL über PGlite (lokale Datei)'}`;
+  // Technischer Hinweis nur für Angemeldete.
+  if (s.isAdmin) document.getElementById('db-hint').textContent = `· Datenbank: ${s.dbMode === 'postgres' ? 'PostgreSQL-Server' : 'PGlite (lokale Datei)'}`;
 }).catch(() => {}).finally(route);

@@ -642,8 +642,8 @@ export async function renderWahlomat(root, params, groupId = null) {
   root.innerHTML = '';
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat${group ? ` <span class="wahlomat-group-title">· ${esc(group.name)}</span>` : ''}</h1>
-    <p class="lede">Sieben kurze Fragebereiche zu Genre, Ton, Spielstil, Figuren, Regeln, Fluff und euren Prioritäten — am Ende ein Ranking ausschließlich aus deiner eigenen Sammlung (${games.length} Spiele). Allein oder als Gruppe.</p>
-    <p class="faint" style="font-size:var(--text-xs);max-width:70ch">Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Regler stehen anfangs auf „Egal“ und zählen erst, wenn ihr sie bewegt – was euch nicht wichtig ist, lasst ihr einfach stehen. Im letzten Schritt könnt ihr optional bis zu drei Dimensionen stärker gewichten, die euch besonders wichtig sind.</p>
+    <p class="lede">Welches Spiel aus der Sammlung (${games.length} Spiele) passt zu dir oder eurer Gruppe? Sieben kurze Schritte.</p>
+    <details class="wahlomat-howto"><summary>So funktioniert’s</summary><p>Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Regler stehen anfangs auf „Egal“ und zählen erst, wenn ihr sie bewegt – was euch nicht wichtig ist, lasst ihr einfach stehen. Im letzten Schritt könnt ihr bis zu drei Dimensionen stärker gewichten. Euer Zwischenstand wird in diesem Browser gespeichert.</p></details>
   </section>`);
   root.appendChild(head);
 
@@ -653,6 +653,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   const progress = el(`<div class="panel wahlomat-progress">
     <div class="wahlomat-progress-head"><span id="wProgressText"></span><span class="wahlomat-progress-right"><button type="button" class="link-btn" id="wReset">Antworten zurücksetzen</button><span class="muted" id="wProgressPct"></span></span></div>
     <div class="bar"><i id="wProgressBar" style="width:0%"></i></div>
+    <nav class="wahlomat-dots" aria-label="Schritte">${STEPS.map((st) => `<button type="button" data-step="${st.n}" title="${st.n}. ${esc(st.title)}" aria-label="Schritt ${st.n}: ${esc(st.title)}">${st.n}</button>`).join('')}</nav>
   </div>`);
   root.appendChild(progress);
 
@@ -662,14 +663,80 @@ export async function renderWahlomat(root, params, groupId = null) {
     const { name, editIndex } = state;
     loadState(null);
     Object.assign(state, { name, editIndex });
-    renderStep();
+    clearDraft();
+    setStep(1);
     toast('Antworten zurückgesetzt.');
   });
+  // Direkt zu einem Schritt springen; geprüft wird erst beim Abschluss.
+  progress.querySelectorAll('.wahlomat-dots button').forEach((b) => b.addEventListener('click', () => {
+    const n = Number(b.dataset.step);
+    if (n !== state.step) setStep(n);
+  }));
 
   const quizWrap = el('<div id="wQuiz"></div>');
   const resultsWrap = el('<div id="wResults" hidden></div>');
   root.appendChild(quizWrap);
   root.appendChild(resultsWrap);
+
+  // ---- Zwischenstand & Browser-Verlauf
+  // Jeder Schritt bekommt einen eigenen Eintrag im Verlauf (…?schritt=N), damit
+  // „Zurück“ (auch die Wischgeste am Handy) einen Schritt zurückgeht statt den
+  // Wahlomat zu verlassen. Der Router baut die Seite dabei neu auf; die
+  // Antworten kommen aus dem laufend gespeicherten Zwischenstand.
+  const basePath = group ? groupPath(group.id) : '#/wahlomat';
+  const draftKey = `rpg-wahlomat:draft:${group ? group.id : 'solo'}`;
+  function loadDraft() {
+    try { const d = JSON.parse(localStorage.getItem(draftKey) || 'null'); return d && typeof d === 'object' && d.step ? d : null; } catch { return null; }
+  }
+  // Ein leerer Fragebogen überschreibt keinen gespeicherten Zwischenstand.
+  function hasAnswers(st) {
+    return ['genre', 'ton', 'aktivitaeten'].some((k) => Object.values(st[k] || {}).some((v) => v)) || SCALAR_KEYS.some((k) => st[k] != null)
+      || st.figurenkompetenz != null || (st.priorities || []).length > 0 || !!st.baseGame;
+  }
+  function saveDraft(extra = {}) {
+    if (!hasAnswers(state)) return;
+    const editId = state.editIndex != null ? members[state.editIndex]?.id ?? null : null;
+    const data = {
+      step: state.step, maxStep: Math.max(state.maxStep || 1, state.step), name: state.name, editIndex: state.editIndex, editId, baseGame: state.baseGame,
+      genre: state.genre, ton: state.ton, aktivitaeten: state.aktivitaeten, figurenkompetenz: state.figurenkompetenz, priorities: state.priorities,
+      ...Object.fromEntries(SCALAR_KEYS.map((k) => [k, state[k]])), done: false, ts: Date.now(), ...extra,
+    };
+    state.maxStep = data.maxStep;
+    try { localStorage.setItem(draftKey, JSON.stringify(data)); } catch { /* privat/gesperrt */ }
+  }
+  function markDraftDone() { const d = loadDraft(); if (d) { try { localStorage.setItem(draftKey, JSON.stringify({ ...d, done: true })); } catch { /* */ } } }
+  function clearDraft() { try { localStorage.removeItem(draftKey); } catch { /* privat/gesperrt */ } }
+  function restoreDraft(d) {
+    loadState(null);
+    ['genre', 'ton', 'aktivitaeten'].forEach((k) => {
+      Object.entries(d[k] || {}).forEach(([key, v]) => { if (key in state[k] && Number.isFinite(v)) state[k][key] = v; });
+    });
+    SCALAR_KEYS.forEach((k) => { state[k] = Number.isFinite(d[k]) ? d[k] : null; });
+    state.figurenkompetenz = Array.isArray(d.figurenkompetenz) ? d.figurenkompetenz : null;
+    state.priorities = Array.isArray(d.priorities) ? d.priorities : [];
+    state.name = d.name || '';
+    state.baseGame = d.baseGame || null;
+    state.maxStep = d.maxStep || d.step;
+    // Bearbeitung einer Person nur fortsetzen, wenn es den Eintrag noch gibt.
+    state.editIndex = d.editIndex != null && (d.editId == null || members[d.editIndex]?.id === d.editId) ? d.editIndex : null;
+    state.step = Math.min(STEPS.length, Math.max(1, d.step));
+  }
+  function setUrl(hash, push) {
+    if (location.hash === hash) return;
+    history[push ? 'pushState' : 'replaceState'](null, '', hash);
+  }
+  function setStep(n, { push = true } = {}) {
+    state.step = n;
+    quizWrap.hidden = false;
+    progress.hidden = false;
+    resultsWrap.hidden = true;
+    setUrl(`${basePath}?schritt=${n}`, push);
+    renderStep();
+  }
+  // Jede Eingabe im Fragebogen landet sofort im Zwischenstand.
+  let draftTimer;
+  const queueDraft = () => { clearTimeout(draftTimer); draftTimer = setTimeout(() => { if (!quizWrap.hidden) saveDraft(); }, 150); };
+  ['input', 'change', 'click'].forEach((type) => quizWrap.addEventListener(type, queueDraft));
 
   // "Was ist gemeint?" je Frage.
   function helpBox(key) {
@@ -935,18 +1002,21 @@ export async function renderWahlomat(root, params, groupId = null) {
   let attempted = false;
   function updateError() {
     if (!errorBox || !attempted) return;
-    const s = STEPS[state.step - 1];
+    errorBox.textContent = stepMessage(state.step);
+  }
+  function stepMessage(n) {
+    const s = STEPS[n - 1];
     let msg = '';
     if (s.budget) {
       if (!Object.values(state[s.budget]).some((v) => v > 0)) msg = 'Bitte wählt mindestens eine Option mit „Sehr gern“ oder „Gern“.';
     }
     if (s.n === 4 && state.figurenkompetenz && !state.figurenkompetenz.length) msg = 'Bitte wählt mindestens ein Figurenbild – oder hakt „Egal“ an.';
     if (s.n === 1 && group) {
-      const n = state.name.trim();
-      if (!n) msg = 'Bitte trag deinen Namen ein.';
-      else if (members.some((m, i) => i !== state.editIndex && m.name.toLowerCase() === n.toLowerCase())) msg = `„${n}“ ist in dieser Gruppe schon vergeben – bitte einen anderen Namen wählen.`;
+      const nm = state.name.trim();
+      if (!nm) msg = 'Bitte trag deinen Namen ein.';
+      else if (members.some((m, i) => i !== state.editIndex && m.name.toLowerCase() === nm.toLowerCase())) msg = `„${nm}“ ist in dieser Gruppe schon vergeben – bitte einen anderen Namen wählen.`;
     }
-    errorBox.textContent = msg;
+    return msg;
   }
 
   function stepValid() {
@@ -989,23 +1059,26 @@ export async function renderWahlomat(root, params, groupId = null) {
     const left = el('<div class="row-actions"></div>');
     const back = el('<button type="button" class="btn">Zurück</button>');
     back.disabled = state.step === 1;
-    back.addEventListener('click', () => { state.step -= 1; renderStep(); });
+    back.addEventListener('click', () => history.back());
     left.appendChild(back);
     // Wer eine Person hinzufügt oder bearbeitet, kommt ohne Änderung zurück.
     if (members.length || group) {
       const cancel = el('<button type="button" class="btn btn-ghost">Abbrechen</button>');
-      cancel.addEventListener('click', () => renderResults());
+      cancel.addEventListener('click', () => renderResults({ push: true }));
       left.appendChild(cancel);
     }
     const next = el(`<button type="button" class="btn btn-primary">${state.step === STEPS.length ? 'Ergebnisse anzeigen' : 'Weiter'}</button>`);
     next.addEventListener('click', () => {
       if (!stepValid()) return;
       if (state.step === STEPS.length) {
+        // Wer per Schritt-Punkt gesprungen ist: zum ersten unvollständigen Schritt.
+        const open = STEPS.find((st) => stepMessage(st.n));
+        if (open) { setStep(open.n); attempted = true; updateError(); return; }
         next.disabled = true;
         finishQuiz().finally(() => { next.disabled = false; });
         return;
       }
-      state.step += 1; renderStep();
+      setStep(state.step + 1);
     });
     nav.appendChild(left); nav.appendChild(next);
     section.appendChild(nav);
@@ -1020,9 +1093,18 @@ export async function renderWahlomat(root, params, groupId = null) {
     // „Letzte Antworten“ nur auf der ersten Seite.
     resumeWrap.hidden = state.step !== 1;
     const pct = Math.round(state.step / STEPS.length * 100);
-    progress.querySelector('#wProgressText').textContent = `${(members.length || group) && personLabel() ? `${personLabel()} · ` : ''}Schritt ${state.step} von ${STEPS.length}`;
+    // Name nur zeigen, wenn mehrere Personen im Spiel sind oder einer eingetragen ist.
+    const who = personLabel();
+    const showWho = who && (group || members.length > 1 || !/^Person \d+$/.test(who));
+    progress.querySelector('#wProgressText').textContent = `${showWho ? `${who} · ` : ''}Schritt ${state.step} von ${STEPS.length}`;
     progress.querySelector('#wProgressPct').textContent = `${pct} %`;
     progress.querySelector('#wProgressBar').style.width = `${pct}%`;
+    progress.querySelectorAll('.wahlomat-dots button').forEach((b) => {
+      const n = Number(b.dataset.step);
+      b.toggleAttribute('aria-current', n === state.step);
+      b.classList.toggle('is-done', n !== state.step && n <= (state.maxStep || 1) && !stepMessage(n));
+    });
+    saveDraft();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -1036,14 +1118,12 @@ export async function renderWahlomat(root, params, groupId = null) {
     };
   }
 
-  function startQuiz(member = null, editIndex = null) {
+  function startQuiz(member = null, editIndex = null, { push = true } = {}) {
     loadState(member);
     state.editIndex = editIndex;
+    state.maxStep = member ? STEPS.length : 1;
     resumeWrap.innerHTML = '';
-    quizWrap.hidden = false;
-    progress.hidden = false;
-    resultsWrap.hidden = true;
-    renderStep();
+    setStep(1, { push });
   }
 
   async function finishQuiz() {
@@ -1051,7 +1131,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     const member = { name: personLabel(), profile: currentProfile() };
     // Für „Letzte Antworten“ beim nächsten Besuch – nur in diesem Browser.
     try { localStorage.setItem(STORAGE_KEY, encodeMember(member)); } catch { /* privat/gesperrt */ }
-    if (!group) { members[idx] = member; renderResults(); return; }
+    if (!group) { members[idx] = member; markDraftDone(); renderResults({ push: true }); return; }
     const existing = state.editIndex != null ? members[state.editIndex] : null;
     const body = { name: member.name, answers: encodeMember(member) };
     if (existing?.id != null) Object.assign(body, { memberId: existing.id, token: store.members[existing.id] });
@@ -1061,11 +1141,12 @@ export async function renderWahlomat(root, params, groupId = null) {
       Object.assign(store, { name: group.name, seenAt: Date.now() });
       saveGroupStore(group.id, store);
       await reloadGroup();
-      renderResults();
+      markDraftDone();
+      renderResults({ push: true });
       toast('Gespeichert – deine Antworten zählen jetzt im Gruppenergebnis.');
     } catch (e) {
       toast(e.message, 'err');
-      if (e.status === 409) { state.step = 1; renderStep(); }
+      if (e.status === 409) setStep(1);
     }
   }
 
@@ -1107,11 +1188,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     const qs = members.map((m) => `p=${encodeMember(m)}`).join('&');
     return `#/wahlomat${qs ? `?${qs}` : ''}`;
   }
-  function syncUrl() {
-    if (group) return;
-    const hash = shareHash();
-    if (location.hash !== hash) history.replaceState(null, '', hash);
-  }
+  function resultsHash() { return group ? basePath : (members.length ? shareHash() : basePath); }
 
   async function share() {
     const url = `${location.origin}${location.pathname}${group ? groupPath(group.id) : shareHash()}`;
@@ -1130,7 +1207,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   function restart() {
     if (members.length > 1 && !window.confirm('Alle Antworten der Gruppe verwerfen und neu starten?')) return;
     members.length = 0;
-    syncUrl();
+    clearDraft();
     startQuiz();
   }
 
@@ -1228,8 +1305,15 @@ export async function renderWahlomat(root, params, groupId = null) {
     return panel;
   }
 
-  function renderResults() {
-    syncUrl();
+  // Wessen Antworten „Antworten ändern“ öffnet: allein die eigene Person, in
+  // der Gruppe der erste eigene Eintrag auf diesem Gerät.
+  function editTarget() {
+    if (group) { const i = members.findIndex(isMine); return i >= 0 ? { member: members[i], index: i } : null; }
+    return members.length === 1 ? { member: members[0], index: 0 } : null;
+  }
+
+  function renderResults({ push = false } = {}) {
+    setUrl(resultsHash(), push);
     resumeWrap.innerHTML = '';
     const multi = members.length > 1;
     const results = members.length ? games.map((g) => scoreForGroup(g, members)).sort(compareResults) : [];
@@ -1241,7 +1325,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     if (members.length === 1) {
       const skippedLabels = [...new Set(Object.entries(SCALAR_TO_PRIORITY).filter(([axis]) => members[0].profile[axis] == null)
         .map(([, key]) => PRIORITY_OPTIONS.find(([k]) => k === key)[1]))];
-      skippedNote = skippedLabels.length ? ` Nicht gewertet (als „Egal“ abgewählt): ${esc(skippedLabels.join(', '))}.` : '';
+      skippedNote = skippedLabels.length ? ` <span title="${esc(skippedLabels.join(', '))}">${skippedLabels.length === 1 ? '1 Frage steht' : `${skippedLabels.length} Fragen stehen`} auf „Egal“ und ${skippedLabels.length === 1 ? 'zählt' : 'zählen'} nicht.</span>` : '';
     }
 
     quizWrap.hidden = true;
@@ -1253,23 +1337,47 @@ export async function renderWahlomat(root, params, groupId = null) {
       <div class="result-bar">
         <div><p class="eyebrow">${group ? 'Gruppenergebnis' : multi ? 'Gruppenergebnis' : 'Euer Ergebnis'}</p><h2>${members.length ? 'Passende Spiele' : 'Noch keine Antworten'}</h2></div>
         <div class="row-actions">
+          ${editTarget() ? '<button type="button" class="btn" id="wEdit">Antworten ändern</button>' : ''}
           <button type="button" class="btn btn-primary" id="wShare">${group ? 'Gruppenlink teilen' : 'Link teilen'}</button>
           ${group ? '<button type="button" class="btn" id="wReload">Aktualisieren</button>' : '<button type="button" class="btn" id="wRestart">Neu starten</button>'}
         </div>
       </div>
-      <div id="wMembersSlot"></div>
+      ${group || multi ? '<div id="wMembersSlot"></div>' : ''}
+      <div id="wDraftSlot"></div>
       ${multi ? groupPicture(members) : ''}
-      ${members.length ? `<div class="help-box">Bewertet wurden alle ${results.length} veröffentlichten Spiele aus dem Katalog.${skippedNote}</div>
+      ${members.length ? `<p class="wahlomat-meta">Bewertet: alle ${results.length} Spiele der Sammlung.${skippedNote}</p>
       ${played.size ? '<label class="wahlomat-skip wahlomat-filter"><input type="checkbox" id="wUnplayed"> Nur Spiele, die noch nie am Tisch lagen</label>' : ''}
-      <div class="wahlomat-results"></div>` : ''}
+      <div class="wahlomat-results"></div>
+      <div class="wahlomat-more-results"></div>` : ''}
+      ${group || multi ? '' : '<div id="wMembersSlot"></div>'}
     </section>`);
     section.querySelector('#wMembersSlot').replaceWith(membersPanel(multi));
+    // Angefangener, noch nicht abgeschickter Fragebogen in dieser Gruppe.
+    const draft = loadDraft();
+    if (group && draft && !draft.done && hasAnswers(draft)) {
+      const box = el(`<div class="help-box wahlomat-resume"><span>Du hast den Fragebogen angefangen (Schritt ${draft.step} von ${STEPS.length}).</span>
+        <span class="row-actions"><button type="button" class="btn btn-sm btn-primary">Weitermachen</button><button type="button" class="btn btn-sm btn-ghost">Verwerfen</button></span></div>`);
+      const [goOn, drop] = box.querySelectorAll('button');
+      goOn.addEventListener('click', () => { restoreDraft(draft); setStep(state.step); });
+      drop.addEventListener('click', () => { clearDraft(); box.remove(); });
+      section.querySelector('#wDraftSlot').replaceWith(box);
+    } else section.querySelector('#wDraftSlot').remove();
 
     const listWrap = section.querySelector('.wahlomat-results');
     const unplayed = section.querySelector('#wUnplayed');
+    const moreWrap = section.querySelector('.wahlomat-more-results');
+    let showAll = false;
     const renderList = () => {
-      const shown = unplayed?.checked ? results.filter((g) => !played.has(g.id)) : results;
+      const all = unplayed?.checked ? results.filter((g) => !played.has(g.id)) : results;
+      // Erst die besten 10, der Rest auf Wunsch.
+      const shown = showAll ? all : all.slice(0, 10);
       listWrap.innerHTML = shown.map((g, i) => resultCard(g, i + 1, multi)).join('') || '<p class="muted">Alle passenden Spiele lagen schon am Tisch.</p>';
+      moreWrap.innerHTML = '';
+      if (all.length > shown.length) {
+        const more = el(`<button type="button" class="btn">Weitere ${all.length - shown.length} Spiele anzeigen</button>`);
+        more.addEventListener('click', () => { showAll = true; renderList(); });
+        moreWrap.appendChild(more);
+      }
       // Das Netzdiagramm entsteht erst beim Aufklappen.
       listWrap.querySelectorAll('details.wahlomat-radar').forEach((d) => d.addEventListener('toggle', () => {
         if (!d.open || d.dataset.ready) return;
@@ -1285,6 +1393,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     if (listWrap) { unplayed?.addEventListener('change', renderList); renderList(); }
 
     section.querySelector('#wShare').addEventListener('click', share);
+    section.querySelector('#wEdit')?.addEventListener('click', () => { const t = editTarget(); startQuiz(t.member, t.index); });
     section.querySelector('#wRestart')?.addEventListener('click', restart);
     section.querySelector('#wReload')?.addEventListener('click', async (ev) => {
       ev.target.disabled = true;
@@ -1294,14 +1403,33 @@ export async function renderWahlomat(root, params, groupId = null) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // Rücksprung im Verlauf (…?schritt=N) oder Neuladen mitten im Fragebogen:
+  // mit dem gespeicherten Zwischenstand genau dort weitermachen.
+  const wantedStep = Number(params?.get('schritt'));
+  const draft = loadDraft();
+  if (wantedStep && draft) {
+    restoreDraft(draft);
+    setStep(Math.min(STEPS.length, Math.max(1, wantedStep)), { push: false });
+    return;
+  }
+
   // Gruppe: immer erst die Gruppenansicht (Mitmachen bzw. Ergebnis).
   if (group || members.length) { renderResults(); return; }
 
-  // Ohne Link: frühere Antworten aus diesem Browser anbieten.
+  // Einzeln: Fragebogen starten; angefangene bzw. frühere Antworten anbieten.
   let saved = null;
   try { saved = decodeMember(localStorage.getItem(STORAGE_KEY)); } catch { /* privat/gesperrt */ }
-  startQuiz();
-  if (saved) {
+  startQuiz(null, null, { push: false });
+  if (draft && !draft.done && hasAnswers(draft)) {
+    const box = el(`<div class="help-box wahlomat-resume">
+      <span>Du hast den Fragebogen angefangen (Schritt ${draft.step} von ${STEPS.length}).</span>
+      <span class="row-actions"><button type="button" class="btn btn-sm btn-primary">Weitermachen</button><button type="button" class="btn btn-sm btn-ghost">Verwerfen</button></span>
+    </div>`);
+    const [goOn, drop] = box.querySelectorAll('button');
+    goOn.addEventListener('click', () => { restoreDraft(draft); resumeWrap.innerHTML = ''; setStep(state.step, { push: false }); });
+    drop.addEventListener('click', () => { clearDraft(); box.remove(); });
+    resumeWrap.appendChild(box);
+  } else if (saved) {
     const box = el(`<div class="help-box wahlomat-resume">
       <span>Du hast den Wahlomat hier schon einmal ausgefüllt${saved.name && !/^Person \d+$/.test(saved.name) ? ` (als ${esc(saved.name)})` : ''}.</span>
       <span class="row-actions"><button type="button" class="btn btn-sm btn-primary">Letztes Ergebnis ansehen</button><button type="button" class="btn btn-sm">Antworten bearbeiten</button><button type="button" class="btn btn-sm btn-ghost">Vergessen</button></span>
@@ -1313,7 +1441,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       box.remove();
       toast('Gespeicherte Antworten gelöscht.');
     });
-    showBtn.addEventListener('click', () => { members.push({ ...saved, name: saved.name || 'Person 1' }); renderResults(); });
+    showBtn.addEventListener('click', () => { members.push({ ...saved, name: saved.name || 'Person 1' }); renderResults({ push: true }); });
     editBtn.addEventListener('click', () => startQuiz(saved, 0));
     resumeWrap.appendChild(box);
   }

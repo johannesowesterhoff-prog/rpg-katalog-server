@@ -71,9 +71,9 @@ export async function renderDetail(root, slug, ctx) {
       <section class="section">
         <h2>Einordnung der drei Skalen</h2>
         <div class="scale-detail">${scaleRow('crunch', 'Crunch')}${scaleRow('narrative', 'Narrativ')}${scaleRow('fluff', 'Fluff')}</div>
-        <p class="faint" style="font-size:var(--text-xs);margin-top:var(--space-3)">
-          Crunch = Detailgrad der Regeln (was mechanisch simuliert wird) · Narrativ = Erzählmechanik (wie stark die Regeln narratives Spielen unterstützen) · Fluff = Ausarbeitung der Spielwelt (wie viel Lore es gibt, über alle offiziellen Veröffentlichungen – unabhängig vom eigenen Bestand).
-        </p>
+        <details class="scale-info"><summary>ⓘ Was bedeuten die Skalen?</summary>
+          <p><strong>Crunch</strong> = Detailgrad der Regeln (was mechanisch simuliert wird) · <strong>Narrativ</strong> = Erzählmechanik (wie stark die Regeln narratives Spielen unterstützen) · <strong>Fluff</strong> = Ausarbeitung der Spielwelt (wie viel Lore es gibt, über alle offiziellen Veröffentlichungen – unabhängig vom eigenen Bestand).</p>
+        </details>
       </section>
 
       ${g.long_description ? `<section class="section"><h2>Beschreibung</h2><p>${esc(g.long_description)}</p></section>` : ''}
@@ -95,15 +95,15 @@ export async function renderDetail(root, slug, ctx) {
 
       <section class="section">
         <h2>Spielabende (${sessions.length})</h2>
-        ${sessions.length ? `<div class="scroll-x"><table>
+        ${sessions.length ? `<div class="scroll-x"><table class="cards-on-mobile">
           <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}<th>Mitspieler:innen</th><th>Spielform</th><th>Rolle</th><th>Zusammenfassung</th></tr></thead>
           <tbody>${sessions.map((s) => `<tr>
-            <td>${esc(fmtDateOnly(s.played_on))}</td>
-            ${showCampaign ? '<td class="session-campaign-cell">–</td>' : ''}
-            <td>${esc(s.participants || '–')}</td>
-            <td>${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
-            <td>${esc(ROLE_LABEL[s.role] || '–')}</td>
-            <td>${summaryLink(s) || '–'}</td>
+            <td data-label="Datum" class="card-title-cell">${esc(fmtDateOnly(s.played_on))}</td>
+            ${showCampaign ? '<td data-label="Kampagne" class="session-campaign-cell">–</td>' : ''}
+            <td data-label="Mitspieler:innen">${esc(s.participants || '–')}</td>
+            <td data-label="Spielform">${esc(PLAY_MODE_LABEL[s.play_mode] || '–')}</td>
+            <td data-label="Rolle">${esc(ROLE_LABEL[s.role] || '–')}</td>
+            <td data-label="Zusammenfassung">${summaryLink(s) || '–'}</td>
           </tr>`).join('')}</tbody></table></div>`
       : '<p class="muted">Für dieses Spiel ist noch kein Spielabend protokolliert.</p>'}
       </section>

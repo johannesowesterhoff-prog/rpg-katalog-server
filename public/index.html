@@ -32,7 +32,7 @@
       <a href="#/" data-nav="katalog">Katalog</a>
       <a href="#/wahlomat" data-nav="wahlomat">Wahlomat</a>
       <a href="#/statistik" data-nav="statistik">Statistik</a>
-      <a href="#/admin" data-nav="admin">Admin<span class="nav-long">bereich</span></a>
+      <a href="#/admin" data-nav="admin" class="nav-admin" hidden>Admin<span class="nav-long">bereich</span></a>
       <button type="button" id="theme-toggle" class="btn btn-ghost btn-icon" aria-label="Farbschema wechseln" title="Hell / Dunkel">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
           <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>
@@ -47,7 +47,7 @@
 <footer class="site-footer">
   <div class="wrap footer-inner">
     <p>RPG-Katalog V2 · Skalen: <strong>Crunch</strong> (Detailgrad der Regeln), <strong>Narrativ</strong> (Unterstützung fürs Erzählen), <strong>Fluff</strong> (Lore der Spielwelt) – gleichwertig.</p>
-    <p class="muted" id="db-hint"></p>
+    <p class="muted"><a href="#/admin" class="footer-admin">Adminbereich</a> <span id="db-hint"></span></p>
   </div>
 </footer>
 

@@ -70,7 +70,7 @@ export function renderCatalog(root, ctx) {
 
   const head = el(`<section class="catalog-head">
     <h1>Rollenspiel-Katalog</h1>
-    <p class="lede">Alle Spiele der Sammlung — filterbar nach Genre, Ton, Spielfokus, System und mehr, eingeordnet nach <strong>Crunch</strong>, <strong>Narrativ</strong> und <strong>Fluff</strong>, inklusive der tatsächlich vorhandenen Produkte.</p>
+    <p class="lede">Alle Spiele der Sammlung – durchsuchen, filtern, entdecken.</p>
     <div class="search-row">
       <div class="search-box">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg>
@@ -172,7 +172,7 @@ export function renderCatalog(root, ctx) {
       renderFilters(filters, s, facets, push);
       countBox.innerHTML = data.total === 0
         ? 'Keine Treffer'
-        : `<strong>${data.total}</strong> ${data.total === 1 ? 'Eintrag' : 'Einträge'}${data.pages > 1 ? ` · Seite ${data.page} von ${data.pages}` : ''}`;
+        : `<strong>${data.total}</strong> ${data.total === 1 ? 'Eintrag' : 'Einträge'}`;
       results.innerHTML = '';
       if (!data.games.length) {
         results.appendChild(emptyState('Keine Treffer', 'Für diese Filterkombination gibt es keine Einträge. Filter lockern oder zurücksetzen.',
@@ -180,12 +180,33 @@ export function renderCatalog(root, ctx) {
         return;
       }
       const grid = el('<div class="card-grid"></div>');
-      data.games.forEach((g) => grid.appendChild(gameCard(g, {
+      const cardOpts = {
         onTag: (t) => push((st) => { st.genreTop = st.genreTop.includes(t) ? st.genreTop.filter((x) => x !== t) : [...st.genreTop, t]; }),
         onToneTag: (t) => push((st) => { st.toneTop = st.toneTop.includes(t) ? st.toneTop.filter((x) => x !== t) : [...st.toneTop, t]; }),
-      })));
+      };
+      data.games.forEach((g) => grid.appendChild(gameCard(g, cardOpts)));
       results.appendChild(grid);
-      if (data.pages > 1) results.appendChild(pagination(data, push));
+      // „Mehr laden“ statt Seitenzahlen: hängt die nächste Seite unten an.
+      let page = data.page;
+      const moreBox = el('<div class="load-more"></div>');
+      const renderMore = () => {
+        moreBox.innerHTML = '';
+        const shownCount = grid.children.length;
+        if (page >= data.pages) return;
+        const more = el(`<button type="button" class="btn">Weitere ${Math.min(data.pageSize || 24, data.total - shownCount)} laden <span class="faint">(${shownCount} von ${data.total})</span></button>`);
+        more.addEventListener('click', async () => {
+          more.disabled = true;
+          try {
+            const next = await api('/api/games?' + queryFromState({ ...s, page: page + 1 }).toString());
+            next.games.forEach((g) => grid.appendChild(gameCard(g, cardOpts)));
+            page = next.page;
+            renderMore();
+          } catch (e) { toast(e.message, 'err'); more.disabled = false; }
+        });
+        moreBox.appendChild(more);
+      };
+      renderMore();
+      results.appendChild(moreBox);
     })
     .catch((e) => {
       results.innerHTML = '';
@@ -246,21 +267,6 @@ async function openRoulette(box, s) {
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function pagination(data, push) {
-  const box = el('<nav class="pagination" aria-label="Seiten"></nav>');
-  const btn = (label, page, disabled = false, current = false) => {
-    const b = el(`<button type="button" class="btn btn-sm ${current ? 'btn-primary' : ''}">${label}</button>`);
-    b.disabled = disabled;
-    if (current) b.setAttribute('aria-current', 'page');
-    b.addEventListener('click', () => { push((st) => { st.page = page; }, { keepPage: true }); window.scrollTo({ top: 0, behavior: 'smooth' }); });
-    return b;
-  };
-  box.appendChild(btn('← Zurück', data.page - 1, data.page <= 1));
-  const from = Math.max(1, data.page - 2), to = Math.min(data.pages, from + 4);
-  for (let i = from; i <= to; i++) box.appendChild(btn(String(i), i, false, i === data.page));
-  box.appendChild(btn('Weiter →', data.page + 1, data.page >= data.pages));
-  return box;
-}
 
 function modeSwitchHtml(dim, s, label) {
   return `<div class="mode-switch" role="group" aria-label="${esc(label)}-Verknüpfung">
