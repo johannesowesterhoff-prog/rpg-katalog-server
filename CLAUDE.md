@@ -11,7 +11,8 @@ Antworte auf Deutsch. Johannes merged Pull Requests selbst – nicht mergen.
 - **Deployen:** `bash scripts/deploy-gcp.sh` (baut HEAD per Cloud Build als
   Image nach `us-east1-docker.pkg.dev/symbolic-cinema-403817/katalog/rpg-katalog:<commit>`
   und deployt es). Braucht die Umgebungsvariable `GCP_SA_KEY` (JSON-Schlüssel
-  des Dienstkontos `claude-deploy@symbolic-cinema-403817.iam.gserviceaccount.com`).
+  des Dienstkontos `claude-deploy@symbolic-cinema-403817.iam.gserviceaccount.com`;
+  in der Claude-Umgebung Base64-kodiert, weil das Eingabefeld rohes JSON zerlegt).
   In Cloud-Sitzungen gcloud immer mit `env -u CLOUDSDK_AUTH_ACCESS_TOKEN` aufrufen,
   sonst greift ein fremdes Token. Nach dem Deploy prüfen: `/api/games` liefert 200
   und `public/*`-Dateien live sind identisch mit `git show HEAD:public/<datei>`.

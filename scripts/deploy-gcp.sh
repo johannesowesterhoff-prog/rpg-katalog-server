@@ -5,7 +5,9 @@
 # bleiben beim Deploy unverändert am Dienst hängen.
 #
 # Anmeldung: Umgebungsvariable GCP_SA_KEY mit dem JSON-Schlüssel des
-# Dienstkontos claude-deploy – oder vorher selbst `gcloud auth login`.
+# Dienstkontos claude-deploy – roh oder Base64-kodiert (Base64 übersteht
+# Eingabefelder, die Klammern und Anführungszeichen verändern) – oder vorher
+# selbst `gcloud auth login`.
 set -euo pipefail
 
 PROJECT=${GCP_PROJECT:-symbolic-cinema-403817}
@@ -24,7 +26,10 @@ gc() { env -u CLOUDSDK_AUTH_ACCESS_TOKEN gcloud "$@"; }
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 if [ -n "${GCP_SA_KEY:-}" ]; then
-  printf '%s' "$GCP_SA_KEY" > "$tmp/key.json"
+  case $GCP_SA_KEY in
+    '{'*) printf '%s' "$GCP_SA_KEY" > "$tmp/key.json" ;;
+    *) printf '%s' "$GCP_SA_KEY" | base64 -d > "$tmp/key.json" ;;
+  esac
   gc auth activate-service-account --key-file="$tmp/key.json" >/dev/null
 fi
 gc config set project "$PROJECT" >/dev/null
