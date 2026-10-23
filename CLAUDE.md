@@ -5,7 +5,8 @@ Antworte auf Deutsch. Johannes merged Pull Requests selbst – nicht mergen.
 ## Betrieb (Stand 23.10.2026)
 
 - **Live:** Google Cloud Run, Dienst `rpg-katalog`, Region `us-east1`,
-  Projekt `symbolic-cinema-403817` („My First Project“).
+  Projekt `symbolic-cinema-403817` („My First Project“), seit 23.10.2026
+  vollständiges (kostenpflichtiges) Konto statt Testzeitraum.
   URL: https://rpg-katalog-666839148899.us-east1.run.app
 - **Deployen:** `bash scripts/deploy-gcp.sh` (baut HEAD per Cloud Build als
   Image nach `us-east1-docker.pkg.dev/symbolic-cinema-403817/katalog/rpg-katalog:<commit>`
@@ -32,12 +33,8 @@ Antworte auf Deutsch. Johannes merged Pull Requests selbst – nicht mergen.
 
 ## Offene Punkte
 
-- Google-Testzeitraum (90 Tage ab 23.10.2026): rechtzeitig auf ein normales
-  Konto upgraden, sonst stoppt die Seite.
 - Railway-Dienst löschen, sobald Google sicher läuft; dann
   `scripts/deploy.sh` und `npm run deploy` entfernen.
-- PR #56 (Branch `claude/rpg-katalog-railway-deploy-6xrpaa`) ist nicht gemergt;
-  live läuft der Branch-Stand.
 
 ## Bewusst nicht gewollt
 
