@@ -24,17 +24,11 @@ Antworte auf Deutsch. Johannes merged Pull Requests selbst – nicht mergen.
   `neondb_owner` (Passwort am 23.10.2026 nach dem Railway-Vorfall neu gesetzt).
 - **Admin-Login:** Passwort steht gehasht in `katalog.app_settings`, unabhängig
   vom Hosting.
-- **Railway** (`katalog-production-cfd3.up.railway.app`) ist abgelöst: Nach dem
-  Sicherheitsvorfall im Oktober 2026 waren Deploys für das Hobby-Konto
-  dauerhaft pausiert. Nur `scripts/deploy.sh` zielt noch auf Railway.
+- **Railway** ist Geschichte: Nach dem Sicherheitsvorfall im Oktober 2026
+  waren Deploys dort pausiert; das Konto ist seit 23.10.2026 gelöscht.
 - **GitHub Actions:** `.github/workflows/deploy.yml` deployt nach jedem Merge
   auf `main` per `scripts/deploy-gcp.sh` auf Google. Braucht das
   Repository-Secret `GCP_SA_KEY`.
-
-## Offene Punkte
-
-- Railway-Dienst löschen, sobald Google sicher läuft; dann
-  `scripts/deploy.sh` und `npm run deploy` entfernen.
 
 ## Bewusst nicht gewollt
 

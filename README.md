@@ -61,11 +61,6 @@ Nach jedem Merge auf `main` deployt GitHub Actions automatisch
 Google Cloud Run“). Dafür braucht das Repository das Secret `GCP_SA_KEY`
 (GitHub → Settings → Secrets and variables → Actions).
 
-### Früher: Railway
-
-`npm run deploy` (`scripts/deploy.sh`) lädt noch auf Railway hoch. Railway ist seit dem Sicherheitsvorfall im
-Oktober 2026 abgelöst; das Skript kann weg, sobald der Railway-Dienst gelöscht ist.
-
 ## Admin-Login
 
 Falls in `app_settings` noch kein Passwort hinterlegt ist, fragt
