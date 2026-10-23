@@ -1,8 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run deploy)",
-      "Bash(railway up *)"
+      "Bash(npm run deploy:gcp)"
     ]
   }
 }
