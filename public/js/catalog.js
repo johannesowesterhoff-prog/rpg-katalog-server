@@ -245,21 +245,30 @@ async function openRoulette(box, s) {
     <p class="faint roulette-from"></p>
     <div class="roulette-card"></div>
   </section>`);
-  const roll = () => {
+  const candidatesNow = () => {
     const onlyNew = panel.querySelector('#roulette-new').checked;
     const candidates = pool.filter((g) => !onlyNew || !g.session_count);
-    const from = panel.querySelector('.roulette-from');
+    panel.querySelector('.roulette-from').textContent =
+      `Gezogen aus ${candidates.length} ${candidates.length === 1 ? 'Spiel' : 'Spielen'} der aktuellen Auswahl${onlyNew ? ' ohne Spielabend' : ''}.`;
+    return candidates;
+  };
+  const roll = () => {
+    const candidates = candidatesNow();
     const slot = panel.querySelector('.roulette-card');
-    from.textContent = `Gezogen aus ${candidates.length} ${candidates.length === 1 ? 'Spiel' : 'Spielen'} der aktuellen Auswahl${onlyNew ? ' ohne Spielabend' : ''}.`;
     slot.innerHTML = '';
-    if (!candidates.length) { slot.appendChild(el('<p class="muted">Keine passenden Spiele – Filter lockern oder „nur ungespielte“ abwählen.</p>')); return; }
+    if (!candidates.length) { last = null; slot.appendChild(el('<p class="muted">Keine passenden Spiele – Filter lockern oder „nur ungespielte“ abwählen.</p>')); return; }
     const choices = candidates.length > 1 ? candidates.filter((g) => g.slug !== last) : candidates;
     const g = choices[Math.floor(Math.random() * choices.length)];
     last = g.slug;
     slot.appendChild(gameCard(g));
   };
   panel.querySelector('#roulette-again').addEventListener('click', roll);
-  panel.querySelector('#roulette-new').addEventListener('change', roll);
+  // Der Haken grenzt nur den Topf ein: Das gezogene Spiel bleibt stehen,
+  // solange es noch passt – neu gewürfelt wird nur, wenn es rausfällt.
+  panel.querySelector('#roulette-new').addEventListener('change', () => {
+    if (candidatesNow().some((g) => g.slug === last)) return;
+    roll();
+  });
   panel.querySelector('#roulette-close').addEventListener('click', () => { box.innerHTML = ''; });
   box.innerHTML = '';
   box.appendChild(panel);
