@@ -25,16 +25,17 @@ Antworte auf Deutsch. Johannes merged Pull Requests selbst – nicht mergen.
   vom Hosting.
 - **Railway** (`katalog-production-cfd3.up.railway.app`) ist abgelöst: Nach dem
   Sicherheitsvorfall im Oktober 2026 waren Deploys für das Hobby-Konto
-  dauerhaft pausiert. `scripts/deploy.sh` und `.github/workflows/deploy.yml`
-  zielen noch auf Railway.
+  dauerhaft pausiert. Nur `scripts/deploy.sh` zielt noch auf Railway.
+- **GitHub Actions:** `.github/workflows/deploy.yml` deployt nach jedem Merge
+  auf `main` per `scripts/deploy-gcp.sh` auf Google. Braucht das
+  Repository-Secret `GCP_SA_KEY`.
 
 ## Offene Punkte
 
 - Google-Testzeitraum (90 Tage ab 23.10.2026): rechtzeitig auf ein normales
   Konto upgraden, sonst stoppt die Seite.
 - Railway-Dienst löschen, sobald Google sicher läuft; dann
-  `scripts/deploy.sh` und `.github/workflows/deploy.yml` entfernen bzw. auf
-  Google umstellen.
+  `scripts/deploy.sh` und `npm run deploy` entfernen.
 - PR #56 (Branch `claude/rpg-katalog-railway-deploy-6xrpaa`) ist nicht gemergt;
   live läuft der Branch-Stand.
 
