@@ -980,10 +980,20 @@ export async function renderWahlomat(root, params, groupId = null) {
     Object.entries(g.aktivitaeten).forEach(([k, v]) => { if (v >= 3) state.aktivitaeten[k] = 4; });
     // Ohne erkannten Spielstil bleibt nichts gewählt – dann fragt Schritt 3 nach.
     ['welt_fremdheit', 'handlungsfreiheit', 'crunch', 'narrativ', 'fluff'].forEach((k) => { state[k] = Math.round(g[k] * 2) / 2; });
-    state.gefahr = Math.round(((g.gefahr + g.letalitaet) / 2) * 2) / 2;
-    state.letalitaet = state.gefahr;
-    const nearest = FIGURE_OPTIONS.map(([v]) => v).sort((a, b) => Math.abs(a - g.figurenkompetenz) - Math.abs(b - g.figurenkompetenz))[0];
-    state.figurenkompetenz = [nearest];
+    // Die Vorlage übernimmt Bedrohung und Scheitern-Folgen getrennt, damit das
+    // Spiel sich selbst exakt trifft. Erst wer den Härte-Regler bewegt, setzt
+    // wieder beide auf denselben Wert.
+    state.gefahr = Math.round(g.gefahr * 2) / 2;
+    state.letalitaet = Math.round(g.letalitaet * 2) / 2;
+    // Liegt das Spiel zwischen zwei Figurenbildern (z.B. 4,5), werden beide
+    // Nachbarn gewählt – ihr Mittel ist dann genau der Spielwert.
+    const values = FIGURE_OPTIONS.map(([v]) => v);
+    const exact = values.find((v) => v === g.figurenkompetenz);
+    const below = values.filter((v) => v < g.figurenkompetenz).pop();
+    const above = values.find((v) => v > g.figurenkompetenz);
+    state.figurenkompetenz = exact != null ? [exact]
+      : below != null && above != null ? [below, above]
+        : [below ?? above];
     state.baseGame = g.id;
   }
 
