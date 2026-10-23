@@ -56,11 +56,15 @@ Build als Container und deployt ihn. `DATABASE_URL`, `SESSION_SECRET` und
 Anmeldung: Umgebungsvariable `GCP_SA_KEY` mit dem JSON-Schlüssel des
 Dienstkontos `claude-deploy`, oder vorher `gcloud auth login`.
 
+Nach jedem Merge auf `main` deployt GitHub Actions automatisch
+(`.github/workflows/deploy.yml`, per Knopf auch unter „Actions → Deploy auf
+Google Cloud Run“). Dafür braucht das Repository das Secret `GCP_SA_KEY`
+(GitHub → Settings → Secrets and variables → Actions).
+
 ### Früher: Railway
 
-`npm run deploy` (`scripts/deploy.sh`) und `.github/workflows/deploy.yml`
-laden noch auf Railway hoch. Railway ist seit dem Sicherheitsvorfall im
-Oktober 2026 abgelöst; beides kann weg, sobald der Railway-Dienst gelöscht ist.
+`npm run deploy` (`scripts/deploy.sh`) lädt noch auf Railway hoch. Railway ist seit dem Sicherheitsvorfall im
+Oktober 2026 abgelöst; das Skript kann weg, sobald der Railway-Dienst gelöscht ist.
 
 ## Admin-Login
 
