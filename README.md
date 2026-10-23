@@ -40,31 +40,27 @@ npm start
 
 Der Server läuft dann unter **http://localhost:8140**.
 
-## Deployen (Railway)
+## Deployen (Google Cloud Run)
 
-Railway ist nicht mit GitHub verbunden – ein Merge auf `main` geht also
-nicht von selbst live. Nach jedem Merge einmal:
+Die Seite läuft auf Google Cloud Run (Projekt `symbolic-cinema-403817`,
+Region `us-east1`, Dienst `rpg-katalog`):
+https://rpg-katalog-666839148899.us-east1.run.app
 
 ```bash
-npm run deploy
+npm run deploy:gcp
 ```
 
-Das Skript (`scripts/deploy.sh`) prüft, dass du auf einem sauberen `main`
-stehst, holt den neuesten Stand und lädt ihn per `railway up` auf den
-Dienst **RPG_Katalog** (Umgebung production) hoch. Voraussetzungen:
+Das Skript (`scripts/deploy-gcp.sh`) baut den aktuellen Commit per Cloud
+Build als Container und deployt ihn. `DATABASE_URL`, `SESSION_SECRET` und
+`ADMIN_API_KEY` liegen im Secret Manager und bleiben am Dienst hängen.
+Anmeldung: Umgebungsvariable `GCP_SA_KEY` mit dem JSON-Schlüssel des
+Dienstkontos `claude-deploy`, oder vorher `gcloud auth login`.
 
-- Railway-CLI: `npm i -g @railway/cli`
-- Anmeldung: einmal `railway login`, oder die Umgebungsvariable
-  `RAILWAY_API_TOKEN` mit einem Konto-Token setzen.
+### Früher: Railway
 
-### Ohne Terminal: Deploy über GitHub
-
-`.github/workflows/deploy.yml` deployt automatisch nach jedem Merge auf
-`main`, oder per Hand unter **Actions → „Deploy auf Railway“ → Run workflow**.
-Einmalig nötig: In Railway unter Projekt → Settings → Tokens einen
-Projekt-Token für die Umgebung *production* anlegen und ihn in GitHub unter
-Settings → Secrets and variables → Actions als Secret `RAILWAY_TOKEN`
-speichern.
+`npm run deploy` (`scripts/deploy.sh`) und `.github/workflows/deploy.yml`
+laden noch auf Railway hoch. Railway ist seit dem Sicherheitsvorfall im
+Oktober 2026 abgelöst; beides kann weg, sobald der Railway-Dienst gelöscht ist.
 
 ## Admin-Login
 
