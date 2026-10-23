@@ -671,4 +671,3 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .scale-info summary { cursor: pointer; color: var(--accent); width: fit-content; }
 .scale-info p { margin: var(--space-2) 0 0; line-height: 1.5; }
 .footer-admin { color: var(--text-muted); }
-.nav-admin[hidden] { display: none !important; }

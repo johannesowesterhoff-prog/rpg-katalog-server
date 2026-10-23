@@ -32,12 +32,7 @@ function parseRoute() {
 
 // „Admin“ steht nur für Angemeldete (oder im Adminbereich selbst) in der
 // Navigation; alle anderen finden den Zugang unten in der Fußzeile.
-function syncAdminNav(kind) {
-  document.querySelector('.nav-admin').hidden = !(ctx.isAdmin || kind === 'admin');
-}
-
 function markNav(kind) {
-  syncAdminNav(kind);
   document.querySelectorAll('.site-nav a').forEach((a) => {
     if (a.dataset.nav === kind) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
