@@ -1,10 +1,10 @@
-# Deployt den aktuellen Stand von main auf Railway (Dienst RPG_Katalog,
-# Umgebung production) – automatisch nach jedem Merge auf main oder per Knopf
-# unter „Actions → Deploy auf Railway → Run workflow“.
+# Deployt den aktuellen Stand von main auf Google Cloud Run (Dienst
+# rpg-katalog, Region us-east1) – automatisch nach jedem Merge auf main oder
+# per Knopf unter „Actions → Deploy auf Google Cloud Run → Run workflow“.
 #
-# Voraussetzung: Repository-Secret RAILWAY_TOKEN mit einem Railway-
-# Projekt-Token (Railway → Projekt → Settings → Tokens).
-name: Deploy auf Railway
+# Voraussetzung: Repository-Secret GCP_SA_KEY mit dem JSON-Schlüssel des
+# Dienstkontos claude-deploy (GitHub → Settings → Secrets and variables → Actions).
+name: Deploy auf Google Cloud Run
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: railway-deploy
+  group: gcp-deploy
   cancel-in-progress: false
 
 jobs:
@@ -20,17 +20,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Railway-CLI installieren
-        run: npm install -g @railway/cli
       - name: Deployen
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
-          if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "::error::Secret RAILWAY_TOKEN fehlt (GitHub → Settings → Secrets and variables → Actions)."
+          if [ -z "$GCP_SA_KEY" ]; then
+            echo "::error::Secret GCP_SA_KEY fehlt (GitHub → Settings → Secrets and variables → Actions)."
             exit 1
           fi
-          railway up --ci --project 13b23b21-1386-4ccc-b00b-f1db1a5c2588 --service c620bd45-4cd0-49d2-8a80-56939c75a7f3 --environment ea880c05-ccf5-4ff8-aeeb-2c8f661aff6f
+          bash scripts/deploy-gcp.sh
+      - name: Live-Seite prüfen
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://rpg-katalog-666839148899.us-east1.run.app/api/games)
+          echo "/api/games → $code"
+          [ "$code" = 200 ]
