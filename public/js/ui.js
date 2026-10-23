@@ -5,9 +5,9 @@ export const dec = (v) => (v == null ? null : String(v).replace('.', ','));
 export const fmtScale = (v) => (v == null ? '–' : String(Number(v)).replace('.', ','));
 
 export const SCALE_HELP = {
-  crunch: 'Crunch = Regeldichte: wie viele und wie detaillierte Regeln das Spiel nutzt.',
-  narrative: 'Narrativ = Erzählmechanik: wie stark Regeln das Erzählen und die Fiktion steuern.',
-  fluff: 'Fluff = Ausarbeitungsgrad der gesamten offiziell veröffentlichten Spielwelt – unabhängig davon, was davon im Regal steht.',
+  crunch: 'Crunch = Detailgrad der Regeln: was alles mechanisch simuliert wird.',
+  narrative: 'Narrativ = Erzählmechanik: wie stark die Regeln narratives Spielen unterstützen.',
+  fluff: 'Fluff = Ausarbeitung der Spielwelt: wie viel Lore es gibt – über alle offiziellen Veröffentlichungen, unabhängig davon, was davon im Regal steht.',
 };
 export const SCALE_LABELS = {
   crunch: ['1 = sehr regelleicht', '2 = leicht', '3 = mittel', '4 = regelreich', '5 = Regelsimulation'],
@@ -78,18 +78,32 @@ export function campaignSessionParts(s, group) {
   };
 }
 
+// URL-Schlüssel aus Kampagnenname und Spiel. Gleichnamige Kampagnen
+// verschiedener Spiele bleiben so getrennt, ohne dass man alle Kampagnen
+// kennen muss, um einen Link zu bauen.
+export function slugify(v) {
+  return String(v || '').toLowerCase().replace(/['’]/g, '')
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+export function campaignId(s) { return `${slugify(s.campaign)}--${slugify(s.slug || s.title)}`; }
+export function campaignHref(s) { return `#/statistik/kampagnen/${campaignId(s)}`; }
+
 export function campaignSessionLabel(s, group) {
   const p = campaignSessionParts(s, group);
   if (!p) return null;
   return `${esc(p.name)}${p.kindLabel ? ` (${p.kindLabel})` : ''} · ${p.sessionLabel}`;
 }
 
-// Kompakte Badge-Darstellung: Name als Link-Button (für Klick-Filter),
+// Kompakte Badge-Darstellung: Name als Link zur Kampagnenseite (href) oder
+// als Link-Button (für Klick-Filter),
 // darunter kleine Tags für Kampagnenart/-status/Session-Zähler.
-export function campaignSessionBadges(s, group, { onNameClick } = {}) {
+export function campaignSessionBadges(s, group, { onNameClick, href } = {}) {
   const p = campaignSessionParts(s, group);
   if (!p) return null;
-  const nameHtml = onNameClick ? `<button type="button" class="link-btn" id="cn-name">${esc(p.name)}</button>` : `<b>${esc(p.name)}</b>`;
+  const nameHtml = href ? `<a href="${esc(href)}" class="campaign-name-link">${esc(p.name)}</a>`
+    : onNameClick ? `<button type="button" class="link-btn" id="cn-name">${esc(p.name)}</button>` : `<b>${esc(p.name)}</b>`;
   const wrap = el(`<div class="campaign-badges">
     ${nameHtml}
     <div class="tag-row">

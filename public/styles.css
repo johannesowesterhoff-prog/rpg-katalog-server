@@ -412,6 +412,9 @@ tbody tr:hover { background: var(--surface-2); }
 /* ---------- Wahlomat ---------- */
 .wahlomat-progress { margin-bottom: var(--space-5); position: sticky; top: calc(var(--header-h) + var(--space-3)); z-index: 4; }
 .wahlomat-progress-head { display: flex; justify-content: space-between; font-size: var(--text-sm); margin-bottom: var(--space-2); }
+.wahlomat-progress-right { display: inline-flex; gap: var(--space-3); align-items: baseline; }
+.wahlomat-progress-right .link-btn { font-size: var(--text-xs); color: var(--text-muted); }
+.wahlomat-progress-right .link-btn:hover { color: var(--danger); }
 .wahlomat-step { max-width: 760px; margin-inline: auto; }
 .wahlomat-step h2 { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
 .wahlomat-field { margin: 0 0 var(--space-5); padding: var(--space-4) 0 0; border: 0; border-top: 1px solid var(--border); }
@@ -446,8 +449,116 @@ tbody tr:hover { background: var(--surface-2); }
 .wahlomat-error { min-height: 1.2em; color: var(--danger); font-size: var(--text-sm); margin: 0; }
 .wahlomat-results { display: grid; gap: var(--space-4); }
 .wahlomat-result-top { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-3); align-items: center; }
+.wahlomat-result { padding: var(--space-4); display: grid; gap: var(--space-2); }
 .wahlomat-result h3 { font-size: var(--text-md); }
+.wahlomat-tied { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); cursor: help; }
 input[type=range] { accent-color: var(--accent); }
+
+/* Reine Anzeige-Tags (kein Link/Filter) reagieren nicht auf Hover. */
+span.tag { cursor: default; }
+span.tag:hover { color: var(--text-muted); border-color: transparent; background: var(--surface-2); }
+.tag.tag-live, .tag.tag-live:hover { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+.eyebrow { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); margin: 0 0 .2rem; }
+.eyebrow a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------- Wahlomat: Gruppe, Klartext, Netzdiagramm ---------- */
+.wahlomat-taps { display: grid; gap: var(--space-2); }
+.wahlomat-tap-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); padding: .45rem var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); font-size: var(--text-sm); }
+.wahlomat-tap-row.is-set { border-color: var(--accent-line); }
+.wahlomat-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--radius-full); overflow: hidden; }
+.wahlomat-seg button { font: inherit; font-size: var(--text-xs); padding: .35rem .6rem; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; min-width: 3.9rem; white-space: nowrap; }
+.wahlomat-seg button + button { border-left: 1px solid var(--border-strong); }
+.wahlomat-seg button:hover { background: var(--surface-hover); }
+.wahlomat-seg button[aria-pressed=true] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.wahlomat-seg button[data-v="4"][aria-pressed=true] { background: var(--accent); color: var(--bg); }
+.wahlomat-seg button[data-v="-2"][aria-pressed=true] { background: var(--warn-soft); color: var(--warn); }
+.wahlomat-tap-row.is-meh > span { color: var(--text-muted); }
+.wahlomat-range-desc { margin: var(--space-2) 0 0; font-size: var(--text-sm); color: var(--text); min-height: 1.4em; }
+.wahlomat-range.is-egal + .wahlomat-range-desc { color: var(--text-faint); }
+.wahlomat-base { margin: 0 0 var(--space-5); padding: var(--space-3) var(--space-4); border: 1px dashed var(--accent-line); border-radius: var(--radius-md); }
+.wahlomat-base p { margin: .3rem 0 var(--space-2); font-size: var(--text-xs); }
+.wahlomat-base-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.wahlomat-base-row select { flex: 1 1 220px; max-width: 360px; }
+.wahlomat-base .wahlomat-base-note { color: var(--accent); font-weight: 700; margin-bottom: 0; }
+.wahlomat-name { display: grid; gap: .35rem; margin: 0 0 var(--space-5); font-weight: 700; font-size: var(--text-base); }
+.wahlomat-name input { max-width: 320px; font-weight: 400; }
+.wahlomat-resume { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); max-width: 760px; margin-inline: auto; margin-bottom: var(--space-5); }
+.wahlomat-members { margin-bottom: var(--space-4); display: grid; gap: var(--space-3); }
+.wahlomat-members-head p { margin: .25rem 0 0; font-size: var(--text-sm); max-width: 75ch; }
+.wahlomat-member-list { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.wahlomat-member { display: inline-flex; align-items: center; gap: .15rem; padding: .2rem .25rem .2rem .7rem; border-radius: var(--radius-full); background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line); font-weight: 700; font-size: var(--text-sm); }
+.wahlomat-member-btn { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; line-height: 1; padding: .2rem .4rem; border-radius: var(--radius-full); }
+.wahlomat-member-btn:hover { background: var(--surface-hover); }
+.wahlomat-group { margin-bottom: var(--space-4); }
+.wahlomat-member.is-mine { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.wahlomat-join { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.wahlomat-join input { flex: 1 1 200px; max-width: 320px; }
+.wahlomat-join-hint { margin: 0; font-size: var(--text-xs); }
+.wahlomat-setup { margin-bottom: var(--space-4); }
+.wahlomat-setup > * + * { margin-top: var(--space-4); }
+.wahlomat-setup .wahlomat-name { margin-bottom: 0; }
+.wahlomat-setup .wahlomat-base { margin-bottom: 0; }
+.wahlomat-start-group { padding: var(--space-3) var(--space-4); border: 1px dashed var(--accent-line); border-radius: var(--radius-md); }
+.wahlomat-start-group .wahlomat-join { margin-top: var(--space-3); }
+.wahlomat-start-group > p { margin: .3rem 0 0; font-size: var(--text-xs); }
+.wahlomat-setup-title { font-size: var(--text-md); margin: 0; }
+.wahlomat-setup-title .faint { font-family: var(--font-body); font-size: var(--text-sm); font-weight: 400; }
+.wahlomat-my-groups { margin-top: var(--space-3); font-size: var(--text-sm); }
+.wahlomat-my-groups p { margin: 0 0 var(--space-1); }
+.wahlomat-my-groups ul { margin: 0; padding-left: 1.1rem; display: grid; gap: .15rem; }
+.wahlomat-my-groups a { font-weight: 700; }
+.wahlomat-group-title { color: var(--accent); }
+.wahlomat-group h3 { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); font-family: var(--font-body); margin: 0 0 var(--space-3); }
+.wahlomat-group dl { display: grid; gap: var(--space-2); margin: 0; }
+.wahlomat-group dl > div { display: grid; grid-template-columns: 190px 1fr; gap: var(--space-3); font-size: var(--text-sm); }
+.wahlomat-group dt { color: var(--text-muted); }
+.wahlomat-group dd { margin: 0; }
+.wahlomat-filter { margin-bottom: var(--space-3); font-size: var(--text-sm); }
+.wahlomat-played.is-new { color: var(--accent); font-weight: 700; }
+.wahlomat-why { margin: var(--space-1) 0 0; display: grid; gap: .3rem; font-size: var(--text-sm); line-height: 1.45; }
+.wahlomat-why .is-warn { color: var(--warn); }
+.wahlomat-deviations { margin: var(--space-2) 0 0; padding-left: 1.1rem; display: grid; gap: .2rem; color: var(--text-muted); }
+.wahlomat-more { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
+.wahlomat-more > details { font-size: var(--text-xs); }
+.wahlomat-more > details[open] { flex-basis: 100%; }
+.wahlomat-more summary { cursor: pointer; color: var(--text-muted); width: fit-content; }
+.radar-wrap { display: grid; grid-template-columns: minmax(0, 380px) 1fr; gap: var(--space-2) var(--space-5); align-items: center; margin-top: var(--space-2); }
+.radar { width: 100%; height: auto; }
+.radar text { font-size: 11px; fill: var(--text-muted); font-family: var(--font-body); }
+.radar-grid { fill: none; stroke: var(--border); stroke-width: 1; }
+.radar-grid.mid { stroke: var(--border-strong); }
+.radar-game { fill: color-mix(in srgb, var(--accent) 22%, transparent); stroke: var(--accent); stroke-width: 2; }
+.radar-wish { fill: none; stroke: var(--warn); stroke-width: 2; stroke-dasharray: 5 4; }
+.radar-wish-dot { fill: var(--warn); }
+.radar-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); color: var(--text-muted); grid-column: 1; justify-content: center; }
+.radar-legend i { display: inline-block; width: 14px; height: 10px; margin-right: .35rem; vertical-align: middle; border-radius: 2px; }
+.radar-legend .lg-game { background: color-mix(in srgb, var(--accent) 35%, transparent); border: 2px solid var(--accent); }
+.radar-legend .lg-wish { border: 2px dashed var(--warn); }
+.radar-table { grid-column: 2; grid-row: 1 / span 2; font-size: var(--text-xs); }
+.radar-table td, .radar-table th { padding: .25rem .6rem; }
+.radar-table td:not(:first-child), .radar-table th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- Kampagnen ---------- */
+.campaign-name-link { font-weight: 700; color: var(--text); text-decoration: underline; text-decoration-color: var(--accent-line); text-underline-offset: 3px; }
+.campaign-name-link:hover { color: var(--accent); }
+.campaign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4); }
+.campaign-card { padding: var(--space-4); display: grid; gap: var(--space-3); align-content: start; }
+.campaign-card h3 { font-size: var(--text-md); margin: 0 0 .15rem; }
+.campaign-card h3 a { color: var(--text); }
+.campaign-card h3 a:hover { color: var(--accent); }
+.campaign-card-meta { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+.campaign-card-more { font-size: var(--text-sm); justify-self: start; }
+.campaign-back { margin: 0 0 var(--space-3); font-size: var(--text-sm); }
+.campaign-timeline { list-style: none; margin: 0; padding: 0 0 0 var(--space-5); border-left: 2px solid var(--accent-line); display: grid; gap: var(--space-4); }
+.campaign-entry { position: relative; }
+.campaign-entry::before { content: ''; position: absolute; left: calc(-1 * var(--space-5) - 7px); top: .35rem; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); border: 2px solid var(--accent); }
+.campaign-entry-head { display: flex; gap: var(--space-3); align-items: baseline; flex-wrap: wrap; }
+.campaign-entry-meta { font-size: var(--text-sm); margin: .15rem 0 .4rem; }
+@media (max-width: 720px) {
+  .wahlomat-group dl > div { grid-template-columns: 1fr; gap: 0; }
+  .radar-wrap { grid-template-columns: 1fr; }
+  .radar-legend, .radar-table { grid-column: 1; grid-row: auto; }
+}
 
 /* ---------- Mobil ---------- */
 @media (max-width: 1080px) {
@@ -488,3 +599,75 @@ input[type=range] { accent-color: var(--accent); }
 }
 @media (min-width: 861px) { .drawer-head { display: none; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ---------- Regal-Roulette ---------- */
+.roulette { margin-bottom: var(--space-5); display: grid; gap: var(--space-2); }
+.roulette-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.roulette-actions { margin-left: auto; display: flex; gap: var(--space-2); }
+.roulette-opt { display: inline-flex; align-items: center; gap: .35rem; font-size: var(--text-sm); color: var(--text-muted); cursor: pointer; }
+.roulette-opt input { width: auto; accent-color: var(--accent); }
+.roulette-from { margin: 0; font-size: var(--text-xs); }
+.roulette-card { max-width: 420px; }
+
+/* ---------- Kalender (Spielabende) ---------- */
+.cal-section { position: relative; }
+.cal-year { margin-bottom: var(--space-5); }
+.cal-year-head { display: flex; gap: var(--space-3); align-items: baseline; font-size: var(--text-sm); margin-bottom: var(--space-3); }
+.cal-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-4) var(--space-4); }
+.cal-month-name { font-size: var(--text-sm); font-weight: 700; margin-bottom: var(--space-1); }
+.cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.cal-wd { font-size: 10px; color: var(--text-faint); padding-bottom: 2px; }
+.cal-d { font-size: 11px; line-height: 20px; width: 20px; height: 20px; justify-self: center; border-radius: 50%; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.cal-d.is-today { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.cal-d.is-play { background: var(--accent); color: var(--bg); font-weight: 700; cursor: default; }
+.cal-d.is-play:hover, .cal-d.is-play:focus { outline: 2px solid var(--text); outline-offset: 1px; }
+.cal-d.is-multi { box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 3px var(--accent); }
+.cal-legend { display: inline-flex; align-items: center; gap: .4rem; font-size: var(--text-xs); color: var(--text-muted); }
+.cal-legend .cal-d { display: inline-block; text-align: center; }
+.cal-tip { position: absolute; z-index: 5; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: .4rem .6rem; font-size: var(--text-xs); max-width: 260px; pointer-events: none; }
+.wahlomat-setup .wahlomat-start-group > strong, .wahlomat-setup .wahlomat-base label strong { font-size: var(--text-base); }
+.wahlomat-setup .wahlomat-base label { display: block; }
+
+/* ---------- Wahlomat: Schritt-Punkte, Ergebnis-Meta, Einleitung ---------- */
+.wahlomat-dots { display: flex; gap: var(--space-2); margin-top: var(--space-3); flex-wrap: wrap; }
+.wahlomat-dots button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted); font: inherit; font-size: var(--text-xs); font-weight: 700; cursor: pointer; }
+.wahlomat-dots button:hover { border-color: var(--accent); color: var(--accent); }
+.wahlomat-dots button.is-done { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+.wahlomat-dots button[aria-current] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.wahlomat-meta { margin: 0 0 var(--space-2); font-size: var(--text-xs); color: var(--text-muted); }
+.wahlomat-meta span[title] { text-decoration: underline dotted; cursor: help; }
+.wahlomat-more-results { display: flex; justify-content: center; margin: var(--space-4) 0; }
+.wahlomat-more-results:empty { display: none; }
+.wahlomat-howto { font-size: var(--text-sm); color: var(--text-muted); max-width: 70ch; }
+.wahlomat-howto summary { cursor: pointer; color: var(--accent); width: fit-content; }
+.wahlomat-howto p { margin: var(--space-2) 0 0; font-size: var(--text-xs); line-height: 1.5; }
+#wResults > section > .panel.wahlomat-members:last-child { margin-top: var(--space-5); }
+@media (max-width: 720px) { .wahlomat-progress { position: static; } }
+
+/* ---------- Tabellen als Karten auf dem Handy ---------- */
+@media (max-width: 720px) {
+  table.cards-on-mobile, table.cards-on-mobile tbody, table.cards-on-mobile tr, table.cards-on-mobile td { display: block; width: 100%; }
+  table.cards-on-mobile thead { display: none; }
+  table.cards-on-mobile tr { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
+  table.cards-on-mobile td { display: grid; grid-template-columns: 7.5rem 1fr; gap: var(--space-2); padding: .3rem 0; border: 0; font-size: var(--text-sm); }
+  table.cards-on-mobile td::before { content: attr(data-label); color: var(--text-faint); font-size: var(--text-xs); padding-top: .1rem; }
+  table.cards-on-mobile td.card-title-cell { display: block; font-weight: 700; font-size: var(--text-base); padding-bottom: var(--space-2); margin-bottom: var(--space-1); border-bottom: 1px solid var(--border); }
+  table.cards-on-mobile td.card-title-cell::before { content: none; }
+  .scroll-x:has(> table.cards-on-mobile) { overflow: visible; }
+}
+
+/* ---------- Katalog: „Mehr laden“ und kompakte Karten auf dem Handy ---------- */
+.load-more { display: flex; justify-content: center; margin: var(--space-5) 0; }
+.load-more:empty { display: none; }
+@media (max-width: 600px) {
+  .game-card .cover-frame { --cover-ratio: 16 / 7; }
+  .game-card .gc-desc { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .game-card .gc-meta { display: none; }
+  .game-card { gap: var(--space-2); }
+}
+
+/* ---------- Kleinigkeiten ---------- */
+.scale-info { margin-top: var(--space-3); font-size: var(--text-xs); color: var(--text-muted); }
+.scale-info summary { cursor: pointer; color: var(--accent); width: fit-content; }
+.scale-info p { margin: var(--space-2) 0 0; line-height: 1.5; }
+.footer-admin { color: var(--text-muted); }

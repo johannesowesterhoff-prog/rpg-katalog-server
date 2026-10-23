@@ -70,7 +70,7 @@ export function renderCatalog(root, ctx) {
 
   const head = el(`<section class="catalog-head">
     <h1>Rollenspiel-Katalog</h1>
-    <p class="lede">Alle Spiele der Sammlung — filterbar nach Genre, Ton, Spielfokus, System und mehr, eingeordnet nach <strong>Crunch</strong>, <strong>Narrativ</strong> und <strong>Fluff</strong>, inklusive der tatsächlich vorhandenen Produkte.</p>
+    <p class="lede">Alle Spiele der Sammlung – durchsuchen, filtern, entdecken.</p>
     <div class="search-row">
       <div class="search-box">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg>
@@ -107,7 +107,9 @@ export function renderCatalog(root, ctx) {
       <div class="result-bar">
         <div class="result-count" id="count">Lade …</div>
         <div class="chips" id="chips"></div>
+        <button type="button" class="btn btn-sm" id="roulette-btn" title="Zufälliges Spiel aus der aktuellen Auswahl">🎲 Regal-Roulette</button>
       </div>
+      <div id="roulette"></div>
       <div id="results"></div>
     </div>
   </div>`);
@@ -159,6 +161,8 @@ export function renderCatalog(root, ctx) {
     chipBox.appendChild(reset);
   }
 
+  layout.querySelector('#roulette-btn').addEventListener('click', () => openRoulette(layout.querySelector('#roulette'), s));
+
   results.appendChild(skeletonGrid(6));
 
   // ---- Daten laden
@@ -168,7 +172,7 @@ export function renderCatalog(root, ctx) {
       renderFilters(filters, s, facets, push);
       countBox.innerHTML = data.total === 0
         ? 'Keine Treffer'
-        : `<strong>${data.total}</strong> ${data.total === 1 ? 'Eintrag' : 'Einträge'}${data.pages > 1 ? ` · Seite ${data.page} von ${data.pages}` : ''}`;
+        : `<strong>${data.total}</strong> ${data.total === 1 ? 'Eintrag' : 'Einträge'}`;
       results.innerHTML = '';
       if (!data.games.length) {
         results.appendChild(emptyState('Keine Treffer', 'Für diese Filterkombination gibt es keine Einträge. Filter lockern oder zurücksetzen.',
@@ -176,12 +180,33 @@ export function renderCatalog(root, ctx) {
         return;
       }
       const grid = el('<div class="card-grid"></div>');
-      data.games.forEach((g) => grid.appendChild(gameCard(g, {
+      const cardOpts = {
         onTag: (t) => push((st) => { st.genreTop = st.genreTop.includes(t) ? st.genreTop.filter((x) => x !== t) : [...st.genreTop, t]; }),
         onToneTag: (t) => push((st) => { st.toneTop = st.toneTop.includes(t) ? st.toneTop.filter((x) => x !== t) : [...st.toneTop, t]; }),
-      })));
+      };
+      data.games.forEach((g) => grid.appendChild(gameCard(g, cardOpts)));
       results.appendChild(grid);
-      if (data.pages > 1) results.appendChild(pagination(data, push));
+      // „Mehr laden“ statt Seitenzahlen: hängt die nächste Seite unten an.
+      let page = data.page;
+      const moreBox = el('<div class="load-more"></div>');
+      const renderMore = () => {
+        moreBox.innerHTML = '';
+        const shownCount = grid.children.length;
+        if (page >= data.pages) return;
+        const more = el(`<button type="button" class="btn">Weitere ${Math.min(data.pageSize || 24, data.total - shownCount)} laden <span class="faint">(${shownCount} von ${data.total})</span></button>`);
+        more.addEventListener('click', async () => {
+          more.disabled = true;
+          try {
+            const next = await api('/api/games?' + queryFromState({ ...s, page: page + 1 }).toString());
+            next.games.forEach((g) => grid.appendChild(gameCard(g, cardOpts)));
+            page = next.page;
+            renderMore();
+          } catch (e) { toast(e.message, 'err'); more.disabled = false; }
+        });
+        moreBox.appendChild(more);
+      };
+      renderMore();
+      results.appendChild(moreBox);
     })
     .catch((e) => {
       results.innerHTML = '';
@@ -191,21 +216,66 @@ export function renderCatalog(root, ctx) {
     });
 }
 
-function pagination(data, push) {
-  const box = el('<nav class="pagination" aria-label="Seiten"></nav>');
-  const btn = (label, page, disabled = false, current = false) => {
-    const b = el(`<button type="button" class="btn btn-sm ${current ? 'btn-primary' : ''}">${label}</button>`);
-    b.disabled = disabled;
-    if (current) b.setAttribute('aria-current', 'page');
-    b.addEventListener('click', () => { push((st) => { st.page = page; }, { keepPage: true }); window.scrollTo({ top: 0, behavior: 'smooth' }); });
-    return b;
+// ------------------------------------------------------------ Regal-Roulette
+// Zieht ein zufälliges Spiel aus der aktuellen Auswahl (alle gesetzten Filter
+// gelten), auf Wunsch nur aus Spielen ohne protokollierten Spielabend.
+async function openRoulette(box, s) {
+  const qs = queryFromState({ ...s, page: 1 });
+  qs.delete('page');
+  qs.set('pageSize', '100');
+  let pool = [];
+  try {
+    for (let page = 1, pages = 1; page <= pages && page <= 20; page++) {
+      qs.set('page', String(page));
+      const d = await api('/api/games?' + qs);
+      pool.push(...d.games);
+      pages = d.pages;
+    }
+  } catch (e) { toast(e.message, 'err'); return; }
+  let last = null;
+  const panel = el(`<section class="panel roulette" aria-live="polite">
+    <div class="roulette-head">
+      <strong>🎲 Wie wär's mit …</strong>
+      <label class="roulette-opt"><input type="checkbox" id="roulette-new"> nur ungespielte</label>
+      <span class="roulette-actions">
+        <button type="button" class="btn btn-sm btn-primary" id="roulette-again">Nochmal würfeln</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="roulette-close" aria-label="Schließen">×</button>
+      </span>
+    </div>
+    <p class="faint roulette-from"></p>
+    <div class="roulette-card"></div>
+  </section>`);
+  const candidatesNow = () => {
+    const onlyNew = panel.querySelector('#roulette-new').checked;
+    const candidates = pool.filter((g) => !onlyNew || !g.session_count);
+    panel.querySelector('.roulette-from').textContent =
+      `Gezogen aus ${candidates.length} ${candidates.length === 1 ? 'Spiel' : 'Spielen'} der aktuellen Auswahl${onlyNew ? ' ohne Spielabend' : ''}.`;
+    return candidates;
   };
-  box.appendChild(btn('← Zurück', data.page - 1, data.page <= 1));
-  const from = Math.max(1, data.page - 2), to = Math.min(data.pages, from + 4);
-  for (let i = from; i <= to; i++) box.appendChild(btn(String(i), i, false, i === data.page));
-  box.appendChild(btn('Weiter →', data.page + 1, data.page >= data.pages));
-  return box;
+  const roll = () => {
+    const candidates = candidatesNow();
+    const slot = panel.querySelector('.roulette-card');
+    slot.innerHTML = '';
+    if (!candidates.length) { last = null; slot.appendChild(el('<p class="muted">Keine passenden Spiele – Filter lockern oder „nur ungespielte“ abwählen.</p>')); return; }
+    const choices = candidates.length > 1 ? candidates.filter((g) => g.slug !== last) : candidates;
+    const g = choices[Math.floor(Math.random() * choices.length)];
+    last = g.slug;
+    slot.appendChild(gameCard(g));
+  };
+  panel.querySelector('#roulette-again').addEventListener('click', roll);
+  // Der Haken grenzt nur den Topf ein: Das gezogene Spiel bleibt stehen,
+  // solange es noch passt – neu gewürfelt wird nur, wenn es rausfällt.
+  panel.querySelector('#roulette-new').addEventListener('change', () => {
+    if (candidatesNow().some((g) => g.slug === last)) return;
+    roll();
+  });
+  panel.querySelector('#roulette-close').addEventListener('click', () => { box.innerHTML = ''; });
+  box.innerHTML = '';
+  box.appendChild(panel);
+  roll();
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
 
 function modeSwitchHtml(dim, s, label) {
   return `<div class="mode-switch" role="group" aria-label="${esc(label)}-Verknüpfung">

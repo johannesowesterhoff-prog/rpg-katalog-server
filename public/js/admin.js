@@ -431,7 +431,7 @@ export async function renderEditor(root, id) {
   const s3 = step(3, 'Skalen (Crunch, Narrativ, Fluff)', `
     <div class="help-box">Die drei Skalen sind gleichwertig und laufen von 1 bis 5 in 0,5er-Schritten.
       Zum Veröffentlichen sind Crunch und Narrativ nötig; Fluff darf offen bleiben und erscheint dann in der Schnellerfassung.</div>
-    <div class="grid-2">${scaleSelect('crunch', 'Crunch – Regeldichte')}${scaleSelect('narrative', 'Narrativ – Erzählmechanik')}${scaleSelect('fluff', 'Fluff – Ausarbeitung der Spielwelt')}</div>
+    <div class="grid-2">${scaleSelect('crunch', 'Crunch – Detailgrad der Regeln')}${scaleSelect('narrative', 'Narrativ – Erzählmechanik')}${scaleSelect('fluff', 'Fluff – Ausarbeitung der Spielwelt (Lore)')}</div>
     <details><summary class="muted" style="font-size:var(--text-sm);cursor:pointer">Was bedeuten die Stufen?</summary>
       <div class="muted" style="font-size:var(--text-sm);margin-top:var(--space-2)">
         <p><strong>Crunch:</strong> ${SCALE_LABELS.crunch.join(' · ')}</p>

@@ -30,6 +30,8 @@ function parseRoute() {
   return { parts: path.split('/').filter(Boolean), params: new URLSearchParams(qs || '') };
 }
 
+// „Admin“ steht nur für Angemeldete (oder im Adminbereich selbst) in der
+// Navigation; alle anderen finden den Zugang unten in der Fußzeile.
 function markNav(kind) {
   document.querySelectorAll('.site-nav a').forEach((a) => {
     if (a.dataset.nav === kind) a.setAttribute('aria-current', 'page');
@@ -52,8 +54,8 @@ async function route() {
   document.title = 'RPG-Katalog – Sammlung von Rollenspielen';
   try {
     if (parts[0] === 'spiele' && parts[1]) { markNav('katalog'); await renderDetail(root, decodeURIComponent(parts[1]), ctx); return; }
-    if (parts[0] === 'wahlomat') { markNav('wahlomat'); await renderWahlomat(root); return; }
-    if (parts[0] === 'statistik') { markNav('statistik'); await renderStats(root, parts[1], params); return; }
+    if (parts[0] === 'wahlomat') { markNav('wahlomat'); await renderWahlomat(root, params, parts[1] === 'gruppe' && parts[2] ? decodeURIComponent(parts[2]) : null); return; }
+    if (parts[0] === 'statistik') { markNav('statistik'); await renderStats(root, parts[1], params, parts[2]); return; }
     if (parts[0] === 'admin') {
       markNav('admin');
       const sub = parts[1];
@@ -85,5 +87,6 @@ window.addEventListener('hashchange', route);
 
 api('/api/admin/session').then((s) => {
   ctx.isAdmin = s.isAdmin; ctx.hasArchiveAccess = !!s.hasArchiveAccess; ctx.dbMode = s.dbMode;
-  document.getElementById('db-hint').textContent = `Datenbank: ${s.dbMode === 'postgres' ? 'PostgreSQL-Server (DATABASE_URL)' : 'PostgreSQL über PGlite (lokale Datei)'}`;
+  // Technischer Hinweis nur für Angemeldete.
+  if (s.isAdmin) document.getElementById('db-hint').textContent = `· Datenbank: ${s.dbMode === 'postgres' ? 'PostgreSQL-Server' : 'PGlite (lokale Datei)'}`;
 }).catch(() => {}).finally(route);
