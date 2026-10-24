@@ -1,6 +1,8 @@
 # RPG-Katalog – Hinweise für Claude
 
-Antworte auf Deutsch. Johannes merged Pull Requests selbst – nicht mergen.
+Antworte auf Deutsch. Claude darf Pull Requests selbst mergen (seit 24.10.2026),
+sobald sie fertig und geprüft sind. Ein Merge auf `main` geht automatisch live –
+danach den Deploy-Lauf in GitHub Actions abwarten und die Live-Seite prüfen.
 
 ## Betrieb (Stand 23.10.2026)
 
