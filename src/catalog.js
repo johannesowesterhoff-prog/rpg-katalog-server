@@ -460,7 +460,7 @@ export async function getGameById(id) {
 export async function getMasterData() {
   const [languages, publishers, systemFamilies, productTypes, tags] = await Promise.all([
     pool.query('SELECT code, label_de FROM katalog.languages ORDER BY sort_order, label_de'),
-    pool.query(`SELECT p.id, p.name, count(gp.game_id)::int AS usage_count
+    pool.query(`SELECT p.id, p.name, p.website, count(gp.game_id)::int AS usage_count
       FROM katalog.publishers p LEFT JOIN katalog.game_publishers gp ON gp.publisher_id = p.id
       GROUP BY p.id ORDER BY p.name`),
     pool.query(`SELECT sf.id, sf.name, count(g.id)::int AS usage_count
@@ -796,6 +796,27 @@ export async function renameMasterEntry(kind, id, name, actor) {
   if (!r.rowCount) throw httpError(404, 'Nicht gefunden.');
   await logAudit(pool, { actor, action: 'update', entity: cfg.table, entityId: id, diff: { name: trimmed } });
   return r.rows[0];
+}
+
+// Webseite eines Verlags (leer = entfernen). Ohne Schema wird https:// ergänzt.
+export async function setPublisherWebsite(id, website, actor) {
+  let url = String(website ?? '').trim();
+  if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) url = `https://${url}`;
+  if (url && (!/^https?:\/\/[^\s/]+\.[^\s]+$/i.test(url) || url.length > 300)) {
+    throw httpError(400, 'Bitte eine gültige Webadresse angeben (z. B. https://verlag.de).');
+  }
+  const r = await pool.query(
+    `UPDATE katalog.publishers p SET website = $1, updated_at = now()
+     FROM (SELECT id, website FROM katalog.publishers WHERE id = $2) old
+     WHERE p.id = old.id RETURNING p.id, p.website, old.website AS old_website`,
+    [url || null, id],
+  );
+  if (!r.rowCount) throw httpError(404, 'Nicht gefunden.');
+  const { old_website: before } = r.rows[0];
+  if ((before || null) !== (url || null)) {
+    await logAudit(pool, { actor, action: 'update', entity: 'publishers', entityId: id, diff: { website: `${before || '–'} → ${url || '–'}` } });
+  }
+  return { id: r.rows[0].id, website: r.rows[0].website };
 }
 
 export async function deleteMasterEntry(kind, id, actor) {
