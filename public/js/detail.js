@@ -116,7 +116,7 @@ export async function renderDetail(root, slug, ctx) {
         <h2 style="font-size:var(--text-sm);font-family:var(--font-body);text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin-bottom:var(--space-4)">Stammdaten</h2>
         <dl class="dl">
           <dt>Systemfamilie</dt><dd><a href="#/?systemFamily=${encodeURIComponent(g.system_family)}">${esc(g.system_family)}</a></dd>
-          <dt>Verlag</dt><dd>${(g.publishers || []).map((p) => `<a href="#/?publisher=${encodeURIComponent(p.name)}">${esc(p.name)}</a>${p.is_primary && g.publishers.length > 1 ? ' <span class="faint">(Haupt)</span>' : ''}`).join(', ') || '–'}</dd>
+          <dt>Verlag</dt><dd>${(g.publishers || []).map((p) => `<a href="#/?publisher=${encodeURIComponent(p.name)}">${esc(p.name)}</a>${/^https?:\/\//.test(p.website || '') ? ` <a class="faint" href="${esc(p.website)}" target="_blank" rel="noopener" title="Webseite von ${esc(p.name)}" aria-label="Webseite von ${esc(p.name)}">↗</a>` : ''}${p.is_primary && g.publishers.length > 1 ? ' <span class="faint">(Haupt)</span>' : ''}`).join(', ') || '–'}</dd>
           <dt>Sprache</dt><dd>${esc(g.language_label || g.language_code)}</dd>
           ${g.edition ? `<dt>Edition</dt><dd>${esc(g.edition)}</dd>` : ''}
           ${g.release_year ? `<dt>Jahr</dt><dd>${g.release_year}</dd>` : ''}

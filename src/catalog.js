@@ -374,7 +374,7 @@ export async function getGameBySlug(slug, isAdmin) {
 
   const [publishers, products, playSessions] = await Promise.all([
     pool.query(
-      `SELECT p.name, gp.is_primary FROM katalog.game_publishers gp JOIN katalog.publishers p ON p.id = gp.publisher_id
+      `SELECT p.name, p.website, gp.is_primary FROM katalog.game_publishers gp JOIN katalog.publishers p ON p.id = gp.publisher_id
        WHERE gp.game_id = $1 ORDER BY gp.is_primary DESC, p.name`, [g.id],
     ),
     pool.query(
