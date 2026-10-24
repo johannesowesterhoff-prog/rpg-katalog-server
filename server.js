@@ -1,6 +1,7 @@
 // RPG-Katalog -- Express-Server gegen die bestehende Neon-Datenbank.
 import 'dotenv/config';
 import express from 'express';
+import compression from 'compression';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
@@ -18,7 +19,7 @@ import {
   listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats, getPlaySessionLog,
   getDashboard, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
-  deleteMasterEntry, getAuditLog,
+  deleteMasterEntry, setPublisherWebsite, getAuditLog,
   listPlaySessions, getGameLookup, createPlaySession, updatePlaySession, deletePlaySession,
 } from './src/catalog.js';
 import { stagingPreview, getImportRun, commitImport } from './src/importer.js';
@@ -36,6 +37,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const app = express();
 app.set('trust proxy', true); // korrekte req.ip hinter einem Proxy/Load-Balancer
 app.disable('x-powered-by');
+app.use(compression());
 app.use(express.json({ limit: '2mb' }));
 
 // ---------------------------------------------------------------- CORS
@@ -289,6 +291,9 @@ app.post('/api/admin/master-data/:kind', requireAdmin, asyncRoute(async (req, re
   res.status(201).json(await createMasterEntry(req.params.kind, req.body?.name, req.body?.tagKind, 'admin'));
 }));
 app.patch('/api/admin/master-data/:kind/:id', requireAdmin, asyncRoute(async (req, res) => {
+  if (req.params.kind === 'publishers' && req.body && 'website' in req.body) {
+    return res.json(await setPublisherWebsite(req.params.id, req.body.website, 'admin'));
+  }
   res.json(await renameMasterEntry(req.params.kind, req.params.id, req.body?.name, 'admin'));
 }));
 app.delete('/api/admin/master-data/:kind/:id', requireAdmin, asyncRoute(async (req, res) => {
@@ -455,8 +460,9 @@ app.use('/api', (err, req, res, _next) => {
 });
 
 // ------------------------------------------------------- robots / sitemap
-app.get('/robots.txt', (_req, res) => {
-  res.type('text/plain').send('User-agent: *\nDisallow: /admin\nDisallow: /api/admin\n');
+app.get('/robots.txt', (req, res) => {
+  const base = `${req.protocol}://${req.headers.host}`;
+  res.type('text/plain').send(`User-agent: *\nDisallow: /admin\nDisallow: /api/admin\nSitemap: ${base}/sitemap.xml\n`);
 });
 
 app.get('/sitemap.xml', asyncRoute(async (req, res) => {

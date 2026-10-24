@@ -42,7 +42,9 @@ export async function renderDetail(root, slug, ctx) {
   </section>`);
   head.querySelector('.detail-cover')?.addEventListener('error', (e) => { e.target.remove(); head.classList.remove('has-cover'); });
   head.querySelector('#share').addEventListener('click', async () => {
-    const url = location.origin + location.pathname + '#/spiele/' + g.slug;
+    // Pfad-Link statt #-Link: Nur der liefert dem Server den Spieltitel und
+    // das Cover für Link-Vorschauen.
+    const url = location.origin + '/spiele/' + g.slug;
     try { await navigator.clipboard.writeText(url); toast('Link kopiert.'); }
     catch { toast('Link: ' + url); }
   });
@@ -114,7 +116,7 @@ export async function renderDetail(root, slug, ctx) {
         <h2 style="font-size:var(--text-sm);font-family:var(--font-body);text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin-bottom:var(--space-4)">Stammdaten</h2>
         <dl class="dl">
           <dt>Systemfamilie</dt><dd><a href="#/?systemFamily=${encodeURIComponent(g.system_family)}">${esc(g.system_family)}</a></dd>
-          <dt>Verlag</dt><dd>${(g.publishers || []).map((p) => `<a href="#/?publisher=${encodeURIComponent(p.name)}">${esc(p.name)}</a>${p.is_primary && g.publishers.length > 1 ? ' <span class="faint">(Haupt)</span>' : ''}`).join(', ') || '–'}</dd>
+          <dt>Verlag</dt><dd>${(g.publishers || []).map((p) => `<a href="#/?publisher=${encodeURIComponent(p.name)}">${esc(p.name)}</a>${/^https?:\/\//.test(p.website || '') ? ` <a class="faint" href="${esc(p.website)}" target="_blank" rel="noopener" title="Webseite von ${esc(p.name)}" aria-label="Webseite von ${esc(p.name)}">↗</a>` : ''}${p.is_primary && g.publishers.length > 1 ? ' <span class="faint">(Haupt)</span>' : ''}`).join(', ') || '–'}</dd>
           <dt>Sprache</dt><dd>${esc(g.language_label || g.language_code)}</dd>
           ${g.edition ? `<dt>Edition</dt><dd>${esc(g.edition)}</dd>` : ''}
           ${g.release_year ? `<dt>Jahr</dt><dd>${g.release_year}</dd>` : ''}

@@ -21,7 +21,7 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
 // Pfad-Aufrufe (/spiele/slug vom Server) auf Hash-Routing übertragen
 if (location.pathname !== '/' && !location.hash) {
   const m = location.pathname.match(/^\/(spiele|admin)(\/.*)?$/);
-  if (m) location.hash = '#/' + m[1] + (m[2] || '');
+  if (m) history.replaceState(null, '', '/#/' + m[1] + (m[2] || ''));
 }
 
 function parseRoute() {
