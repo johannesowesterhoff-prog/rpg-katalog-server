@@ -42,7 +42,9 @@ export async function renderDetail(root, slug, ctx) {
   </section>`);
   head.querySelector('.detail-cover')?.addEventListener('error', (e) => { e.target.remove(); head.classList.remove('has-cover'); });
   head.querySelector('#share').addEventListener('click', async () => {
-    const url = location.origin + location.pathname + '#/spiele/' + g.slug;
+    // Pfad-Link statt #-Link: Nur der liefert dem Server den Spieltitel und
+    // das Cover für Link-Vorschauen.
+    const url = location.origin + '/spiele/' + g.slug;
     try { await navigator.clipboard.writeText(url); toast('Link kopiert.'); }
     catch { toast('Link: ' + url); }
   });

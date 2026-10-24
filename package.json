@@ -13,6 +13,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "compression": "^1.8.1",
     "cookie": "^1.0.2",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
