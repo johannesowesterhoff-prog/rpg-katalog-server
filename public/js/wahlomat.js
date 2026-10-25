@@ -1,5 +1,6 @@
-// RPG-Wahlomat: sechs Fragenschritte über Genre, Ton, Spielstil, Figuren,
-// die drei Skalen (Crunch, Narrativ, Fluff) und Prioritäten, danach ein
+// RPG-Wahlomat: sieben Schritte – Vor dem Start (Name, Gruppe, Blaupause),
+// Genre, Ton, Spielstil, Figuren & Freiheit, die drei Skalen (Crunch,
+// Narrativ, Fluff) und Prioritäten, danach ein
 // Ranking der eigenen Sammlung. Genre, Ton und Spielstil haben je eine
 // Tag-Matrix, aus der man 0–3 Untergenres, Untertöne bzw. Fokus-Tags wählt.
 //
@@ -10,7 +11,7 @@
 //    vergebenen Tags gebaut -- neue Top-Genres/-Tones tauchen also
 //    automatisch auf, nichts ist hartkodiert.
 //  - Spielstil/Aktivitäten: aus Spielfokus-Tags abgeleitet (play_focus).
-//  - Welt-Fremdheit, Bedrohung/Druck, Folgen des Scheiterns,
+//  - Bedrohung/Druck, Folgen des Scheiterns,
 //    Figurenkompetenz, Handlungsfreiheit: kommen aus den internen
 //    Wahlomat-Werten (games.wahlomat_profile, nur im Admin sichtbar). Fehlt
 //    ein Wert, wird er wie früher geschätzt: aus der vollen
@@ -37,15 +38,15 @@ const B = {
 // Die Zahlen selbst sind deshalb ungleich: Ja/Nein-Fragen (Genre, Ton) trennen
 // stärker als Regler mit Teilpunkten, und fast jedes Spiel trifft irgendeinen
 // Spielstil. Gemessen mit zufälligen Profilen gegen die Katalogdaten (Okt. 2026).
-const W = { genre: 11, setting: 11, tone: 10, threat: 5, activities: 9, agency: 11, figures: 10, lethality: 5, crunch: 11, narrativ: 10, fluff: 8, subGenre: 8, subTon: 8, fokus: 8 };
+const W = { genre: 11, tone: 10, threat: 5, activities: 9, agency: 11, figures: 10, lethality: 5, crunch: 11, narrativ: 10, fluff: 8, subGenre: 8, subTon: 8, fokus: 8 };
 
 // Tag-Matrizen: je Kategorie 0–3 Begriffe. Die Auswahllisten entstehen beim
 // Laden aus den tatsächlich vergebenen Tags (siehe renderWahlomat).
 const TAG_MAX = 3;
 const TAG_KINDS = {
-  subGenre: { label: 'Untergenres', source: 'genre_setting', step: 1, comp: 'Untergenre' },
-  subTon: { label: 'Untertöne', source: 'tone_theme', step: 2, comp: 'Unterton' },
-  fokus: { label: 'Spielfokus', source: 'play_focus', step: 3, comp: 'Fokus' },
+  subGenre: { label: 'Untergenres', source: 'genre_setting', step: 2, comp: 'Untergenre' },
+  subTon: { label: 'Untertöne', source: 'tone_theme', step: 3, comp: 'Unterton' },
+  fokus: { label: 'Spielfokus', source: 'play_focus', step: 4, comp: 'Fokus' },
 };
 const TAG_OPTIONS = { subGenre: new Map(), subTon: new Map(), fokus: new Map() };
 
@@ -61,7 +62,6 @@ const FIGURE_OPTIONS = [
 // Anzeigetext für die optionale Prioritäten-Auswahl im letzten Schritt.
 const PRIORITY_OPTIONS = [
   ['Genre', 'Genre'],
-  ['Setting', 'Welt-Fremdheit'],
   ['Ton', 'Ton'],
   ['Härte', 'Härte (Bedrohung & Scheitern)'],
   ['Spielstil', 'Spielstil / Aktivitäten'],
@@ -74,21 +74,18 @@ const PRIORITY_OPTIONS = [
 const PRIORITY_MAX = 3;
 // Regler-Schlüssel -> internes Komponenten-Label (für "Egal": abgewählte Regler
 // im Prioritäten-Schritt sperren und im Ergebnis benennen).
-const SCALAR_TO_PRIORITY = { welt_fremdheit: 'Setting', gefahr: 'Härte', handlungsfreiheit: 'Freiheit', letalitaet: 'Härte', figurenkompetenz: 'Figurenbild', crunch: 'Crunch', narrativ: 'Narrativ', fluff: 'Fluff' };
+const SCALAR_TO_PRIORITY = { gefahr: 'Härte', handlungsfreiheit: 'Freiheit', letalitaet: 'Härte', figurenkompetenz: 'Figurenbild', crunch: 'Crunch', narrativ: 'Narrativ', fluff: 'Fluff' };
 const PRIORITY_BOOST = 1.5;
 
 // Einzelfragen mit Regler 1-5, je Schritt zugeordnet.
 const RANGES = {
-  1: [['welt_fremdheit', 'Wie fremd soll die Welt im Vergleich zu unserer sein?', '1 = wie unsere Realität · 5 = völlig fremdartig (andere Welt, andere Regeln der Natur)']],
-  3: [['handlungsfreiheit', 'Wie offen soll die Handlung sein?', '1 = klarer Auftrag · 5 = Gruppe setzt Ziele und Richtung']],
   // Eine Frage für Bedrohung UND Scheitern-Folgen: Die beiden wurden fast
   // immer gleich beantwortet. Der Wert gilt für beide Achsen.
-  4: [['gefahr', 'Wie hart soll es werden?', '1 = gemütlich, Scheitern kostet wenig · 5 = gnadenlos, Figurentod jederzeit möglich']],
-  5: [['crunch', 'Wie detailliert sollen die Regeln sein?', '1 = sehr leicht, kaum etwas wird mechanisch abgebildet · 5 = detaillierte Simulation (Kampf, Verletzungen, Ausrüstung, Charakterbau …)'], ['narrativ', 'Wie stark sollen die Regeln narratives Spiel unterstützen?', '1 = klassisch, Regeln lösen Aktionen auf · 5 = die Regeln drehen sich ums gemeinsame Erzählen'], ['fluff', 'Wie ausgearbeitet soll die Spielwelt sein?', '1 = loser Rahmen, viel selbst ausdenken · 5 = viel Lore: Geschichte, Orte, Fraktionen, Hintergrundmaterial']],
+  5: [['gefahr', 'Wie hart soll es werden?', '1 = gemütlich, Scheitern kostet wenig · 5 = gnadenlos, Figurentod jederzeit möglich'], ['handlungsfreiheit', 'Wie offen soll die Handlung sein?', '1 = klarer Auftrag · 5 = Gruppe setzt Ziele und Richtung']],
+  6: [['crunch', 'Wie detailliert sollen die Regeln sein?', '1 = sehr leicht, kaum etwas wird mechanisch abgebildet · 5 = detaillierte Simulation (Kampf, Verletzungen, Ausrüstung, Charakterbau …)'], ['narrativ', 'Wie stark sollen die Regeln narratives Spiel unterstützen?', '1 = klassisch, Regeln lösen Aktionen auf · 5 = die Regeln drehen sich ums gemeinsame Erzählen'], ['fluff', 'Wie ausgearbeitet soll die Spielwelt sein?', '1 = loser Rahmen, viel selbst ausdenken · 5 = viel Lore: Geschichte, Orte, Fraktionen, Hintergrundmaterial']],
 };
 // Ein Satz je Stufe: Unter dem Regler steht, was der gewählte Wert bedeutet.
 const RANGE_DESC = {
-  welt_fremdheit: ['Unsere Welt, wie wir sie kennen – Alltag, reale Orte.', 'Vertraut mit einem Dreh – etwa etwas Übernatürliches im Alltag.', 'Eigene Welt aus vertrauten Bausteinen, z. B. klassische Fantasy.', 'Deutlich fremd – ungewohnte Kulturen, Technik oder Magie.', 'Völlig fremdartig – andere Naturgesetze, kaum etwas Bekanntes.'],
   gefahr: ['Gemütlich – kaum Gefahr, Scheitern sorgt höchstens für Umwege.', 'Leichte Spannung – Rückschläge, aber selten ernste Folgen.', 'Spürbare Gefahr – Scheitern tut weh, die Figuren kommen meist durch.', 'Hart – ständiger Druck, Verluste und Figurentod sind möglich.', 'Gnadenlos – existenzielle Bedrohung, Figuren sterben schnell.'],
   handlungsfreiheit: ['Klarer Auftrag – die Handlung ist weitgehend vorgegeben.', 'Feste Abenteuer mit Spielraum, wie ihr sie löst.', 'Mischung aus vorbereiteten Abenteuern und eigenen Zielen.', 'Offene Welt – die Gruppe entscheidet meist selbst, wohin es geht.', 'Sandbox – ihr setzt Ziele und Richtung komplett selbst.'],
   crunch: ['Kaum Regeln – ein Wurf entscheidet, fast nichts wird mechanisch abgebildet.', 'Ein paar Werte, kaum Sonderregeln, in 15 Minuten erklärt.', 'Solides Regelwerk – Fertigkeiten, Kampf und einige Sonderregeln.', 'Detailliert – vieles wird mechanisch abgebildet, Charakterbau lohnt sich.', 'Simulation – Kampf, Verletzungen, Ausrüstung und mehr bis ins Detail.'],
@@ -97,12 +94,13 @@ const RANGE_DESC = {
 };
 
 const STEPS = [
-  { n: 1, title: 'Genre & Setting', lede: 'Welche Art Welt soll eure Geschichte tragen?', budget: 'genre', budgetLegend: 'Welche Welten interessieren euch?' },
-  { n: 2, title: 'Ton & Themen', lede: 'Welche Stimmung soll eure Runde prägen?', budget: 'ton', budgetLegend: 'Welcher Grundton passt zu euch?' },
-  { n: 3, title: 'Spielstil', lede: 'Was möchtet ihr am Tisch überwiegend tun?', budget: 'aktivitaeten', budgetLegend: 'Verteilt euren Spielfokus' },
-  { n: 4, title: 'Figuren & Härte', lede: 'Wer seid ihr — und wie hart darf die Welt sein?' },
-  { n: 5, title: 'Regeln, Erzählweise & Welttiefe', lede: 'Wie viel System, wie viel gemeinsame Gestaltung und wie viel ausgearbeitete Welt wollt ihr?' },
-  { n: 6, title: 'Prioritäten', lede: 'Optional: Was soll im Ergebnis besonders stark zählen?', priorities: true },
+  { n: 1, title: 'Vor dem Start', lede: '', setup: true },
+  { n: 2, title: 'Genre & Setting', lede: 'Welche Art Welt soll eure Geschichte tragen?', budget: 'genre', budgetLegend: 'Welche Welten interessieren euch?' },
+  { n: 3, title: 'Ton & Themen', lede: 'Welche Stimmung soll eure Runde prägen?', budget: 'ton', budgetLegend: 'Welcher Grundton passt zu euch?' },
+  { n: 4, title: 'Spielstil', lede: 'Was möchtet ihr am Tisch überwiegend tun?', budget: 'aktivitaeten', budgetLegend: 'Verteilt euren Spielfokus' },
+  { n: 5, title: 'Figuren, Härte & Freiheit', lede: 'Wer seid ihr, wie hart darf die Welt sein – und wie offen die Handlung?' },
+  { n: 6, title: 'Regeln, Erzählweise & Welttiefe', lede: 'Wie viel System, wie viel gemeinsame Gestaltung und wie viel ausgearbeitete Welt wollt ihr?' },
+  { n: 7, title: 'Prioritäten', lede: 'Optional: Was soll im Ergebnis besonders stark zählen?', priorities: true },
 ];
 
 // Kurze Erklärungen ("Was ist gemeint?") je Frage – bewusst ohne Beispielspiele,
@@ -111,7 +109,6 @@ const HELP = {
   genre: { text: 'Die Art Welt, in der eure Geschichten spielen. „Sehr gern“ zählt doppelt so stark wie „Gern“, „Eher nicht“ zieht so viel ab, wie „Gern“ dazugibt, „Egal“ zählt nicht. Pro Spiel zählt der beste Treffer einmal; hat es etwas mit „Eher nicht“, wird einmal abgezogen.' },
   ton: { text: 'Die Grundstimmung am Tisch – unabhängig vom Setting. Eine Fantasywelt kann gemütlich-humorvoll oder bitter-düster sein; hier geht es um das Gefühl, nicht um die Welt.' },
   aktivitaeten: { text: 'Womit verbringt ihr die meiste Spielzeit? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
-  welt_fremdheit: { text: 'Wie weit weicht die Spielwelt von unserem Alltag ab – Natur, Technik, Magie, Gesellschaft? Gemeint ist nicht, wie gefährlich sie ist, sondern wie viel ihr euch neu vorstellen müsst.' },
   gefahr: { text: 'Wie viel Druck spüren die Figuren – und was passiert, wenn etwas schiefgeht? Niedrig: gemütlich, Rückschläge bleiben ohne große Folgen. Hoch: ständige Bedrohung, Figuren können sterben oder dauerhaft verlieren. Das ist unabhängig vom Genre – auch ein Fantasyspiel kann sehr behaglich sein.' },
   handlungsfreiheit: { text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die ihr löst? Oder entscheidet ihr selbst, wohin ihr geht und was ihr erreichen wollt (Sandbox)?' },
   letalitaet: { text: 'Was passiert, wenn etwas schiefgeht? Niedrig: Rückschläge und Komplikationen, die Geschichte läuft weiter. Hoch: Figuren können sterben oder dauerhaft verlieren – Vorsicht und Planung lohnen sich.' },
@@ -119,7 +116,7 @@ const HELP = {
   crunch: { text: 'Wie detailliert sind die Regeln – was wird alles mechanisch simuliert? Niedrig: wenige Werte, die meisten Situationen entscheidet ein einfacher Wurf. Hoch: eigene Regeln für Kampf, Verletzungen, Ausrüstung, Reisen und mehr.' },
   narrativ: { text: 'Wie stark helfen die Regeln dabei, möglichst narrativ zu spielen? Niedrig: Die Regeln lösen Aktionen auf, die Geschichte entsteht frei drumherum. Hoch: Mechaniken für Szenen, Konflikte, Wendungen und Charakterentwicklung – oft gestaltet ihr dabei auch Fakten der Welt mit (z. B. Aspekte in Fate).' },
   fluff: { text: 'Wie ausgearbeitet ist die Welt – wie viel Lore gibt es? Gemeint ist alles offiziell Veröffentlichte: Geschichte, Orte, Fraktionen, Abenteuer. Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
-  tags: { text: 'Optional und feiner als die Hauptfrage: Wählt bis zu drei Begriffe, die euch besonders reizen. Jeder davon, den ein Spiel trägt, bringt Punkte – trifft es alle gewählten, gibt es die vollen Punkte. Die Zahl hinter einem Begriff zeigt, wie viele Spiele ihn haben. Gruppen zu dem, was ihr oben gewählt habt, stehen offen.' },
+  tags: { text: 'Optional und feiner als die Hauptfrage: Wählt bis zu drei Begriffe, die euch besonders reizen. Jeder davon, den ein Spiel trägt, bringt Punkte – trifft es alle gewählten, gibt es die vollen Punkte. Die Zahl hinter einem Begriff zeigt, wie viele Spiele ihn haben.' },
   priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was ihr hier ankreuzt, zählt stärker – etwa „Crunch“, wenn euch die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
 };
 
@@ -273,7 +270,6 @@ const hasPicks = (profile, kind) => Array.isArray(profile[kind]) && profile[kind
 function scoreGame(game, profile) {
   const components = [
     ['Genre', W.genre, true, tagScore(game.genre, profile.genre)],
-    ['Setting', W.setting, profile.welt_fremdheit != null, profile.welt_fremdheit != null ? proximity(game.welt_fremdheit, profile.welt_fremdheit) : 0],
     ['Ton', W.tone, true, tagScore(game.ton, profile.ton)],
     ['Bedrohung', W.threat, profile.gefahr != null, profile.gefahr != null ? hardnessScore(game, profile.gefahr) : 0],
     ['Spielstil', W.activities, true, activityScore(game.aktivitaeten, profile.aktivitaeten)],
@@ -301,8 +297,8 @@ function scoreGame(game, profile) {
 
 // Für jede skalare Achse (1-5) symmetrisch prüfen: nah dran -> gut-Chip,
 // deutlich daneben -> Warn-Chip in die passende Richtung. Vorher gab es das
-// nur für Fluff/Letalität -- Crunch, Narrativ, Bedrohung, Handlungsfreiheit
-// und Welt-Fremdheit hatten gar keine oder nur eine einseitige Rückmeldung,
+// nur für Fluff/Letalität -- Crunch, Narrativ, Bedrohung und Handlungsfreiheit
+// hatten gar keine oder nur eine einseitige Rückmeldung,
 // wodurch am Ende fast immer nur "Mehr/weniger Lore" als Warnung auftauchte.
 const SCALAR_AXES = [
   ['crunch', 'Passender Regelumfang', 'Mehr Crunch als gewünscht', 'Weniger Crunch als gewünscht'],
@@ -311,7 +307,6 @@ const SCALAR_AXES = [
   ['gefahr', 'Passende Bedrohungsintensität', 'Bedrohlicher als gewünscht', 'Harmloser als gewünscht'],
   ['letalitaet', 'Passende Schärfe beim Scheitern', 'Tödlicher als gewünscht', 'Glimpflicher als gewünscht'],
   ['handlungsfreiheit', 'Passende Handlungsfreiheit', 'Offener als gewünscht', 'Linearer als gewünscht'],
-  ['welt_fremdheit', 'Passende Welt-Fremdheit', 'Fremder/seltsamer als gewünscht', 'Näher an der Realität als gewünscht'],
 ];
 
 function makeChips(game, profile) {
@@ -443,7 +438,7 @@ const lowerFirst = (t) => (/^(Genre|Ton|Begriffe?) /.test(t) ? t : t[0].toLowerC
 
 // Gewicht je Regler-Achse (wie in scoreGame), um die teuerste Abweichung
 // einer Person zu finden.
-const AXIS_WEIGHT = { crunch: W.crunch, narrativ: W.narrativ, fluff: W.fluff, gefahr: W.threat, letalitaet: W.lethality, handlungsfreiheit: W.agency, welt_fremdheit: W.setting };
+const AXIS_WEIGHT = { crunch: W.crunch, narrativ: W.narrativ, fluff: W.fluff, gefahr: W.threat, letalitaet: W.lethality, handlungsfreiheit: W.agency };
 
 // Die Abweichung, die eine Person die meisten Punkte kostet: verfehltes
 // Genre/Ton oder der Regler mit dem größten gewichteten Abstand.
@@ -492,8 +487,8 @@ function explain(game, members) {
 
 // ------------------------------------------------------- Netzdiagramm
 const RADAR_AXES = [
-  ['welt_fremdheit', 'Welt', 'Welt-Fremdheit'], ['gefahr', 'Bedrohung', 'Bedrohung & Druck'],
-  ['handlungsfreiheit', 'Freiheit', 'Handlungsfreiheit'], ['letalitaet', 'Scheitern', 'Scheitern-Folgen'],
+  ['gefahr', 'Bedrohung', 'Bedrohung & Druck'], ['handlungsfreiheit', 'Freiheit', 'Handlungsfreiheit'],
+  ['letalitaet', 'Scheitern', 'Scheitern-Folgen'],
   ['figurenkompetenz', 'Figuren', 'Figurenkompetenz'], ['crunch', 'Crunch', 'Crunch'],
   ['narrativ', 'Narrativ', 'Erzählmechanik (Narrativ)'], ['fluff', 'Fluff', 'Welt-Ausarbeitung'],
 ];
@@ -641,24 +636,15 @@ export async function renderWahlomat(root, params, groupId = null) {
     B.genre.labels = Object.fromEntries([...genreSet].sort().map((t) => [t, t]));
     B.ton.labels = Object.fromEntries([...tonSet].sort().map((t) => [t, t]));
 
-    // Tag-Matrizen: jeder Untertag wird der Spalte zugeordnet, mit der er
-    // am häufigsten zusammen vorkommt (Untergenre → Top-Genre, Unterton →
-    // Top-Ton, Fokus → Spielstil-Kategorie). Die Zahl = Spiele mit dem Tag.
-    const groupOf = (counts) => [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'de'))[0]?.[0] || 'Weitere';
-    const fill = (kind, tagsOf, groupsOf) => {
-      const stats = new Map();
-      (data.games || []).forEach((g) => (tagsOf(g) || []).forEach((t) => {
-        const st = stats.get(t) || { n: 0, groups: new Map() };
-        st.n += 1;
-        groupsOf(g, t).forEach((grp) => st.groups.set(grp, (st.groups.get(grp) || 0) + 1));
-        stats.set(t, st);
-      }));
-      TAG_OPTIONS[kind] = new Map([...stats.entries()].map(([t, st]) => [t, { n: st.n, group: groupOf(st.groups) }]));
+    // Tag-Matrizen: alle vergebenen Untertags alphabetisch; die Zahl = Spiele mit dem Tag.
+    const fill = (kind, tagsOf) => {
+      const counts = new Map();
+      (data.games || []).forEach((g) => (tagsOf(g) || []).forEach((t) => counts.set(t, (counts.get(t) || 0) + 1)));
+      TAG_OPTIONS[kind] = counts;
     };
-    const activityOf = (t) => Object.entries(AKTIVITAETEN_TAGS).filter(([, set]) => set.has(t)).map(([k]) => B.aktivitaeten.labels[k]);
-    fill('subGenre', (g) => g.genre_setting, (g) => g.genre_setting_top || []);
-    fill('subTon', (g) => g.tone_theme, (g) => g.tone_theme_top || []);
-    fill('fokus', (g) => g.play_focus, (g, t) => { const a = activityOf(t); return a.length ? a : ['Weitere']; });
+    fill('subGenre', (g) => g.genre_setting);
+    fill('subTon', (g) => g.tone_theme);
+    fill('fokus', (g) => g.play_focus);
     games = buildGames(data);
     played = playHistory(log?.sessions || []);
   } catch (e) {
@@ -700,7 +686,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   root.innerHTML = '';
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat${group ? ` <span class="wahlomat-group-title">· ${esc(group.name)}</span>` : ''}</h1>
-    <p class="lede">Welches Spiel aus der Sammlung (${games.length} Spiele) passt zu dir oder eurer Gruppe? Sechs kurze Schritte.</p>
+    <p class="lede">Welches Spiel aus der Sammlung (${games.length} Spiele) passt zu dir oder eurer Gruppe? Sieben kurze Schritte.</p>
     <details class="wahlomat-howto"><summary>So funktioniert’s</summary><p>Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Regler stehen anfangs auf „Egal“ und zählen erst, wenn ihr sie bewegt – was euch nicht wichtig ist, lasst ihr einfach stehen. Im letzten Schritt könnt ihr bis zu drei Dimensionen stärker gewichten. Euer Zwischenstand wird in diesem Browser gespeichert.</p></details>
   </section>`);
   root.appendChild(head);
@@ -756,7 +742,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     if (!hasAnswers(state)) return;
     const editId = state.editIndex != null ? members[state.editIndex]?.id ?? null : null;
     const data = {
-      step: state.step, maxStep: Math.max(state.maxStep || 1, state.step), name: state.name, editIndex: state.editIndex, editId, baseGame: state.baseGame,
+      v: 2, step: state.step, maxStep: Math.max(state.maxStep || 1, state.step), name: state.name, editIndex: state.editIndex, editId, baseGame: state.baseGame,
       genre: state.genre, ton: state.ton, aktivitaeten: state.aktivitaeten, figurenkompetenz: state.figurenkompetenz, priorities: state.priorities,
       ...Object.fromEntries(Object.keys(TAG_KINDS).map((k) => [k, state[k]])),
       ...Object.fromEntries(SCALAR_KEYS.map((k) => [k, state[k]])), done: false, ts: Date.now(), ...extra,
@@ -777,10 +763,12 @@ export async function renderWahlomat(root, params, groupId = null) {
     Object.keys(TAG_KINDS).forEach((k) => { state[k] = Array.isArray(d[k]) ? d[k].filter((t) => TAG_OPTIONS[k].has(t)).slice(0, TAG_MAX) : []; });
     state.name = d.name || '';
     state.baseGame = d.baseGame || null;
-    state.maxStep = d.maxStep || d.step;
+    // Ältere Zwischenstände kennen „Vor dem Start“ noch nicht als eigenen Schritt.
+    const shift = d.v === 2 ? 0 : 1;
+    state.maxStep = (d.maxStep || d.step) + shift;
     // Bearbeitung einer Person nur fortsetzen, wenn es den Eintrag noch gibt.
     state.editIndex = d.editIndex != null && (d.editId == null || members[d.editIndex]?.id === d.editId) ? d.editIndex : null;
-    state.step = Math.min(STEPS.length, Math.max(1, d.step));
+    state.step = Math.min(STEPS.length, Math.max(1, d.step + shift));
   }
   function setUrl(hash, push) {
     if (location.hash === hash) return;
@@ -820,7 +808,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     // "zählt nicht", nicht "Mittelmaß gewünscht". Wer einen Regler bewegt
     // oder eine Figurenstufe anklickt, aktiviert die Frage damit.
     figurenkompetenz: null,
-    welt_fremdheit: null, gefahr: null, handlungsfreiheit: null, letalitaet: null,
+    gefahr: null, handlungsfreiheit: null, letalitaet: null,
     crunch: null, narrativ: null, fluff: null,
     priorities: [],
     subGenre: [], subTon: [], fokus: [],
@@ -915,23 +903,14 @@ export async function renderWahlomat(root, params, groupId = null) {
   // Gruppen zu den oben gewünschten Optionen stehen zuerst und offen.
   function tagMatrix(kind) {
     const cfg = TAG_KINDS[kind];
-    const wishedGroups = new Set(kind === 'fokus'
-      ? Object.entries(state.aktivitaeten).filter(([, v]) => v > 0).map(([k]) => B.aktivitaeten.labels[k])
-      : Object.entries(state[kind === 'subGenre' ? 'genre' : 'ton']).filter(([, v]) => v > 0).map(([k]) => k));
-    const groups = new Map();
-    [...TAG_OPTIONS[kind].entries()].sort((a, b) => a[0].localeCompare(b[0], 'de')).forEach(([t, o]) => {
-      if (!groups.has(o.group)) groups.set(o.group, []);
-      groups.get(o.group).push([t, o.n]);
-    });
-    const order = [...groups.keys()].sort((a, b) => (wishedGroups.has(b) - wishedGroups.has(a)) || (a === 'Weitere') - (b === 'Weitere') || a.localeCompare(b, 'de'));
     const wrap = el(`<fieldset class="wahlomat-field wahlomat-tagmatrix">
       <legend>Genauer: ${esc(cfg.label)} <span class="tm-count"></span></legend>
       <small>Optional: bis zu ${TAG_MAX} Begriffe, die euch besonders reizen.</small>
-      <div class="tm-grid"></div>
+      <div class="tm-chips"></div>
     </fieldset>`);
     const help = helpBox('tags');
     if (help) wrap.querySelector('small').after(help);
-    const grid = wrap.querySelector('.tm-grid');
+    const grid = wrap.querySelector('.tm-chips');
     const counter = wrap.querySelector('.tm-count');
     const sync = () => {
       const picked = state[kind];
@@ -942,20 +921,14 @@ export async function renderWahlomat(root, params, groupId = null) {
         b.disabled = !on && picked.length >= TAG_MAX;
       });
     };
-    order.forEach((name) => {
-      const open = wishedGroups.has(name) || (!wishedGroups.size && groups.size <= 6) || groups.get(name).some(([t]) => state[kind].includes(t));
-      const box = el(`<details class="tm-group"${open ? ' open' : ''}><summary>${esc(name)} <span class="faint">(${groups.get(name).length})</span></summary><div class="tm-chips"></div></details>`);
-      const chips = box.querySelector('.tm-chips');
-      groups.get(name).forEach(([t, n]) => {
-        const b = el(`<button type="button" class="tm-chip" data-tag="${esc(t)}" aria-pressed="false">${esc(t)} <span class="tm-n">${n}</span></button>`);
-        b.addEventListener('click', () => {
-          const picked = state[kind];
-          state[kind] = picked.includes(t) ? picked.filter((x) => x !== t) : [...picked, t].slice(0, TAG_MAX);
-          sync();
-        });
-        chips.appendChild(b);
+    [...TAG_OPTIONS[kind].entries()].sort((a, b) => a[0].localeCompare(b[0], 'de')).forEach(([t, n]) => {
+      const b = el(`<button type="button" class="tm-chip" data-tag="${esc(t)}" aria-pressed="false">${esc(t)} <span class="tm-n">${n}</span></button>`);
+      b.addEventListener('click', () => {
+        const picked = state[kind];
+        state[kind] = picked.includes(t) ? picked.filter((x) => x !== t) : [...picked, t].slice(0, TAG_MAX);
+        sync();
       });
-      grid.appendChild(box);
+      grid.appendChild(b);
     });
     sync();
     return wrap;
@@ -1027,9 +1000,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   }
 
   function setupPanel() {
-    const wrap = el(`<section class="panel wahlomat-step wahlomat-setup">
-      <h2 class="wahlomat-setup-title">Vor dem Start <span class="faint">${group ? '– Name ist Pflicht, die Blaupause optional' : '– alles optional'}</span></h2>
-    </section>`);
+    const wrap = el('<div class="wahlomat-setup"></div>');
     wrap.appendChild(nameField());
     // „Als Gruppe spielen?“ nur im Einzelmodus, nicht in einer bestehenden Gruppe.
     if (!group && !members.length) {
@@ -1091,8 +1062,8 @@ export async function renderWahlomat(root, params, groupId = null) {
     ['genre', 'ton'].forEach((k) => { state[k] = freshBudget(k); g[k].forEach((t) => { if (t in state[k]) state[k][t] = 4; }); });
     state.aktivitaeten = freshBudget('aktivitaeten');
     Object.entries(g.aktivitaeten).forEach(([k, v]) => { if (v >= 3) state.aktivitaeten[k] = 4; });
-    // Ohne erkannten Spielstil bleibt nichts gewählt – dann fragt Schritt 3 nach.
-    ['welt_fremdheit', 'handlungsfreiheit', 'crunch', 'narrativ', 'fluff'].forEach((k) => { state[k] = Math.round(g[k] * 2) / 2; });
+    // Ohne erkannten Spielstil bleibt nichts gewählt – dann fragt Schritt 4 nach.
+    ['handlungsfreiheit', 'crunch', 'narrativ', 'fluff'].forEach((k) => { state[k] = Math.round(g[k] * 2) / 2; });
     // Die Vorlage übernimmt Bedrohung und Scheitern-Folgen getrennt, damit das
     // Spiel sich selbst exakt trifft. Erst wer den Härte-Regler bewegt, setzt
     // wieder beide auf denselben Wert.
@@ -1135,7 +1106,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     if (s.budget) {
       if (!Object.values(state[s.budget]).some((v) => v > 0)) msg = 'Bitte wählt mindestens eine Option mit „Sehr gern“ oder „Gern“.';
     }
-    if (s.n === 4 && state.figurenkompetenz && !state.figurenkompetenz.length) msg = 'Bitte wählt mindestens ein Figurenbild – oder hakt „Egal“ an.';
+    if (s.n === 5 && state.figurenkompetenz && !state.figurenkompetenz.length) msg = 'Bitte wählt mindestens ein Figurenbild – oder hakt „Egal“ an.';
     if (s.n === 1 && group) {
       const nm = state.name.trim();
       if (!nm) msg = 'Bitte trag deinen Namen ein.';
@@ -1162,8 +1133,9 @@ export async function renderWahlomat(root, params, groupId = null) {
     quizWrap.innerHTML = '';
     const section = el(`<section class="panel wahlomat-step">
       <h2><span class="step-num">${s.n}</span> ${esc(s.title)}</h2>
-      <p class="muted">${esc(s.lede)}</p>
+      <p class="muted">${esc(s.setup ? (group ? 'Dein Name ist Pflicht, die Blaupause optional.' : 'Alles optional – ihr könnt direkt auf „Weiter“ gehen.') : s.lede)}</p>
     </section>`);
+    if (s.setup) section.appendChild(setupPanel());
 
     if (s.budget) {
       const cfg = B[s.budget];
@@ -1173,18 +1145,8 @@ export async function renderWahlomat(root, params, groupId = null) {
       fs.appendChild(renderBudget(cfg));
       section.appendChild(fs);
     }
-    // Die Matrix sortiert nach den Wünschen oben – nach jeder Antwort neu aufbauen.
-    Object.entries(TAG_KINDS).filter(([, cfg]) => cfg.step === s.n).forEach(([kind]) => {
-      let matrix = tagMatrix(kind);
-      section.appendChild(matrix);
-      section.querySelector('.wahlomat-taps')?.addEventListener('click', (e) => {
-        if (!e.target.closest('button')) return;
-        const fresh = tagMatrix(kind);
-        matrix.replaceWith(fresh);
-        matrix = fresh;
-      });
-    });
-    if (s.n === 4) section.appendChild(figureField());
+    Object.entries(TAG_KINDS).filter(([, cfg]) => cfg.step === s.n).forEach(([kind]) => section.appendChild(tagMatrix(kind)));
+    if (s.n === 5) section.appendChild(figureField());
     if (s.priorities) section.appendChild(priorityField());
     (RANGES[s.n] || []).forEach(([name, label, hint]) => section.appendChild(rangeField(name, label, hint)));
 
@@ -1220,8 +1182,6 @@ export async function renderWahlomat(root, params, groupId = null) {
     section.appendChild(nav);
 
     quizWrap.innerHTML = '';
-    // Seite 1: erst Name, Gruppe und Blaupause, danach die erste Frage.
-    if (s.n === 1) quizWrap.appendChild(setupPanel());
     quizWrap.appendChild(section);
     attempted = false;
     errorBox.textContent = '';
@@ -1247,7 +1207,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   function currentProfile() {
     return {
       genre: state.genre, ton: state.ton, aktivitaeten: state.aktivitaeten,
-      welt_fremdheit: state.welt_fremdheit, gefahr: state.gefahr, handlungsfreiheit: state.handlungsfreiheit,
+      gefahr: state.gefahr, handlungsfreiheit: state.handlungsfreiheit,
       figurenkompetenz: state.figurenkompetenz, letalitaet: state.letalitaet,
       crunch: state.crunch, narrativ: state.narrativ, fluff: state.fluff,
       priorities: state.priorities,
