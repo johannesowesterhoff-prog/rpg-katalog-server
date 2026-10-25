@@ -1,5 +1,7 @@
-// RPG-Wahlomat: sieben Fragenschritte über Genre, Ton, Spielstil, Figuren,
-// Regeln, Fluff und Prioritäten, danach ein Ranking der eigenen Sammlung.
+// RPG-Wahlomat: sechs Fragenschritte über Genre, Ton, Spielstil, Figuren,
+// die drei Skalen (Crunch, Narrativ, Fluff) und Prioritäten, danach ein
+// Ranking der eigenen Sammlung. Genre, Ton und Spielstil haben je eine
+// Tag-Matrix, aus der man 0–3 Untergenres, Untertöne bzw. Fokus-Tags wählt.
 //
 // Datengrundlage pro Frage (wichtig für die Einschätzung der Ergebnisse):
 //  - Genre, Ton, Crunch/Narrativ/Fluff: exakte Werte aus dem Katalog
@@ -35,7 +37,17 @@ const B = {
 // Die Zahlen selbst sind deshalb ungleich: Ja/Nein-Fragen (Genre, Ton) trennen
 // stärker als Regler mit Teilpunkten, und fast jedes Spiel trifft irgendeinen
 // Spielstil. Gemessen mit zufälligen Profilen gegen die Katalogdaten (Okt. 2026).
-const W = { genre: 11, setting: 11, tone: 10, threat: 5, activities: 9, agency: 11, figures: 10, lethality: 5, crunch: 11, narrativ: 10, fluff: 8 };
+const W = { genre: 11, setting: 11, tone: 10, threat: 5, activities: 9, agency: 11, figures: 10, lethality: 5, crunch: 11, narrativ: 10, fluff: 8, subGenre: 8, subTon: 8, fokus: 8 };
+
+// Tag-Matrizen: je Kategorie 0–3 Begriffe. Die Auswahllisten entstehen beim
+// Laden aus den tatsächlich vergebenen Tags (siehe renderWahlomat).
+const TAG_MAX = 3;
+const TAG_KINDS = {
+  subGenre: { label: 'Untergenres', source: 'genre_setting', step: 1, comp: 'Untergenre' },
+  subTon: { label: 'Untertöne', source: 'tone_theme', step: 2, comp: 'Unterton' },
+  fokus: { label: 'Spielfokus', source: 'play_focus', step: 3, comp: 'Fokus' },
+};
+const TAG_OPTIONS = { subGenre: new Map(), subTon: new Map(), fokus: new Map() };
 
 const FIGURE_OPTIONS = [
   [1.5, 'Alltagsmenschen in einer außergewöhnlichen Lage'],
@@ -72,8 +84,7 @@ const RANGES = {
   // Eine Frage für Bedrohung UND Scheitern-Folgen: Die beiden wurden fast
   // immer gleich beantwortet. Der Wert gilt für beide Achsen.
   4: [['gefahr', 'Wie hart soll es werden?', '1 = gemütlich, Scheitern kostet wenig · 5 = gnadenlos, Figurentod jederzeit möglich']],
-  5: [['crunch', 'Wie detailliert sollen die Regeln sein?', '1 = sehr leicht, kaum etwas wird mechanisch abgebildet · 5 = detaillierte Simulation (Kampf, Verletzungen, Ausrüstung, Charakterbau …)'], ['narrativ', 'Wie stark sollen die Regeln narratives Spiel unterstützen?', '1 = klassisch, Regeln lösen Aktionen auf · 5 = die Regeln drehen sich ums gemeinsame Erzählen']],
-  6: [['fluff', 'Wie ausgearbeitet soll die Spielwelt sein?', '1 = loser Rahmen, viel selbst ausdenken · 5 = viel Lore: Geschichte, Orte, Fraktionen, Hintergrundmaterial']],
+  5: [['crunch', 'Wie detailliert sollen die Regeln sein?', '1 = sehr leicht, kaum etwas wird mechanisch abgebildet · 5 = detaillierte Simulation (Kampf, Verletzungen, Ausrüstung, Charakterbau …)'], ['narrativ', 'Wie stark sollen die Regeln narratives Spiel unterstützen?', '1 = klassisch, Regeln lösen Aktionen auf · 5 = die Regeln drehen sich ums gemeinsame Erzählen'], ['fluff', 'Wie ausgearbeitet soll die Spielwelt sein?', '1 = loser Rahmen, viel selbst ausdenken · 5 = viel Lore: Geschichte, Orte, Fraktionen, Hintergrundmaterial']],
 };
 // Ein Satz je Stufe: Unter dem Regler steht, was der gewählte Wert bedeutet.
 const RANGE_DESC = {
@@ -90,9 +101,8 @@ const STEPS = [
   { n: 2, title: 'Ton & Themen', lede: 'Welche Stimmung soll eure Runde prägen?', budget: 'ton', budgetLegend: 'Welcher Grundton passt zu euch?' },
   { n: 3, title: 'Spielstil', lede: 'Was möchtet ihr am Tisch überwiegend tun?', budget: 'aktivitaeten', budgetLegend: 'Verteilt euren Spielfokus' },
   { n: 4, title: 'Figuren & Härte', lede: 'Wer seid ihr — und wie hart darf die Welt sein?' },
-  { n: 5, title: 'Regeln & Erzählweise', lede: 'Wie viel System und wie viel gemeinsame Gestaltung wollt ihr?' },
-  { n: 6, title: 'Fluff & Welttiefe', lede: 'Wie viel Hintergrund und Welterkundung soll das Spiel tragen?' },
-  { n: 7, title: 'Prioritäten', lede: 'Optional: Was soll im Ergebnis besonders stark zählen?' },
+  { n: 5, title: 'Regeln, Erzählweise & Welttiefe', lede: 'Wie viel System, wie viel gemeinsame Gestaltung und wie viel ausgearbeitete Welt wollt ihr?' },
+  { n: 6, title: 'Prioritäten', lede: 'Optional: Was soll im Ergebnis besonders stark zählen?', priorities: true },
 ];
 
 // Kurze Erklärungen ("Was ist gemeint?") je Frage – bewusst ohne Beispielspiele,
@@ -109,6 +119,7 @@ const HELP = {
   crunch: { text: 'Wie detailliert sind die Regeln – was wird alles mechanisch simuliert? Niedrig: wenige Werte, die meisten Situationen entscheidet ein einfacher Wurf. Hoch: eigene Regeln für Kampf, Verletzungen, Ausrüstung, Reisen und mehr.' },
   narrativ: { text: 'Wie stark helfen die Regeln dabei, möglichst narrativ zu spielen? Niedrig: Die Regeln lösen Aktionen auf, die Geschichte entsteht frei drumherum. Hoch: Mechaniken für Szenen, Konflikte, Wendungen und Charakterentwicklung – oft gestaltet ihr dabei auch Fakten der Welt mit (z. B. Aspekte in Fate).' },
   fluff: { text: 'Wie ausgearbeitet ist die Welt – wie viel Lore gibt es? Gemeint ist alles offiziell Veröffentlichte: Geschichte, Orte, Fraktionen, Abenteuer. Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
+  tags: { text: 'Optional und feiner als die Hauptfrage: Wählt bis zu drei Begriffe, die euch besonders reizen. Jeder davon, den ein Spiel trägt, bringt Punkte – trifft es alle gewählten, gibt es die vollen Punkte. Die Zahl hinter einem Begriff zeigt, wie viele Spiele ihn haben. Gruppen zu dem, was ihr oben gewählt habt, stehen offen.' },
   priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was ihr hier ankreuzt, zählt stärker – etwa „Crunch“, wenn euch die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
 };
 
@@ -200,6 +211,7 @@ function buildGames(catalog) {
       crunch: Number(game.crunch ?? 3),
       narrativ: Number(game.narrative ?? 3),
       fluff: Number(game.fluff ?? 3),
+      subGenre: g.genre_setting, subTon: g.tone_theme, fokus: g.play_focus,
       ...automaticProfile(g),
       // Im Admin gepflegte Werte haben Vorrang vor der Tag-Schätzung.
       ...Object.fromEntries(Object.entries(game.wahlomat_profile || {})
@@ -251,6 +263,13 @@ function hardnessScore(game, desired) {
   return proximity(Math.min(hi, Math.max(lo, desired)), desired);
 }
 
+// Tag-Matrix: Anteil der gewählten Begriffe, die das Spiel trägt.
+function pickScore(tags, picks) {
+  if (!picks || !picks.length) return 0;
+  return picks.filter((t) => tags.includes(t)).length / picks.length;
+}
+const hasPicks = (profile, kind) => Array.isArray(profile[kind]) && profile[kind].length > 0;
+
 function scoreGame(game, profile) {
   const components = [
     ['Genre', W.genre, true, tagScore(game.genre, profile.genre)],
@@ -264,6 +283,7 @@ function scoreGame(game, profile) {
     ['Crunch', W.crunch, profile.crunch != null, profile.crunch != null ? proximity(game.crunch, profile.crunch) : 0],
     ['Narrativ', W.narrativ, profile.narrativ != null, profile.narrativ != null ? proximity(game.narrativ, profile.narrativ) : 0],
     ['Fluff', W.fluff, profile.fluff != null, profile.fluff != null ? proximity(game.fluff, profile.fluff) : 0],
+    ...Object.entries(TAG_KINDS).map(([kind, cfg]) => [cfg.comp, W[kind], hasPicks(profile, kind), pickScore(game[kind] || [], profile[kind])]),
   ];
   // Bis zu drei per "Prioritäten"-Schritt gewählte Dimensionen zählen stärker.
   const priorities = profile.priorities || [];
@@ -310,6 +330,8 @@ function makeChips(game, profile) {
   if (tonHit) good.push(`Ton „${tone && game.ton.includes(tone) ? tone : game.ton[0]}“`);
   else warnings.push('Kein Wunschton getroffen');
   if (activity && game.aktivitaeten[activity] >= 3.5) good.push('Stark bei ' + B.aktivitaeten.labels[activity]);
+  const tagHits = Object.keys(TAG_KINDS).flatMap((kind) => (profile[kind] || []).filter((t) => (game[kind] || []).includes(t)));
+  if (tagHits.length) good.push(`${tagHits.length === 1 ? 'Begriff' : 'Begriffe'} ${tagHits.slice(0, 3).map((t) => `„${t}“`).join(', ')}${tagHits.length > 3 ? ` (+${tagHits.length - 3})` : ''}`);
 
   for (const [key, goodLabel, warnHighLabel, warnLowLabel] of SCALAR_AXES) {
     const desired = profile[key];
@@ -350,6 +372,7 @@ function encodeMember({ name, profile }) {
     s: Object.fromEntries(SCALAR_KEYS.filter((k) => profile[k] != null).map((k) => [k, profile[k]])),
     f: profile.figurenkompetenz,
     p: profile.priorities,
+    ...Object.fromEntries(Object.keys(TAG_KINDS).filter((k) => hasPicks(profile, k)).map((k) => [k, profile[k]])),
   }));
 }
 
@@ -371,6 +394,7 @@ function decodeMember(code) {
         ...Object.fromEntries(SCALAR_KEYS.map((k) => [k, scalar(o.s?.[k])])),
         figurenkompetenz: figures.length ? figures : null,
         priorities: Array.isArray(o.p) ? o.p.filter((p) => PRIORITY_OPTIONS.some(([k]) => k === p)).slice(0, PRIORITY_MAX) : [],
+        ...Object.fromEntries(Object.keys(TAG_KINDS).map((k) => [k, Array.isArray(o[k]) ? [...new Set(o[k])].filter((t) => TAG_OPTIONS[k].has(t)).slice(0, TAG_MAX) : []])),
       },
     };
   } catch { return null; }
@@ -389,7 +413,8 @@ function decodeMember(code) {
 function wishFit(game, profile) {
   const ownActivities = Object.keys(game.aktivitaeten).filter((k) => (game.aktivitaeten[k] || 0) >= 3);
   const parts = [[game.genre, profile.genre], [game.ton, profile.ton], [ownActivities, profile.aktivitaeten]];
-  const matches = parts.reduce((n, [tags, wishes]) => n + tags.filter((t) => (wishes[t] || 0) > 0).length, 0);
+  const matches = parts.reduce((n, [tags, wishes]) => n + tags.filter((t) => (wishes[t] || 0) > 0).length, 0)
+    + Object.keys(TAG_KINDS).reduce((n, k) => n + (profile[k] || []).filter((t) => (game[k] || []).includes(t)).length, 0);
   const total = parts.reduce((n, [tags]) => n + tags.length, 0);
   return { matches, focus: total ? matches / total : 0 };
 }
@@ -414,7 +439,7 @@ function scoreForGroupRaw(game, members) {
 
 // ------------------------------------------------------------ Klartext
 const joinDe = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} und ${items.at(-1)}`);
-const lowerFirst = (t) => (/^(Genre|Ton) /.test(t) ? t : t[0].toLowerCase() + t.slice(1));
+const lowerFirst = (t) => (/^(Genre|Ton|Begriffe?) /.test(t) ? t : t[0].toLowerCase() + t.slice(1));
 
 // Gewicht je Regler-Achse (wie in scoreGame), um die teuerste Abweichung
 // einer Person zu finden.
@@ -616,6 +641,24 @@ export async function renderWahlomat(root, params, groupId = null) {
     B.genre.labels = Object.fromEntries([...genreSet].sort().map((t) => [t, t]));
     B.ton.labels = Object.fromEntries([...tonSet].sort().map((t) => [t, t]));
 
+    // Tag-Matrizen: jeder Untertag wird der Spalte zugeordnet, mit der er
+    // am häufigsten zusammen vorkommt (Untergenre → Top-Genre, Unterton →
+    // Top-Ton, Fokus → Spielstil-Kategorie). Die Zahl = Spiele mit dem Tag.
+    const groupOf = (counts) => [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'de'))[0]?.[0] || 'Weitere';
+    const fill = (kind, tagsOf, groupsOf) => {
+      const stats = new Map();
+      (data.games || []).forEach((g) => (tagsOf(g) || []).forEach((t) => {
+        const st = stats.get(t) || { n: 0, groups: new Map() };
+        st.n += 1;
+        groupsOf(g, t).forEach((grp) => st.groups.set(grp, (st.groups.get(grp) || 0) + 1));
+        stats.set(t, st);
+      }));
+      TAG_OPTIONS[kind] = new Map([...stats.entries()].map(([t, st]) => [t, { n: st.n, group: groupOf(st.groups) }]));
+    };
+    const activityOf = (t) => Object.entries(AKTIVITAETEN_TAGS).filter(([, set]) => set.has(t)).map(([k]) => B.aktivitaeten.labels[k]);
+    fill('subGenre', (g) => g.genre_setting, (g) => g.genre_setting_top || []);
+    fill('subTon', (g) => g.tone_theme, (g) => g.tone_theme_top || []);
+    fill('fokus', (g) => g.play_focus, (g, t) => { const a = activityOf(t); return a.length ? a : ['Weitere']; });
     games = buildGames(data);
     played = playHistory(log?.sessions || []);
   } catch (e) {
@@ -657,7 +700,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   root.innerHTML = '';
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat${group ? ` <span class="wahlomat-group-title">· ${esc(group.name)}</span>` : ''}</h1>
-    <p class="lede">Welches Spiel aus der Sammlung (${games.length} Spiele) passt zu dir oder eurer Gruppe? Sieben kurze Schritte.</p>
+    <p class="lede">Welches Spiel aus der Sammlung (${games.length} Spiele) passt zu dir oder eurer Gruppe? Sechs kurze Schritte.</p>
     <details class="wahlomat-howto"><summary>So funktioniert’s</summary><p>Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Regler stehen anfangs auf „Egal“ und zählen erst, wenn ihr sie bewegt – was euch nicht wichtig ist, lasst ihr einfach stehen. Im letzten Schritt könnt ihr bis zu drei Dimensionen stärker gewichten. Euer Zwischenstand wird in diesem Browser gespeichert.</p></details>
   </section>`);
   root.appendChild(head);
@@ -706,6 +749,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   // Ein leerer Fragebogen überschreibt keinen gespeicherten Zwischenstand.
   function hasAnswers(st) {
     return ['genre', 'ton', 'aktivitaeten'].some((k) => Object.values(st[k] || {}).some((v) => v)) || SCALAR_KEYS.some((k) => st[k] != null)
+      || Object.keys(TAG_KINDS).some((k) => (st[k] || []).length)
       || st.figurenkompetenz != null || (st.priorities || []).length > 0 || !!st.baseGame;
   }
   function saveDraft(extra = {}) {
@@ -714,6 +758,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     const data = {
       step: state.step, maxStep: Math.max(state.maxStep || 1, state.step), name: state.name, editIndex: state.editIndex, editId, baseGame: state.baseGame,
       genre: state.genre, ton: state.ton, aktivitaeten: state.aktivitaeten, figurenkompetenz: state.figurenkompetenz, priorities: state.priorities,
+      ...Object.fromEntries(Object.keys(TAG_KINDS).map((k) => [k, state[k]])),
       ...Object.fromEntries(SCALAR_KEYS.map((k) => [k, state[k]])), done: false, ts: Date.now(), ...extra,
     };
     state.maxStep = data.maxStep;
@@ -729,6 +774,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     SCALAR_KEYS.forEach((k) => { state[k] = Number.isFinite(d[k]) ? d[k] : null; });
     state.figurenkompetenz = Array.isArray(d.figurenkompetenz) ? d.figurenkompetenz : null;
     state.priorities = Array.isArray(d.priorities) ? d.priorities : [];
+    Object.keys(TAG_KINDS).forEach((k) => { state[k] = Array.isArray(d[k]) ? d[k].filter((t) => TAG_OPTIONS[k].has(t)).slice(0, TAG_MAX) : []; });
     state.name = d.name || '';
     state.baseGame = d.baseGame || null;
     state.maxStep = d.maxStep || d.step;
@@ -777,6 +823,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     welt_fremdheit: null, gefahr: null, handlungsfreiheit: null, letalitaet: null,
     crunch: null, narrativ: null, fluff: null,
     priorities: [],
+    subGenre: [], subTon: [], fokus: [],
     // Spiel, mit dessen Profil vorbelegt wurde (nur zur Anzeige).
     baseGame: null,
   };
@@ -793,6 +840,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     state.letalitaet = state.gefahr;
     state.figurenkompetenz = p?.figurenkompetenz ? [...p.figurenkompetenz] : null;
     state.priorities = p ? [...p.priorities] : [];
+    Object.keys(TAG_KINDS).forEach((k) => { state[k] = p?.[k] ? [...p[k]] : []; });
     state.baseGame = null;
   }
 
@@ -860,6 +908,56 @@ export async function renderWahlomat(root, params, groupId = null) {
     skip.addEventListener('change', () => { setValue(skip.checked ? null : Number(input.value)); sync(); });
     const help = helpBox(name);
     if (help) wrap.querySelector('small').after(help);
+    return wrap;
+  }
+
+  // Tag-Matrix: Spalten = Oberbegriff, darin die Untertags als Chips.
+  // Gruppen zu den oben gewünschten Optionen stehen zuerst und offen.
+  function tagMatrix(kind) {
+    const cfg = TAG_KINDS[kind];
+    const wishedGroups = new Set(kind === 'fokus'
+      ? Object.entries(state.aktivitaeten).filter(([, v]) => v > 0).map(([k]) => B.aktivitaeten.labels[k])
+      : Object.entries(state[kind === 'subGenre' ? 'genre' : 'ton']).filter(([, v]) => v > 0).map(([k]) => k));
+    const groups = new Map();
+    [...TAG_OPTIONS[kind].entries()].sort((a, b) => a[0].localeCompare(b[0], 'de')).forEach(([t, o]) => {
+      if (!groups.has(o.group)) groups.set(o.group, []);
+      groups.get(o.group).push([t, o.n]);
+    });
+    const order = [...groups.keys()].sort((a, b) => (wishedGroups.has(b) - wishedGroups.has(a)) || (a === 'Weitere') - (b === 'Weitere') || a.localeCompare(b, 'de'));
+    const wrap = el(`<fieldset class="wahlomat-field wahlomat-tagmatrix">
+      <legend>Genauer: ${esc(cfg.label)} <span class="tm-count"></span></legend>
+      <small>Optional: bis zu ${TAG_MAX} Begriffe, die euch besonders reizen.</small>
+      <div class="tm-grid"></div>
+    </fieldset>`);
+    const help = helpBox('tags');
+    if (help) wrap.querySelector('small').after(help);
+    const grid = wrap.querySelector('.tm-grid');
+    const counter = wrap.querySelector('.tm-count');
+    const sync = () => {
+      const picked = state[kind];
+      counter.textContent = `${picked.length}/${TAG_MAX}`;
+      grid.querySelectorAll('button[data-tag]').forEach((b) => {
+        const on = picked.includes(b.dataset.tag);
+        b.setAttribute('aria-pressed', String(on));
+        b.disabled = !on && picked.length >= TAG_MAX;
+      });
+    };
+    order.forEach((name) => {
+      const open = wishedGroups.has(name) || (!wishedGroups.size && groups.size <= 6) || groups.get(name).some(([t]) => state[kind].includes(t));
+      const box = el(`<details class="tm-group"${open ? ' open' : ''}><summary>${esc(name)} <span class="faint">(${groups.get(name).length})</span></summary><div class="tm-chips"></div></details>`);
+      const chips = box.querySelector('.tm-chips');
+      groups.get(name).forEach(([t, n]) => {
+        const b = el(`<button type="button" class="tm-chip" data-tag="${esc(t)}" aria-pressed="false">${esc(t)} <span class="tm-n">${n}</span></button>`);
+        b.addEventListener('click', () => {
+          const picked = state[kind];
+          state[kind] = picked.includes(t) ? picked.filter((x) => x !== t) : [...picked, t].slice(0, TAG_MAX);
+          sync();
+        });
+        chips.appendChild(b);
+      });
+      grid.appendChild(box);
+    });
+    sync();
     return wrap;
   }
 
@@ -1009,6 +1107,8 @@ export async function renderWahlomat(root, params, groupId = null) {
     state.figurenkompetenz = exact != null ? [exact]
       : below != null && above != null ? [below, above]
         : [below ?? above];
+    // Bis zu drei eigene Tags je Matrix, damit die Blaupause sich selbst trifft.
+    Object.keys(TAG_KINDS).forEach((k) => { state[k] = (g[k] || []).slice(0, TAG_MAX); });
     state.baseGame = g.id;
   }
 
@@ -1073,8 +1173,19 @@ export async function renderWahlomat(root, params, groupId = null) {
       fs.appendChild(renderBudget(cfg));
       section.appendChild(fs);
     }
+    // Die Matrix sortiert nach den Wünschen oben – nach jeder Antwort neu aufbauen.
+    Object.entries(TAG_KINDS).filter(([, cfg]) => cfg.step === s.n).forEach(([kind]) => {
+      let matrix = tagMatrix(kind);
+      section.appendChild(matrix);
+      section.querySelector('.wahlomat-taps')?.addEventListener('click', (e) => {
+        if (!e.target.closest('button')) return;
+        const fresh = tagMatrix(kind);
+        matrix.replaceWith(fresh);
+        matrix = fresh;
+      });
+    });
     if (s.n === 4) section.appendChild(figureField());
-    if (s.n === 7) section.appendChild(priorityField());
+    if (s.priorities) section.appendChild(priorityField());
     (RANGES[s.n] || []).forEach(([name, label, hint]) => section.appendChild(rangeField(name, label, hint)));
 
     errorBox = el('<p class="wahlomat-error"></p>');
@@ -1140,6 +1251,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       figurenkompetenz: state.figurenkompetenz, letalitaet: state.letalitaet,
       crunch: state.crunch, narrativ: state.narrativ, fluff: state.fluff,
       priorities: state.priorities,
+      subGenre: state.subGenre, subTon: state.subTon, fokus: state.fokus,
     };
   }
 

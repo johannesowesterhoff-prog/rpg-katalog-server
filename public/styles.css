@@ -448,6 +448,16 @@ tbody tr:hover { background: var(--surface-2); }
 }
 .wahlomat-choice:has(input:checked) { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
 .wahlomat-choice input { width: auto; accent-color: var(--accent); }
+.wahlomat-tagmatrix legend .tm-count { font-weight: 400; font-size: var(--text-xs); color: var(--text-muted); margin-left: .35rem; }
+.tm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-2); align-items: start; }
+.tm-group { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev); padding: .45rem var(--space-3); }
+.tm-group[open] { grid-column: 1 / -1; }
+.tm-group summary { cursor: pointer; font-size: var(--text-sm); font-weight: 600; }
+.tm-chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: var(--space-2); }
+.tm-chip { font: inherit; font-size: var(--text-xs); padding: .25rem .55rem; border: 1px solid var(--border-strong); border-radius: var(--radius-full); background: transparent; color: var(--text); cursor: pointer; }
+.tm-chip .tm-n { color: var(--text-faint); margin-left: .15rem; }
+.tm-chip[aria-pressed="true"] { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.tm-chip:disabled { opacity: .45; cursor: not-allowed; }
 .wahlomat-error { min-height: 1.2em; color: var(--danger); font-size: var(--text-sm); margin: 0; }
 .wahlomat-results { display: grid; gap: var(--space-4); }
 .wahlomat-result-top { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-3); align-items: center; }
