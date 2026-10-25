@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run deploy:gcp)"
+      "Bash(npm run deploy:gcp)",
+      "mcp__Neon__run_sql",
+      "mcp__Neon__run_sql_transaction"
     ]
   }
 }
