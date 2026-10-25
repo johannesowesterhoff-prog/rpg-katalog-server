@@ -29,7 +29,13 @@ const B = {
   },
 };
 
-const W = { genre: 15, setting: 7, tone: 12, threat: 8, activities: 15, agency: 6, figures: 7, lethality: 8, crunch: 7, narrativ: 8, fluff: 10 };
+// Gewichte so kalibriert, dass bei gemischten Antworten Genre, Ton und
+// Spielstil je etwa 15 % der Unterschiede zwischen den Spielen ausmachen und
+// die übrigen sieben Fragen je etwa 8 % (Härte = Bedrohung + Scheitern).
+// Die Zahlen selbst sind deshalb ungleich: Ja/Nein-Fragen (Genre, Ton) trennen
+// stärker als Regler mit Teilpunkten, und fast jedes Spiel trifft irgendeinen
+// Spielstil. Gemessen mit zufälligen Profilen gegen die Katalogdaten (Okt. 2026).
+const W = { genre: 11, setting: 11, tone: 10, threat: 5, activities: 9, agency: 11, figures: 10, lethality: 5, crunch: 11, narrativ: 10, fluff: 8 };
 
 const FIGURE_OPTIONS = [
   [1.5, 'Alltagsmenschen in einer außergewöhnlichen Lage'],
