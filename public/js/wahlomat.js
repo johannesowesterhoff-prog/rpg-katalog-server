@@ -44,9 +44,9 @@ const W = { genre: 11, tone: 10, threat: 5, activities: 9, agency: 11, figures: 
 // Laden aus den tatsächlich vergebenen Tags (siehe renderWahlomat).
 const TAG_MAX = 5;
 const TAG_KINDS = {
-  subGenre: { label: 'Untergenres', source: 'genre_setting', step: 2, comp: 'Untergenre' },
-  subTon: { label: 'Untertöne', source: 'tone_theme', step: 3, comp: 'Unterton' },
-  fokus: { label: 'Spielfokus', source: 'play_focus', step: 4, comp: 'Fokus' },
+  subGenre: { label: 'Untergenres', source: 'genre_setting', step: 2, comp: 'Untergenre', full: 2 },
+  subTon: { label: 'Untertöne', source: 'tone_theme', step: 3, comp: 'Unterton', full: 3 },
+  fokus: { label: 'Spielfokus', source: 'play_focus', step: 4, comp: 'Fokus', full: 4 },
 };
 const TAG_OPTIONS = { subGenre: new Map(), subTon: new Map(), fokus: new Map() };
 // Thematische Gruppen für die langen Matrizen (von Hand gepflegt). Neue
@@ -143,7 +143,7 @@ const HELP = {
   crunch: { text: 'Wie detailliert sind die Regeln – was wird alles mechanisch simuliert? Niedrig: wenige Werte, die meisten Situationen entscheidet ein einfacher Wurf. Hoch: eigene Regeln für Kampf, Verletzungen, Ausrüstung, Reisen und mehr.' },
   narrativ: { text: 'Wie stark helfen die Regeln dabei, möglichst narrativ zu spielen? Niedrig: Die Regeln lösen Aktionen auf, die Geschichte entsteht frei drumherum. Hoch: Mechaniken für Szenen, Konflikte, Wendungen und Charakterentwicklung – oft gestaltet ihr dabei auch Fakten der Welt mit (z. B. Aspekte in Fate).' },
   fluff: { text: 'Wie ausgearbeitet ist die Welt – wie viel Lore gibt es? Gemeint ist alles offiziell Veröffentlichte: Geschichte, Orte, Fraktionen, Abenteuer. Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
-  tags: { text: 'Optional und feiner als die Hauptfrage: Wählt bis zu fünf Begriffe, die euch besonders reizen. Die Punkte der Matrix teilen sich auf alle gewählten Begriffe auf – je mehr ihr wählt, desto weniger zählt der einzelne. Trägt ein Spiel alle gewählten, gibt es die vollen Punkte. Die Zahl hinter einem Begriff zeigt, wie viele Spiele ihn haben.' },
+  tags: { text: 'Optional und feiner als die Hauptfrage: Wählt bis zu fünf Begriffe, die euch besonders reizen. Jeder Treffer bringt Punkte. Volle Punkte gibt es, wenn ein Spiel alle gewählten Begriffe trägt – oder schon bei 2 passenden Untergenres, 3 Untertönen bzw. 4 Fokus-Begriffen, weil kein Spiel mehr davon hat. Wer mehr wählt, nennt also Alternativen. Die Zahl hinter einem Begriff zeigt, wie viele Spiele ihn haben.' },
   priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was ihr hier ankreuzt, zählt stärker – etwa „Crunch“, wenn euch die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
 };
 
@@ -287,10 +287,12 @@ function hardnessScore(game, desired) {
   return proximity(Math.min(hi, Math.max(lo, desired)), desired);
 }
 
-// Tag-Matrix: Anteil der gewählten Begriffe, die das Spiel trägt.
-function pickScore(tags, picks) {
+// Tag-Matrix: Anteil der gewählten Begriffe, die das Spiel trägt. Volle
+// Punkte gibt es schon ab `full` Treffern (so viele Begriffe hat ein Spiel
+// mindestens), damit Spiele mit wenigen Tags bei vielen Picks nicht verlieren.
+function pickScore(tags, picks, full = picks?.length) {
   if (!picks || !picks.length) return 0;
-  return picks.filter((t) => tags.includes(t)).length / picks.length;
+  return Math.min(1, picks.filter((t) => tags.includes(t)).length / Math.min(picks.length, full));
 }
 const hasPicks = (profile, kind) => Array.isArray(profile[kind]) && profile[kind].length > 0;
 
@@ -306,7 +308,7 @@ function scoreGame(game, profile) {
     ['Crunch', W.crunch, profile.crunch != null, profile.crunch != null ? proximity(game.crunch, profile.crunch) : 0],
     ['Narrativ', W.narrativ, profile.narrativ != null, profile.narrativ != null ? proximity(game.narrativ, profile.narrativ) : 0],
     ['Fluff', W.fluff, profile.fluff != null, profile.fluff != null ? proximity(game.fluff, profile.fluff) : 0],
-    ...Object.entries(TAG_KINDS).map(([kind, cfg]) => [cfg.comp, W[kind], hasPicks(profile, kind), pickScore(game[kind] || [], profile[kind])]),
+    ...Object.entries(TAG_KINDS).map(([kind, cfg]) => [cfg.comp, W[kind], hasPicks(profile, kind), pickScore(game[kind] || [], profile[kind], cfg.full)]),
   ];
   // Bis zu drei per "Prioritäten"-Schritt gewählte Dimensionen zählen stärker.
   const priorities = profile.priorities || [];
