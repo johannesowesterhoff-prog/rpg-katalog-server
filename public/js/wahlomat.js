@@ -52,12 +52,19 @@ const TAG_OPTIONS = { subGenre: new Map(), subTon: new Map(), fokus: new Map() }
 // Thematische Gruppen für die langen Matrizen (von Hand gepflegt). Neue
 // Begriffe, die hier fehlen, landen unter „Weitere“.
 const TAG_GROUPS = {
+  subGenre: [
+    ['Fantasy', ['High Fantasy', 'Dark Fantasy', 'Low Fantasy', 'Weird Fantasy', 'Sword & Sorcery', 'Urban Fantasy', 'Märchenfantasy', 'Märchen', 'Mythische Inselwelt', 'Asiatische Martial-Arts-Welt']],
+    ['Historisch & Urzeit', ['Mittelalter', 'Antike', 'Viktorianisch', 'Primal Punk']],
+    ['Krimi, Noir & Action', ['Krimi', 'Noir', 'Neo-Noir', 'Politthriller', 'Auftragskiller', 'Cinematic Action']],
+    ['Science-Fiction', ['Space Opera', 'Low-Fi Sci-Fi']],
+    ['Besondere Themen', ['Akademie', 'Coming-of-Age', 'Satire', 'Generisch']],
+  ],
   subTon: [
-    ['Leicht & humorvoll', ['Verspielt', 'Warmherzig', 'Gemütlich', 'Unbeschwert', 'Niedlich', 'Zauberhaft', 'Albern', 'Skurril', 'Slapstick', 'Chaotisch', 'Parodistisch', 'Schwarzer Humor', 'Bissig', 'Alltagsnah', 'Naturverbunden', 'Schulalltag']],
-    ['Action & Abenteuer', ['Pulp', 'Actionreich', 'Rasant', 'Adrenalingeladen', 'Tollkühn', 'Abenteuerlust', 'Erkundungsfreude', 'Schatzsuche', 'Wettlauf', 'Episch', 'Klassisch', 'Klassische Heldenreise', 'Legendenbildung', 'Mythisch', 'Söldnertum', 'Duelle', 'Urzeitlich']],
-    ['Düster & unheimlich', ['Unheimlich', 'Kosmisches Grauen', 'Existenzielle Angst', 'Klaustrophobisch', 'Paranoid', 'Verstörend', 'Brutal', 'Blutig', 'Körperliche Bedrohung', 'Grimdark', 'Kompromisslos', 'Ausweglos', 'Konsequenzenreich', 'Überlebenskampf', 'Verfall', 'Verfallende Zivilisationen', 'Weltuntergangsstimmung', 'Seuche', 'Verbotene Magie', 'Korrumpierung', 'Realitätsbruch', 'Rätselhaft', 'Geheimnisse', 'Folkloristisch', 'Feenhaft']],
-    ['Macht, Intrige & Gesellschaft', ['Machtstreben', 'Gier', 'Höfische Intrige', 'Politischer Konflikt', 'Fraktionskonflikt', 'Kulturkonflikt', 'Konzernmacht', 'Korrupt', 'Zwielichtig', 'Verrat', 'Geheimbund', 'Kultverschwörung', 'Bürokratisch', 'Prekär', 'Straßenleben', 'Soziale Ungerechtigkeit', 'Gesellschaftliche Ausgrenzung', 'Bandenehre', 'Sozial eingebettet']],
-    ['Figuren & Gefühle', ['Persönliches Wachstum', 'Innerer Konflikt', 'Freundschaft', 'Teamgeist', 'Verantwortung', 'Opferbereitschaft', 'Schuld', 'Verlust', 'Rache', 'Rivalität', 'Moralische Grauzonen', 'Bösartig', 'Tabubrechend']],
+    ['Leicht & humorvoll', ['Verspielt', 'Warmherzig', 'Gemütlich', 'Unbeschwert', 'Niedlich', 'Zauberhaft', 'Albern', 'Skurril', 'Slapstick', 'Chaotisch', 'Parodistisch', 'Schwarzer Humor', 'Bissig', 'Alltagsnah', 'Naturverbunden']],
+    ['Action & Abenteuer', ['Pulp', 'Actionreich', 'Abenteuerlust', 'Episch', 'Klassisch', 'Legendenbildung', 'Mythisch', 'Söldnertum']],
+    ['Düster & unheimlich', ['Unheimlich', 'Kosmisches Grauen', 'Existenzielle Angst', 'Klaustrophobisch', 'Paranoid', 'Verstörend', 'Brutal', 'Grimdark', 'Ausweglos', 'Konsequenzenreich', 'Überlebenskampf', 'Verfall', 'Verbotene Magie', 'Korrumpierung', 'Realitätsbruch', 'Rätselhaft', 'Geheimnisse', 'Folkloristisch', 'Feenhaft']],
+    ['Macht, Intrige & Gesellschaft', ['Machtstreben', 'Höfische Intrige', 'Fraktionskonflikt', 'Kulturkonflikt', 'Konzernmacht', 'Korrupt', 'Verrat', 'Geheimbund', 'Kultverschwörung', 'Straßenleben', 'Gesellschaftliche Ausgrenzung', 'Bandenehre', 'Sozial eingebettet']],
+    ['Figuren & Gefühle', ['Persönliches Wachstum', 'Freundschaft', 'Teamgeist', 'Verantwortung', 'Opferbereitschaft', 'Schuld', 'Verlust', 'Rache', 'Rivalität', 'Moralische Grauzonen', 'Bösartig', 'Tabubrechend']],
     ['Spielweise', ['Einsteigerfreundlich', 'Genreoffen', 'Baukasten', 'Simulationistisch', 'Glaubwürdig', 'Nüchtern', 'Improvisiert', 'Freie Weltgestaltung', 'Entscheidungsgetrieben', 'Wendungsreich', 'Dramatisch']],
   ],
   fokus: [
