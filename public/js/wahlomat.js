@@ -49,6 +49,26 @@ const TAG_KINDS = {
   fokus: { label: 'Spielfokus', source: 'play_focus', step: 4, comp: 'Fokus' },
 };
 const TAG_OPTIONS = { subGenre: new Map(), subTon: new Map(), fokus: new Map() };
+// Thematische Gruppen für die langen Matrizen (von Hand gepflegt). Neue
+// Begriffe, die hier fehlen, landen unter „Weitere“.
+const TAG_GROUPS = {
+  subTon: [
+    ['Leicht & humorvoll', ['Verspielt', 'Warmherzig', 'Gemütlich', 'Unbeschwert', 'Niedlich', 'Zauberhaft', 'Albern', 'Skurril', 'Slapstick', 'Chaotisch', 'Parodistisch', 'Schwarzer Humor', 'Bissig', 'Alltagsnah', 'Naturverbunden', 'Schulalltag']],
+    ['Action & Abenteuer', ['Pulp', 'Actionreich', 'Rasant', 'Adrenalingeladen', 'Tollkühn', 'Abenteuerlust', 'Erkundungsfreude', 'Schatzsuche', 'Wettlauf', 'Episch', 'Klassisch', 'Klassische Heldenreise', 'Legendenbildung', 'Mythisch', 'Söldnertum', 'Duelle', 'Urzeitlich']],
+    ['Düster & unheimlich', ['Unheimlich', 'Kosmisches Grauen', 'Existenzielle Angst', 'Klaustrophobisch', 'Paranoid', 'Verstörend', 'Brutal', 'Blutig', 'Körperliche Bedrohung', 'Grimdark', 'Kompromisslos', 'Ausweglos', 'Konsequenzenreich', 'Überlebenskampf', 'Verfall', 'Verfallende Zivilisationen', 'Weltuntergangsstimmung', 'Seuche', 'Verbotene Magie', 'Korrumpierung', 'Realitätsbruch', 'Rätselhaft', 'Geheimnisse', 'Folkloristisch', 'Feenhaft']],
+    ['Macht, Intrige & Gesellschaft', ['Machtstreben', 'Gier', 'Höfische Intrige', 'Politischer Konflikt', 'Fraktionskonflikt', 'Kulturkonflikt', 'Konzernmacht', 'Korrupt', 'Zwielichtig', 'Verrat', 'Geheimbund', 'Kultverschwörung', 'Bürokratisch', 'Prekär', 'Straßenleben', 'Soziale Ungerechtigkeit', 'Gesellschaftliche Ausgrenzung', 'Bandenehre', 'Sozial eingebettet']],
+    ['Figuren & Gefühle', ['Persönliches Wachstum', 'Innerer Konflikt', 'Freundschaft', 'Teamgeist', 'Verantwortung', 'Opferbereitschaft', 'Schuld', 'Verlust', 'Rache', 'Rivalität', 'Moralische Grauzonen', 'Bösartig', 'Tabubrechend']],
+    ['Spielweise', ['Einsteigerfreundlich', 'Genreoffen', 'Baukasten', 'Simulationistisch', 'Glaubwürdig', 'Nüchtern', 'Improvisiert', 'Freie Weltgestaltung', 'Entscheidungsgetrieben', 'Wendungsreich', 'Dramatisch']],
+  ],
+  fokus: [
+    ['Kampf & Action', ['Kampf / Taktik', 'Action', 'Pulp-Action', 'Superheldenabenteuer', 'Sword & Sorcery-Abenteuer', 'John-Wick-Style', 'Assassinen-Kampagnen', 'Zerstörung', 'Konflikte aller Art', 'Stadt- und Bandenkrieg', 'Bändigen der Elemente', 'Geschicklichkeitswürfe']],
+    ['Erkunden & Reisen', ['Erkundung', 'Abenteuer', 'Dungeon-Crawls', 'Hex-Crawl / Erkundung', 'Reise', 'Sandbox', 'Schatzjagden', 'Indiana-Jones-Style', 'Raumfahrt', 'Galaktische Kampagnen', 'Episodische Insel-Abenteuer', 'Missionen / Aufträge', 'Klassische Fantasy', 'Mythische Heldenreisen', 'Magie & Relikte']],
+    ['Ermitteln & Rätseln', ['Ermittlungen', 'Mystery', 'Rätsel', 'kreative Problemlösung', 'Heist', 'Spionage', 'Kultbekämpfung', 'Weird-Horror-Abenteuer', 'Horror mit Humor']],
+    ['Beziehungen & Intrigen', ['Charakterspiel', 'Charakterentwicklung', 'Soziale Interaktionen', 'Soziale Konflikte', 'Intrigen', 'Diplomatie', 'Konzernintrigen', 'Konflikte zwischen Kulturen', 'Ruhm und Rivalität', 'Satire / Gesellschaftskritik', 'Transformation', 'Dorfleben']],
+    ['Überleben & Aufbau', ['Überleben', 'Ressourcenmanagement', 'Fraktionen', 'Aufbau einer Festung', 'Dungeonbau', 'Gangspiel', 'Kampagnen im Alien-Universum']],
+    ['Spielweise', ['Erzählorientiert', 'Kinderfreundlich / Familienrunden', 'Old-School-Spiel', 'Improvisation', 'Gemeinsamer Weltenbau', 'Adaptiv / Baukastensystem', 'Kreativität', 'Schnelle Charaktererstellung', 'Simulation', 'Brettspielig', 'Serienartige Geschichten', 'Zero-Prep-Abenteuer']],
+  ],
+};
 
 const FIGURE_OPTIONS = [
   [1.5, 'Alltagsmenschen in einer außergewöhnlichen Lage'],
@@ -906,11 +926,11 @@ export async function renderWahlomat(root, params, groupId = null) {
     const wrap = el(`<fieldset class="wahlomat-field wahlomat-tagmatrix">
       <legend>Genauer: ${esc(cfg.label)} <span class="tm-count"></span></legend>
       <small>Optional: bis zu ${TAG_MAX} Begriffe, die euch besonders reizen.</small>
-      <div class="tm-chips"></div>
+      <div class="tm-body"></div>
     </fieldset>`);
     const help = helpBox('tags');
     if (help) wrap.querySelector('small').after(help);
-    const grid = wrap.querySelector('.tm-chips');
+    const grid = wrap.querySelector('.tm-body');
     const counter = wrap.querySelector('.tm-count');
     const sync = () => {
       const picked = state[kind];
@@ -921,15 +941,33 @@ export async function renderWahlomat(root, params, groupId = null) {
         b.disabled = !on && picked.length >= TAG_MAX;
       });
     };
-    [...TAG_OPTIONS[kind].entries()].sort((a, b) => a[0].localeCompare(b[0], 'de')).forEach(([t, n]) => {
+    const chip = (t, n) => {
       const b = el(`<button type="button" class="tm-chip" data-tag="${esc(t)}" aria-pressed="false">${esc(t)} <span class="tm-n">${n}</span></button>`);
       b.addEventListener('click', () => {
         const picked = state[kind];
         state[kind] = picked.includes(t) ? picked.filter((x) => x !== t) : [...picked, t].slice(0, TAG_MAX);
         sync();
       });
-      grid.appendChild(b);
-    });
+      return b;
+    };
+    const options = TAG_OPTIONS[kind];
+    if (!TAG_GROUPS[kind]) {
+      const chips = el('<div class="tm-chips"></div>');
+      [...options.entries()].sort((a, b) => a[0].localeCompare(b[0], 'de')).forEach(([t, n]) => chips.appendChild(chip(t, n)));
+      grid.appendChild(chips);
+    } else {
+      // Gruppen zu, außer es ist daraus schon etwas gewählt; darin die häufigsten zuerst.
+      const known = new Set(TAG_GROUPS[kind].flatMap(([, tags]) => tags));
+      const groups = [...TAG_GROUPS[kind], ['Weitere', [...options.keys()].filter((t) => !known.has(t))]];
+      groups.forEach(([name, tags]) => {
+        const used = tags.filter((t) => options.has(t)).sort((a, b) => options.get(b) - options.get(a) || a.localeCompare(b, 'de'));
+        if (!used.length) return;
+        const open = used.some((t) => state[kind].includes(t));
+        const box = el(`<details class="tm-group"${open ? ' open' : ''}><summary>${esc(name)} <span class="faint">(${used.length})</span></summary><div class="tm-chips"></div></details>`);
+        used.forEach((t) => box.querySelector('.tm-chips').appendChild(chip(t, options.get(t))));
+        grid.appendChild(box);
+      });
+    }
     sync();
     return wrap;
   }
