@@ -85,6 +85,12 @@ async function route() {
 
 window.addEventListener('hashchange', route);
 
+// Logo und „Katalog“ führen auf den ungefilterten Katalog. Steht die Adresse
+// schon auf #/, gibt es kein hashchange – dann selbst neu laden.
+document.querySelectorAll('a.brand, .site-nav a[data-nav="katalog"]').forEach((a) => a.addEventListener('click', (e) => {
+  if ((location.hash || '#/') === '#/') { e.preventDefault(); route(); }
+}));
+
 api('/api/admin/session').then((s) => {
   ctx.isAdmin = s.isAdmin; ctx.hasArchiveAccess = !!s.hasArchiveAccess; ctx.dbMode = s.dbMode;
   // Technischer Hinweis nur für Angemeldete.

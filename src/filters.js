@@ -6,7 +6,7 @@
 // Array- bzw. Skalarspalten ausdrücken, ohne JOIN-Explosion durch die
 // Zuordnungstabellen.
 
-export const PAGE_SIZE = 24;
+export const PAGE_SIZE = 25;
 
 export const SORTS = {
   // lower+unaccent, sonst sortiert die DB byteweise: "FUK!" vor "Fantasy",
