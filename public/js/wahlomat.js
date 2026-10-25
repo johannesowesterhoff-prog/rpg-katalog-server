@@ -236,16 +236,25 @@ function figureScore(gameValue, selectedValues) {
   return Math.max(...selectedValues.map((v) => proximity(gameValue - Math.sign(gameValue - v) * Math.min(0.5, Math.abs(gameValue - v)), v)));
 }
 
+// Härte: Eine Frage setzt Bedrohung UND Scheitern-Folgen. Weichen die beiden
+// Werte eines Spiels voneinander ab, gilt jede Antwort zwischen ihnen als
+// voller Treffer -- sonst käme so ein Spiel nie auf 100 %.
+function hardnessScore(game, desired) {
+  const lo = Math.min(game.gefahr, game.letalitaet);
+  const hi = Math.max(game.gefahr, game.letalitaet);
+  return proximity(Math.min(hi, Math.max(lo, desired)), desired);
+}
+
 function scoreGame(game, profile) {
   const components = [
     ['Genre', W.genre, true, tagScore(game.genre, profile.genre)],
     ['Setting', W.setting, profile.welt_fremdheit != null, profile.welt_fremdheit != null ? proximity(game.welt_fremdheit, profile.welt_fremdheit) : 0],
     ['Ton', W.tone, true, tagScore(game.ton, profile.ton)],
-    ['Bedrohung', W.threat, profile.gefahr != null, profile.gefahr != null ? proximity(game.gefahr, profile.gefahr) : 0],
+    ['Bedrohung', W.threat, profile.gefahr != null, profile.gefahr != null ? hardnessScore(game, profile.gefahr) : 0],
     ['Spielstil', W.activities, true, activityScore(game.aktivitaeten, profile.aktivitaeten)],
     ['Freiheit', W.agency, profile.handlungsfreiheit != null, profile.handlungsfreiheit != null ? proximity(game.handlungsfreiheit, profile.handlungsfreiheit) : 0],
     ['Figurenbild', W.figures, profile.figurenkompetenz != null, figureScore(game.figurenkompetenz, profile.figurenkompetenz)],
-    ['Scheitern', W.lethality, profile.letalitaet != null, profile.letalitaet != null ? proximity(game.letalitaet, profile.letalitaet) : 0],
+    ['Scheitern', W.lethality, profile.letalitaet != null, profile.letalitaet != null ? hardnessScore(game, profile.letalitaet) : 0],
     ['Crunch', W.crunch, profile.crunch != null, profile.crunch != null ? proximity(game.crunch, profile.crunch) : 0],
     ['Narrativ', W.narrativ, profile.narrativ != null, profile.narrativ != null ? proximity(game.narrativ, profile.narrativ) : 0],
     ['Fluff', W.fluff, profile.fluff != null, profile.fluff != null ? proximity(game.fluff, profile.fluff) : 0],
