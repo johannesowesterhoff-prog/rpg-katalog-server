@@ -186,14 +186,31 @@ export function renderCatalog(root, ctx) {
       };
       data.games.forEach((g) => grid.appendChild(gameCard(g, cardOpts)));
       results.appendChild(grid);
-      // „Mehr laden“ statt Seitenzahlen: hängt die nächste Seite unten an.
+      // Seitenzahlen als Standard; „Weitere laden“ hängt zusätzlich die
+      // nächste Seite unten an, ohne die Seite zu wechseln.
       let page = data.page;
+      const firstPage = data.page;
       const moreBox = el('<div class="load-more"></div>');
+      const pager = el('<nav class="pagination" aria-label="Seiten"></nav>');
+      const renderPager = () => {
+        pager.innerHTML = '';
+        if (data.pages <= 1) return;
+        const go = (p) => push((st) => { st.page = p; }, { keepPage: true });
+        const btn = (label, p, { current = false, disabled = false, aria = '' } = {}) => {
+          const b = el(`<button type="button" class="btn btn-sm${current ? ' btn-primary' : ''}"${current ? ' aria-current="page"' : ''}${aria ? ` aria-label="${aria}"` : ''}>${label}</button>`);
+          b.disabled = disabled;
+          if (!current && !disabled) b.addEventListener('click', () => go(p));
+          return b;
+        };
+        pager.appendChild(btn('‹', firstPage - 1, { disabled: firstPage <= 1, aria: 'Vorherige Seite' }));
+        for (let p = 1; p <= data.pages; p++) pager.appendChild(btn(String(p), p, { current: p >= firstPage && p <= page }));
+        pager.appendChild(btn('›', page + 1, { disabled: page >= data.pages, aria: 'Nächste Seite' }));
+      };
       const renderMore = () => {
         moreBox.innerHTML = '';
         const shownCount = grid.children.length;
         if (page >= data.pages) return;
-        const more = el(`<button type="button" class="btn">Weitere ${Math.min(data.pageSize || 24, data.total - shownCount)} laden <span class="faint">(${shownCount} von ${data.total})</span></button>`);
+        const more = el(`<button type="button" class="btn">Weitere ${Math.min(data.pageSize || 25, data.total - (page * (data.pageSize || 25)))} laden <span class="faint">(${shownCount} von ${data.total})</span></button>`);
         more.addEventListener('click', async () => {
           more.disabled = true;
           try {
@@ -201,12 +218,15 @@ export function renderCatalog(root, ctx) {
             next.games.forEach((g) => grid.appendChild(gameCard(g, cardOpts)));
             page = next.page;
             renderMore();
+            renderPager();
           } catch (e) { toast(e.message, 'err'); more.disabled = false; }
         });
         moreBox.appendChild(more);
       };
       renderMore();
+      renderPager();
       results.appendChild(moreBox);
+      results.appendChild(pager);
     })
     .catch((e) => {
       results.innerHTML = '';
