@@ -40,9 +40,9 @@ const B = {
 // Spielstil. Gemessen mit zufälligen Profilen gegen die Katalogdaten (Okt. 2026).
 const W = { genre: 11, tone: 10, threat: 5, activities: 9, agency: 11, figures: 10, lethality: 5, crunch: 11, narrativ: 10, fluff: 8, subGenre: 8, subTon: 8, fokus: 8 };
 
-// Tag-Matrizen: je Kategorie 0–3 Begriffe. Die Auswahllisten entstehen beim
+// Tag-Matrizen: je Kategorie 0–5 Begriffe. Die Auswahllisten entstehen beim
 // Laden aus den tatsächlich vergebenen Tags (siehe renderWahlomat).
-const TAG_MAX = 3;
+const TAG_MAX = 5;
 const TAG_KINDS = {
   subGenre: { label: 'Untergenres', source: 'genre_setting', step: 2, comp: 'Untergenre' },
   subTon: { label: 'Untertöne', source: 'tone_theme', step: 3, comp: 'Unterton' },
@@ -143,7 +143,7 @@ const HELP = {
   crunch: { text: 'Wie detailliert sind die Regeln – was wird alles mechanisch simuliert? Niedrig: wenige Werte, die meisten Situationen entscheidet ein einfacher Wurf. Hoch: eigene Regeln für Kampf, Verletzungen, Ausrüstung, Reisen und mehr.' },
   narrativ: { text: 'Wie stark helfen die Regeln dabei, möglichst narrativ zu spielen? Niedrig: Die Regeln lösen Aktionen auf, die Geschichte entsteht frei drumherum. Hoch: Mechaniken für Szenen, Konflikte, Wendungen und Charakterentwicklung – oft gestaltet ihr dabei auch Fakten der Welt mit (z. B. Aspekte in Fate).' },
   fluff: { text: 'Wie ausgearbeitet ist die Welt – wie viel Lore gibt es? Gemeint ist alles offiziell Veröffentlichte: Geschichte, Orte, Fraktionen, Abenteuer. Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
-  tags: { text: 'Optional und feiner als die Hauptfrage: Wählt bis zu drei Begriffe, die euch besonders reizen. Jeder davon, den ein Spiel trägt, bringt Punkte – trifft es alle gewählten, gibt es die vollen Punkte. Die Zahl hinter einem Begriff zeigt, wie viele Spiele ihn haben.' },
+  tags: { text: 'Optional und feiner als die Hauptfrage: Wählt bis zu fünf Begriffe, die euch besonders reizen. Die Punkte der Matrix teilen sich auf alle gewählten Begriffe auf – je mehr ihr wählt, desto weniger zählt der einzelne. Trägt ein Spiel alle gewählten, gibt es die vollen Punkte. Die Zahl hinter einem Begriff zeigt, wie viele Spiele ihn haben.' },
   priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was ihr hier ankreuzt, zählt stärker – etwa „Crunch“, wenn euch die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
 };
 
@@ -1123,7 +1123,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     state.figurenkompetenz = exact != null ? [exact]
       : below != null && above != null ? [below, above]
         : [below ?? above];
-    // Bis zu drei eigene Tags je Matrix, damit die Blaupause sich selbst trifft.
+    // Bis zu TAG_MAX eigene Tags je Matrix, damit die Blaupause sich selbst trifft.
     Object.keys(TAG_KINDS).forEach((k) => { state[k] = (g[k] || []).slice(0, TAG_MAX); });
     state.baseGame = g.id;
   }
