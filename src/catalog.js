@@ -1,7 +1,7 @@
 // Katalog-Queries: öffentliche Suche/Facetten/Detail sowie administrative
 // CRUD-Operationen auf Spielen, Produkten und Stammdaten.
 import { pool, withTransaction } from './db.js';
-import { parseFilters, buildWhere, gameDetailCte, CARD_COLUMNS, SORTS, PAGE_SIZE } from './filters.js';
+import { parseFilters, buildWhere, gameDetailCte, CARD_COLUMNS, SORTS, PAGE_SIZE, PLAYED } from './filters.js';
 
 // ------------------------------------------------------------- Hilfsfunktionen
 export function slugify(text) {
@@ -193,19 +193,24 @@ export async function getWahlomatData() {
 // für die Rollen-Summen pro Jahr erhalten.
 export async function getPlaySessionLog() {
   const visible = "(g.id IS NULL OR g.status = 'published')";
-  const [sessions, roles] = await Promise.all([
-    pool.query(`SELECT to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, g.slug, COALESCE(g.title, ps.external_title) AS title,
+  const cols = `to_char(ps.played_on, 'YYYY-MM-DD') AS played_on, g.slug, COALESCE(g.title, ps.external_title) AS title,
         ps.campaign, ps.campaign_status, ps.campaign_kind, ps.campaign_announcement_url, ps.session_number, ps.play_mode, ps.summary_url,
-        ps.participants, ps.role
+        ps.participants, ps.role`;
+  const [sessions, planned, roles] = await Promise.all([
+    pool.query(`SELECT ${cols}
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
-      WHERE ${visible}
+      WHERE ${visible} AND ${PLAYED}
       ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC`),
+    pool.query(`SELECT ${cols}
+      FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+      WHERE ${visible} AND NOT ${PLAYED}
+      ORDER BY ps.played_on, ps.session_number NULLS LAST, ps.id`),
     pool.query(`SELECT extract(year FROM ps.played_on)::int AS year, ps.role, count(*)::int AS count
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
-      WHERE ${visible} AND ps.role IS NOT NULL
+      WHERE ${visible} AND ${PLAYED} AND ps.role IS NOT NULL
       GROUP BY 1, 2`),
   ]);
-  return { sessions: sessions.rows, rolesByYear: roles.rows };
+  return { sessions: sessions.rows, planned: planned.rows, rolesByYear: roles.rows };
 }
 
 // Aggregierte Kennzahlen über die veröffentlichte Sammlung fürs Statistik-
@@ -217,7 +222,7 @@ export async function getStats() {
       (SELECT count(*) FROM katalog.games WHERE status = 'published')::int AS games,
       (SELECT count(*) FROM katalog.products pr JOIN katalog.games g ON g.id = pr.game_id WHERE g.status = 'published')::int AS products,
       (SELECT count(DISTINCT gp.publisher_id) FROM katalog.game_publishers gp JOIN katalog.games g ON g.id = gp.game_id WHERE g.status = 'published')::int AS publishers,
-      (SELECT count(*) FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id WHERE g.id IS NULL OR g.status = 'published')::int AS sessions`),
+      (SELECT count(*) FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id WHERE (g.id IS NULL OR g.status = 'published') AND ${PLAYED})::int AS sessions`),
     pool.query(`WITH ${cte}
       SELECT value, count(*)::int AS count FROM gd, unnest(gd.genre_setting_top) AS value
       WHERE gd.status = 'published' GROUP BY value ORDER BY count DESC, value`),
@@ -242,15 +247,15 @@ export async function getStats() {
       WHERE gd.status = 'published' GROUP BY value ORDER BY count DESC, value`),
     pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, count(ps.id)::int AS sessions, to_char(max(ps.played_on), 'YYYY-MM-DD') AS last_played
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
-      WHERE g.id IS NULL OR g.status = 'published'
+      WHERE (g.id IS NULL OR g.status = 'published') AND ${PLAYED}
       GROUP BY g.id, g.slug, g.title, ps.external_title ORDER BY sessions DESC, last_played DESC`),
     pool.query(`SELECT g.slug, COALESCE(g.title, ps.external_title) AS title, to_char(ps.played_on, 'YYYY-MM-DD') AS played_on
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
-      WHERE g.id IS NULL OR g.status = 'published'
+      WHERE (g.id IS NULL OR g.status = 'published') AND ${PLAYED}
       ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC LIMIT 8`),
     pool.query(`SELECT ps.role AS value, count(*)::int AS count
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
-      WHERE (g.id IS NULL OR g.status = 'published') AND ps.role IS NOT NULL
+      WHERE (g.id IS NULL OR g.status = 'published') AND ${PLAYED} AND ps.role IS NOT NULL
       GROUP BY ps.role`),
     // Status, Art und Aushang gelten für die ganze Kampagne und kommen vom
     // neuesten Spielabend (der Aushang vom neuesten, der einen hat). Vorher
@@ -262,7 +267,7 @@ export async function getStats() {
         (array_agg(ps.campaign_announcement_url ORDER BY ps.played_on DESC, ps.session_number DESC NULLS LAST, ps.id DESC) FILTER (WHERE ps.campaign_announcement_url IS NOT NULL))[1] AS campaign_announcement_url,
         count(*)::int AS sessions, to_char(max(ps.played_on), 'YYYY-MM-DD') AS last_played
       FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
-      WHERE ps.campaign IS NOT NULL AND (g.id IS NULL OR g.status = 'published')
+      WHERE ps.campaign IS NOT NULL AND (g.id IS NULL OR g.status = 'published') AND ${PLAYED}
       GROUP BY g.slug, g.title, ps.external_title, ps.campaign
       ORDER BY sessions DESC, ps.campaign`),
   ]);
@@ -384,13 +389,16 @@ export async function getGameBySlug(slug, isAdmin) {
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
     ),
     pool.query(
-      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, role, summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number, play_mode FROM katalog.play_sessions
+      `SELECT to_char(played_on, 'YYYY-MM-DD') AS played_on, participants, role, summary_url, campaign, campaign_status, campaign_kind, campaign_announcement_url, session_number, play_mode,
+         ${PLAYED} AS played
+       FROM katalog.play_sessions ps
        WHERE game_id = $1 ORDER BY played_on DESC, session_number DESC NULLS LAST, id DESC`, [g.id],
     ),
   ]);
   g.publishers = publishers.rows;
   g.products = products.rows;
-  g.play_sessions = playSessions.rows;
+  g.play_sessions = playSessions.rows.filter((s) => s.played);
+  g.planned_sessions = playSessions.rows.filter((s) => !s.played).reverse();
   delete g.search_vector;
 
   // Ähnliche Spiele: gleiche Systemfamilie zählt am meisten, dazu

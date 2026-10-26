@@ -1,7 +1,7 @@
 // Statistik-Seite: aggregierte Kennzahlen über die veröffentlichte Sammlung
 // (Verteilungen, Skalen-Durchschnitte, Spielabend-Auswertung).
 import { api } from './api.js';
-import { el, esc, emptyState, CAMPAIGN_KIND_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignSessionParts, campaignId, campaignHref } from './ui.js';
+import { el, esc, emptyState, CAMPAIGN_KIND_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignSessionParts, campaignId, campaignHref, plannedSessionsList } from './ui.js';
 
 function barSection(title, rows) {
   const max = Math.max(1, ...rows.map((r) => r.count));
@@ -292,6 +292,13 @@ async function renderSessionLog(root, params) {
     <p class="lede">Alle protokollierten Spielabende.</p>
   </section>`));
   root.appendChild(el(statsTabs('sessions')));
+  // Geplante Termine stehen über allem und zählen in keiner Zahl darunter mit.
+  if (data.planned?.length) {
+    root.appendChild(el(`<section class="section planned-section">
+      <h2>Geplant (${data.planned.length})</h2>
+      ${plannedSessionsList(data.planned)}
+    </section>`));
+  }
 
   const games = [...new Map(all.map((s) => [gameKey(s), s.title])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'de'));
   const campaigns = [...new Set(all.map((s) => s.campaign).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));

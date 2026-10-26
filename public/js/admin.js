@@ -3,6 +3,9 @@
 import { api, setToken } from './api.js';
 import { el, esc, toast, fmtScale, fmtDate, gameCard, emptyState, autocomplete, multiSelect, confirmDialog, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, CAMPAIGN_KIND_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, coverFrame, COVER_FIT_LABEL } from './ui.js';
 
+// Heutiges Datum (lokal) als YYYY-MM-DD; Spielabende danach gelten als geplant.
+const todayIso = () => new Date().toLocaleDateString('sv-SE');
+
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 // Interne Wahlomat-Achsen (siehe wahlomat.js); werden nur im Editor gezeigt.
 const WAHLOMAT_FIELDS = [
@@ -1134,8 +1137,9 @@ export async function renderPlaySessions(root) {
       const titleHtml = s.game_slug
         ? `<a href="#/spiele/${esc(s.game_slug)}" target="_blank" rel="noopener">${esc(title)}</a>`
         : `${esc(title)} <span class="faint" style="font-size:var(--text-xs)">(extern)</span>`;
-      const tr = el(`<tr>
-        <td>${esc(s.played_on)}</td>
+      const planned = s.played_on > todayIso();
+      const tr = el(`<tr${planned ? ' class="is-planned"' : ''}>
+        <td>${esc(s.played_on)}${planned ? ' <span class="badge badge-planned">geplant</span>' : ''}</td>
         <td>${titleHtml}</td>
         <td class="campaign-cell">–</td>
         <td>${esc(s.participants || '–')}</td>

@@ -1,6 +1,6 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
 import { api, setArchiveToken, hasArchiveToken, hasToken } from './api.js';
-import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignHref, coverUrl } from './ui.js';
+import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignHref, coverUrl, plannedSessionsList } from './ui.js';
 
 // Deep-Link-Ziel im privaten "Schwarzen Regal" (separate PDF-Datenbank,
 // siehe handoff_archive_link.md). Format: #<archive_slug> -- das Regal läuft in
@@ -98,6 +98,7 @@ export async function renderDetail(root, slug, ctx) {
 
       <section class="section">
         <h2>Spielabende (${sessions.length})</h2>
+        ${(g.planned_sessions || []).length ? `<div class="planned-box"><strong>Geplant</strong>${plannedSessionsList(g.planned_sessions, { showGame: false })}</div>` : ''}
         ${sessions.length ? `<div class="scroll-x"><table class="cards-on-mobile">
           <thead><tr><th>Datum</th>${showCampaign ? '<th>Kampagne</th>' : ''}<th>Mitspieler:innen</th><th>Spielform</th><th>Rolle</th><th>Zusammenfassung</th></tr></thead>
           <tbody>${sessions.map((s) => `<tr>
