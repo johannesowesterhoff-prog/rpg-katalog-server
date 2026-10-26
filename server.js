@@ -394,7 +394,7 @@ app.get('/api/admin/play-sessions.csv', requireAdmin, asyncRoute(async (_req, re
   const label = {
     role: { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' },
     play_mode: { 'am-tisch': 'Am Tisch', online: 'Online' },
-    campaign_status: { laufend: 'laufend', abgeschlossen: 'abgeschlossen' },
+    campaign_status: { geplant: 'geplant', laufend: 'laufend', abgeschlossen: 'abgeschlossen' },
     campaign_kind: { 'one-shot': 'One-Shot (Two-Shot)', 'few-shot': 'Few-Shot', kampagne: 'Kampagne', 'epische-kampagne': 'Epische Kampagne', 'sandbox-szenarien': 'Sandbox-Szenarien' },
   };
   const header = ['Datum', 'Spiel', 'Im Katalog', 'Kampagne', 'Kampagnenart', 'Kampagnenstatus', 'Session-Nr.',

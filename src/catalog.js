@@ -531,7 +531,7 @@ function validatePlaySessionPayload(payload) {
   const hasGame = payload.game_id !== undefined && payload.game_id !== null && payload.game_id !== '';
   const hasExternal = !!(payload.external_title && String(payload.external_title).trim());
   if (hasGame === hasExternal) push('game', 'Entweder ein Katalog-Spiel oder ein externer Titel -- nicht beides, nicht keins.');
-  if (payload.campaign_status && !['laufend', 'abgeschlossen'].includes(payload.campaign_status)) push('campaign_status', 'Ungültiger Kampagnenstatus.');
+  if (payload.campaign_status && !['geplant', 'laufend', 'abgeschlossen'].includes(payload.campaign_status)) push('campaign_status', 'Ungültiger Kampagnenstatus.');
   if (payload.campaign_kind && !['one-shot', 'few-shot', 'kampagne', 'epische-kampagne', 'sandbox-szenarien'].includes(payload.campaign_kind)) push('campaign_kind', 'Ungültige Kampagnenart.');
   if (payload.session_number && (!Number.isInteger(Number(payload.session_number)) || Number(payload.session_number) < 1)) push('session_number', 'Sessionnummer muss eine positive Ganzzahl sein.');
   if (payload.role && !['spielleiter', 'spieler'].includes(payload.role)) push('role', 'Ungültige Rolle.');

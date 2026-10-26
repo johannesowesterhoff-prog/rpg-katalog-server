@@ -507,6 +507,7 @@ export async function renderEditor(root, id) {
         </select></div>
         <div class="field narrow" style="margin:0"><label>Kampagnenstatus</label><select class="s-campaign-status">
           <option value="">–</option>
+          <option value="geplant" ${s.campaign_status === 'geplant' ? 'selected' : ''}>geplant</option>
           <option value="laufend" ${s.campaign_status === 'laufend' ? 'selected' : ''}>laufend</option>
           <option value="abgeschlossen" ${s.campaign_status === 'abgeschlossen' ? 'selected' : ''}>abgeschlossen</option>
         </select></div>
@@ -938,6 +939,7 @@ export async function renderPlaySessions(root) {
         </select></div>
         <div class="field narrow" style="margin:0"><label for="ps-campaign-status">Kampagnenstatus</label><select id="ps-campaign-status">
           <option value="">–</option>
+          <option value="geplant">geplant</option>
           <option value="laufend">laufend</option>
           <option value="abgeschlossen">abgeschlossen</option>
         </select></div>
@@ -1044,6 +1046,7 @@ export async function renderPlaySessions(root) {
         </select></div>
         <div class="field narrow" style="margin:0"><label>Kampagnenstatus</label><select class="e-campaign-status">
           <option value="">–</option>
+          <option value="geplant" ${s.campaign_status === 'geplant' ? 'selected' : ''}>geplant</option>
           <option value="laufend" ${s.campaign_status === 'laufend' ? 'selected' : ''}>laufend</option>
           <option value="abgeschlossen" ${s.campaign_status === 'abgeschlossen' ? 'selected' : ''}>abgeschlossen</option>
         </select></div>
