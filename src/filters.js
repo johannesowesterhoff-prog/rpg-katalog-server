@@ -7,6 +7,9 @@
 // Zuordnungstabellen.
 
 export const PAGE_SIZE = 25;
+// Spielabende mit Datum nach heute (deutsche Zeit) sind geplant und zählen
+// nirgends als gespielt. Am Tag selbst gilt ein Abend bereits als gespielt.
+export const PLAYED = "ps.played_on <= (now() AT TIME ZONE 'Europe/Berlin')::date";
 
 export const SORTS = {
   // lower+unaccent, sonst sortiert die DB byteweise: "FUK!" vor "Fantasy",
@@ -186,7 +189,7 @@ export function gameDetailCte(isAdmin) {
           WHERE gt.game_id = g.id AND t.kind = 'tone_theme'::katalog.tag_kind
         ) AS tone_theme,
         (SELECT count(*) FROM katalog.products pr WHERE pr.game_id = g.id)::int AS product_count,
-        (SELECT count(*) FROM katalog.play_sessions ps WHERE ps.game_id = g.id)::int AS session_count,
+        (SELECT count(*) FROM katalog.play_sessions ps WHERE ps.game_id = g.id AND ${PLAYED})::int AS session_count,
         (
           SELECT json_build_object('v', extract(epoch from gc.updated_at)::bigint, 'w', gc.width, 'h', gc.height,
                                    'fit', gc.fit, 'y', gc.focus_y)
