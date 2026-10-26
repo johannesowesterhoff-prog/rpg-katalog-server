@@ -61,18 +61,22 @@ export const CAMPAIGN_KIND_LABEL = {
 // und wächst bei laufenden Kampagnen mit jedem neuen Abend mit.
 // Der Status gilt für die ganze Kampagne und kommt vom neuesten Spielabend:
 // Wird nur der letzte Abend auf "abgeschlossen" gesetzt, zeigen auch die
-// früheren Abende "abgeschlossen" und "Session x/M".
+// früheren Abende "abgeschlossen" und "Session x/M". "geplant" markiert eine
+// Kampagne, deren erster Termin noch aussteht.
 export function campaignSessionParts(s, group) {
   if (!s.campaign) return null;
   const sorted = [...group].sort((a, b) => a.played_on.localeCompare(b.played_on) || ((a.session_number ?? 0) - (b.session_number ?? 0)));
   const idx = s.session_number ?? (sorted.indexOf(s) + 1);
-  const closed = (sorted.at(-1) || s).campaign_status === 'abgeschlossen';
+  const last = sorted.at(-1) || s;
+  const closed = last.campaign_status === 'abgeschlossen';
+  // "geplant" gilt nur, solange der letzte Termin noch aussteht; danach läuft die Kampagne.
+  const planned = last.campaign_status === 'geplant' && last.played_on > new Date().toLocaleDateString('sv-SE');
   const numbered = sorted.filter((x) => x.session_number != null).map((x) => x.session_number);
   const total = Math.max(sorted.length, idx, ...numbered);
   return {
     name: s.campaign,
     kindLabel: CAMPAIGN_KIND_LABEL[s.campaign_kind] || null,
-    statusLabel: closed ? 'abgeschlossen' : 'laufend',
+    statusLabel: closed ? 'abgeschlossen' : planned ? 'geplant' : 'laufend',
     sessionLabel: `Session ${idx}/${total}`,
     announcementUrl: s.campaign_announcement_url || null,
   };
