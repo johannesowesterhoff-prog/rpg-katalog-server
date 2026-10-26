@@ -61,7 +61,7 @@ const TAG_GROUPS = {
   ],
   subTon: [
     ['Leicht & humorvoll', ['Verspielt', 'Warmherzig', 'Gemütlich', 'Unbeschwert', 'Niedlich', 'Zauberhaft', 'Albern', 'Skurril', 'Slapstick', 'Chaotisch', 'Parodistisch', 'Schwarzer Humor', 'Bissig', 'Alltagsnah', 'Naturverbunden']],
-    ['Action & Abenteuer', ['Pulp', 'Actionreich', 'Abenteuerlust', 'Episch', 'Klassisch', 'Legendenbildung', 'Mythisch', 'Söldnertum']],
+    ['Action & Abenteuer', ['Pulp', 'Actionreich', 'Entdeckergeist', 'Episch', 'Klassisch', 'Legendenbildung', 'Mythisch', 'Söldnertum']],
     ['Düster & unheimlich', ['Unheimlich', 'Kosmisches Grauen', 'Existenzielle Angst', 'Klaustrophobisch', 'Paranoid', 'Verstörend', 'Brutal', 'Grimdark', 'Ausweglos', 'Konsequenzenreich', 'Überlebenskampf', 'Verfall', 'Verbotene Magie', 'Korrumpierung', 'Realitätsbruch', 'Rätselhaft', 'Geheimnisse', 'Folkloristisch', 'Feenhaft']],
     ['Macht, Intrige & Gesellschaft', ['Machtstreben', 'Höfische Intrige', 'Fraktionskonflikt', 'Kulturkonflikt', 'Konzernmacht', 'Korrupt', 'Verrat', 'Geheimbund', 'Kultverschwörung', 'Straßenleben', 'Gesellschaftliche Ausgrenzung', 'Bandenehre', 'Sozial eingebettet']],
     ['Figuren & Gefühle', ['Persönliches Wachstum', 'Freundschaft', 'Teamgeist', 'Verantwortung', 'Opferbereitschaft', 'Schuld', 'Verlust', 'Rache', 'Rivalität', 'Moralische Grauzonen', 'Bösartig', 'Tabubrechend']],
