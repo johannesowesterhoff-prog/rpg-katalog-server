@@ -66,6 +66,9 @@ html[data-theme='light'] {
 }
 
 * { box-sizing: border-box; }
+/* Das hidden-Attribut gewinnt immer – sonst überschreiben Klassen wie .btn
+   (display: inline-flex) das Ausblenden. */
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
