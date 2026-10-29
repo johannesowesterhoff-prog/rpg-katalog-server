@@ -16,7 +16,7 @@ import {
   hasArchiveAccess,
 } from './src/auth.js';
 import {
-  listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats, getPlaySessionLog,
+  listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats, getPlaySessionLog, getCalendarSessions,
   getDashboard, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
   deleteMasterEntry, setPublisherWebsite, getAuditLog,
@@ -25,7 +25,7 @@ import {
 import { stagingPreview, getImportRun, commitImport } from './src/importer.js';
 import { createGroup, getGroup, saveMember, removeMember } from './src/wahlomatGroups.js';
 import {
-  getCoverImage, getCoverMeta, setCoverFromUrl, setCoverFromUpload, updateCoverSettings, deleteCover,
+  getCoverImage, getCoverJpeg, getCoverMeta, setCoverFromUrl, setCoverFromUpload, updateCoverSettings, deleteCover,
   trimStoredCovers,
 } from './src/covers.js';
 
@@ -137,6 +137,14 @@ app.get('/api/games/:slug/cover', attachAdminFlag, asyncRoute(async (req, res) =
   res.setHeader('Cache-Control', req.query.v ? 'public, max-age=31536000, immutable' : 'public, max-age=300');
   res.end(img.data);
 }));
+// JPEG für Link-Vorschauen (WhatsApp & Co. zeigen WebP nicht überall an).
+app.get('/api/games/:slug/cover.jpg', asyncRoute(async (req, res) => {
+  const img = await getCoverJpeg(req.params.slug);
+  if (!img) return res.status(404).json({ error: 'Kein Coverbild vorhanden.' });
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.setHeader('Cache-Control', req.query.v ? 'public, max-age=31536000, immutable' : 'public, max-age=300');
+  res.end(img.data);
+}));
 
 app.get('/api/wahlomat.json', asyncRoute(async (_req, res) => {
   res.json(await getWahlomatData());
@@ -175,6 +183,44 @@ app.delete('/api/wahlomat/groups/:id/members/:memberId', groupWriteLimit, asyncR
 
 app.get('/api/stats.json', asyncRoute(async (_req, res) => {
   res.json(await getStats());
+}));
+
+// Kalender-Abo für Spielabende (iCalendar). Ganztägige Termine, weil nur
+// das Datum erfasst wird. Text nach RFC 5545 maskiert, Zeilen gefaltet.
+const icsText = (v) => String(v ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const icsFold = (line) => {
+  const out = [];
+  let rest = Buffer.from(line, 'utf8');
+  while (rest.length > 75) {
+    let cut = 75;
+    while (cut > 0 && (rest[cut] & 0xc0) === 0x80) cut -= 1; // nicht mitten in einem UTF-8-Zeichen trennen
+    out.push(rest.subarray(0, cut).toString('utf8'));
+    rest = Buffer.concat([Buffer.from(' '), rest.subarray(cut)]);
+  }
+  out.push(rest.toString('utf8'));
+  return out.join('\r\n');
+};
+app.get('/kalender.ics', asyncRoute(async (req, res) => {
+  const base = `${req.protocol}://${req.headers.host}`;
+  const MODE = { 'am-tisch': 'Am Tisch', online: 'Online' };
+  const ROLE = { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' };
+  const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//RPG-Katalog//Spielabende//DE', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'X-WR-CALNAME:RPG-Spielabende', 'X-WR-TIMEZONE:Europe/Berlin', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H'];
+  for (const s of await getCalendarSessions()) {
+    const part = s.campaign ? `${s.campaign}${s.session_number ? `, Session ${s.session_number}` : ''}` : (s.session_number ? `Session ${s.session_number}` : '');
+    const details = [part, MODE[s.play_mode], ROLE[s.role] && `Rolle: ${ROLE[s.role]}`].filter(Boolean);
+    const url = s.slug ? `${base}/spiele/${s.slug}` : `${base}/#/statistik/spielabende`;
+    lines.push('BEGIN:VEVENT', `UID:spielabend-${s.id}@rpg-katalog`, `DTSTAMP:${s.stamp || now}`,
+      `DTSTART;VALUE=DATE:${s.day}`, `DTEND;VALUE=DATE:${s.next_day}`,
+      `SUMMARY:${icsText(`🎲 ${s.title}${part ? ` – ${part}` : ''}`)}`,
+      `DESCRIPTION:${icsText([...details, url].join('\n'))}`, `URL:${url}`, 'TRANSP:TRANSPARENT', 'END:VEVENT');
+  }
+  lines.push('END:VCALENDAR');
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', 'inline; filename="rpg-spielabende.ics"');
+  res.setHeader('Cache-Control', 'public, max-age=900');
+  res.send(lines.map(icsFold).join('\r\n') + '\r\n');
 }));
 
 app.get('/api/play-sessions.json', asyncRoute(async (_req, res) => {
@@ -512,7 +558,33 @@ app.get('/spiele/:slug', asyncRoute(async (req, res) => {
     <meta name="description" content="${esc(g.short_description)}">
     <meta property="og:title" content="${esc(g.title)}">
     <meta property="og:description" content="${esc(g.short_description)}">
-    ${previewMeta(base, `${base}/spiele/${g.slug}`, g.cover ? `${base}/api/games/${g.slug}/cover?v=${g.cover.v}` : null)}`;
+    ${previewMeta(base, `${base}/spiele/${g.slug}`, g.cover ? `${base}/api/games/${g.slug}/cover.jpg?v=${g.cover.v}` : null)}`;
+  res.type('html').send(INDEX_HTML_SSR.replace('<!--SSR_META-->', meta));
+}));
+
+// Wahlomat-Links (Ergebnis teilen, Gruppe einladen) mit eigener Vorschau.
+const wahlomatMeta = (req, title, description, pathName) => {
+  const base = `${req.protocol}://${req.headers.host}`;
+  return `
+    <title>${esc(title)}</title>
+    <meta name="description" content="${esc(description)}">
+    <meta property="og:title" content="${esc(title)}">
+    <meta property="og:description" content="${esc(description)}">
+    ${previewMeta(base, `${base}${pathName}`, null)}`;
+};
+app.get('/wahlomat', (req, res) => {
+  const shared = typeof req.query.p !== 'undefined';
+  const meta = shared
+    ? wahlomatMeta(req, 'RPG-Wahlomat – unser Ergebnis', 'Welche Rollenspiele aus der Sammlung zu uns passen – mit Begründung für jedes Spiel. Selbst ausfüllen und vergleichen.', '/wahlomat')
+    : wahlomatMeta(req, 'RPG-Wahlomat', 'Welches Rollenspiel aus der Sammlung passt zu dir oder eurer Gruppe? Sieben kurze Schritte.', '/wahlomat');
+  res.type('html').send(INDEX_HTML_SSR.replace('<!--SSR_META-->', meta));
+});
+app.get('/wahlomat/gruppe/:id', asyncRoute(async (req, res) => {
+  let name = null;
+  try { name = (await getGroup(req.params.id)).name; } catch { /* unbekannte Gruppe: allgemeine Vorschau */ }
+  const meta = name
+    ? wahlomatMeta(req, `RPG-Wahlomat · Gruppe „${name}“`, 'Mach mit: Namen eintragen, Fragen beantworten – dann sehen wir, welches Spiel zu uns allen passt.', `/wahlomat/gruppe/${encodeURIComponent(req.params.id)}`)
+    : wahlomatMeta(req, 'RPG-Wahlomat', 'Welches Rollenspiel aus der Sammlung passt zu dir oder eurer Gruppe?', '/wahlomat');
   res.type('html').send(INDEX_HTML_SSR.replace('<!--SSR_META-->', meta));
 }));
 

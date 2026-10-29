@@ -6,6 +6,7 @@ import { el, esc, gameCard, skeletonGrid, emptyState, toast, SCALE_HELP } from '
 // dort ist ein ODER/UND-Umschalter sinnvoll (im Gegensatz zu Sprache/Verlag/
 // Systemfamilie, die pro Spiel einwertig sind).
 const MODE_DIMS = ['genreTop', 'genre', 'toneTop', 'tone', 'focus', 'campaign'];
+const VIEW_KEY = 'rpg-katalog:ansicht';
 const DEFAULTS = { q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [], focus: [], campaign: [], toneTop: [], tone: [], crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5, sort: 'title', page: 1, ...Object.fromEntries(MODE_DIMS.map((k) => [k + 'Mode', 'OR'])) };
 const MULTI = ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'campaign', 'toneTop', 'tone'];
 const SCALES = [['crunch', 'Crunch'], ['narrative', 'Narrativ'], ['fluff', 'Fluff']];
@@ -107,6 +108,10 @@ export function renderCatalog(root, ctx) {
       <div class="result-bar">
         <div class="result-count" id="count">Lade …</div>
         <div class="chips" id="chips"></div>
+        <div class="view-toggle" role="group" aria-label="Ansicht">
+          <button type="button" class="btn btn-sm" data-view="karten" title="Karten mit allen Angaben">Karten</button>
+          <button type="button" class="btn btn-sm" data-view="cover" title="Nur Cover, wie ein Regal">Cover</button>
+        </div>
         <button type="button" class="btn btn-sm" id="roulette-btn" title="Zufälliges Spiel aus der aktuellen Auswahl">🎲 Regal-Roulette</button>
       </div>
       <div id="roulette"></div>
@@ -160,6 +165,19 @@ export function renderCatalog(root, ctx) {
     reset.addEventListener('click', () => { location.hash = '#/'; });
     chipBox.appendChild(reset);
   }
+
+  // Ansicht (Karten oder Cover-Wand) merkt sich der Browser.
+  const applyView = (view) => {
+    layout.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
+    layout.querySelector('#results').classList.toggle('view-covers', view === 'cover');
+  };
+  let view = 'karten';
+  try { view = localStorage.getItem(VIEW_KEY) === 'cover' ? 'cover' : 'karten'; } catch { /* ohne Speicher: Karten */ }
+  applyView(view);
+  layout.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => {
+    applyView(b.dataset.view);
+    try { localStorage.setItem(VIEW_KEY, b.dataset.view); } catch { /* egal */ }
+  }));
 
   layout.querySelector('#roulette-btn').addEventListener('click', () => openRoulette(layout.querySelector('#roulette'), s));
 

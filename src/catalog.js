@@ -213,6 +213,19 @@ export async function getPlaySessionLog() {
   return { sessions: sessions.rows, planned: planned.rows, rolesByYear: roles.rows };
 }
 
+// Kalender-Abo (/kalender.ics): geplante Abende und die des letzten Jahres.
+// Ohne Mitspieler:innen und Notizen – die Adresse ist öffentlich.
+export async function getCalendarSessions() {
+  const r = await pool.query(`SELECT ps.id, to_char(ps.played_on, 'YYYYMMDD') AS day, to_char(ps.played_on + 1, 'YYYYMMDD') AS next_day,
+      g.slug, COALESCE(g.title, ps.external_title) AS title, ps.campaign, ps.session_number, ps.play_mode, ps.role,
+      to_char(ps.created_at AT TIME ZONE 'UTC', 'YYYYMMDD"T"HH24MISS"Z"') AS stamp
+    FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
+    WHERE (g.id IS NULL OR g.status = 'published')
+      AND ps.played_on >= (now() AT TIME ZONE 'Europe/Berlin')::date - 365
+    ORDER BY ps.played_on, ps.session_number NULLS LAST, ps.id`);
+  return r.rows;
+}
+
 // Aggregierte Kennzahlen über die veröffentlichte Sammlung fürs Statistik-
 // Dashboard: Verteilungen, Skalen-Durchschnitte sowie Spielabend-Auswertung.
 export async function getStats() {

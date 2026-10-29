@@ -246,4 +246,19 @@ export async function getCoverImage(slug, isAdmin) {
   return img ? { data: img.data, mime: img.mime, v: row.v } : null;
 }
 
+// JPEG-Fassung für Link-Vorschauen: Nicht jeder Messenger zeigt WebP an.
+// Klein gehalten und im Speicher gepuffert (Schlüssel: Slug + Cover-Version).
+const jpegCache = new Map();
+export async function getCoverJpeg(slug) {
+  const img = await getCoverImage(slug, false);
+  if (!img) return null;
+  const key = `${slug}:${img.v}`;
+  if (!jpegCache.has(key)) {
+    const data = await sharp(img.data).flatten({ background: '#ffffff' }).jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+    if (jpegCache.size >= 100) jpegCache.delete(jpegCache.keys().next().value);
+    jpegCache.set(key, data);
+  }
+  return { data: jpegCache.get(key), v: img.v };
+}
+
 export { CoverError };
