@@ -7,7 +7,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "deploy:gcp": "bash scripts/deploy-gcp.sh"
+    "deploy:gcp": "bash scripts/deploy-gcp.sh",
+    "check:syntax": "for f in server.js src/*.js public/js/*.js scripts/*.mjs; do node --check \"$f\" || exit 1; done",
+    "check:wahlomat": "node scripts/check-wahlomat.mjs",
+    "check": "npm run check:syntax && npm run check:wahlomat"
   },
   "engines": {
     "node": ">=20.9"
