@@ -1335,7 +1335,8 @@ export async function renderWahlomat(root, params, groupId = null) {
   function resultsHash() { return group ? basePath : (members.length ? shareHash() : basePath); }
 
   async function share() {
-    const url = `${location.origin}${location.pathname}${group ? groupPath(group.id) : shareHash()}`;
+    // Pfad statt #-Link, damit Messenger eine Vorschau zeigen; app.js macht daraus wieder die Hash-Route.
+    const url = `${location.origin}/${(group ? groupPath(group.id) : shareHash()).replace(/^#\//, '')}`;
     const text = group ? `Mach mit beim RPG-Wahlomat der Gruppe „${group.name}“: Namen eintragen, Fragen beantworten – dann sehen wir, welches Spiel zu uns allen passt.` : 'Mein Ergebnis im RPG-Wahlomat';
     if (navigator.share && matchMedia('(pointer: coarse)').matches) {
       try { await navigator.share({ title: 'RPG-Wahlomat', text, url }); return; } catch (e) { if (e.name === 'AbortError') return; }

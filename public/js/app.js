@@ -18,10 +18,11 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
   document.documentElement.dataset.theme = next;
 });
 
-// Pfad-Aufrufe (/spiele/slug vom Server) auf Hash-Routing übertragen
+// Pfad-Aufrufe (/spiele/slug, /wahlomat/… vom Server, z.B. aus geteilten
+// Links mit Vorschau) auf Hash-Routing übertragen; die Query wandert mit.
 if (location.pathname !== '/' && !location.hash) {
-  const m = location.pathname.match(/^\/(spiele|admin)(\/.*)?$/);
-  if (m) history.replaceState(null, '', '/#/' + m[1] + (m[2] || ''));
+  const m = location.pathname.match(/^\/(spiele|admin|wahlomat)(\/.*)?$/);
+  if (m) history.replaceState(null, '', '/#/' + m[1] + (m[2] || '') + location.search);
 }
 
 function parseRoute() {
