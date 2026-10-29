@@ -1,0 +1,23 @@
+# Prüft jeden Pull Request, bevor er gemergt wird: Syntax aller JavaScript-
+# Dateien und die Wahlomat-Prüfung gegen die echten Katalogdaten (jedes
+# Spiel muss mit passenden Antworten 100 % und Platz 1 erreichen).
+name: Prüfung
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Syntax
+        run: npm run check:syntax
+      - name: Wahlomat
+        run: npm run check:wahlomat
