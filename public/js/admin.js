@@ -914,7 +914,7 @@ export async function renderMasterData(root) {
 // ----------------------------------------------------------- Spielabende
 export async function renderPlaySessions(root) {
   const body = mount(root, 'spielabende', 'Spielabende',
-    'Protokoll aller gespielten Runden -- auch zu Systemen außerhalb des Katalogs. Mitspieler:innen sind nur hier im Adminbereich sichtbar, nie öffentlich.');
+    'Protokoll aller gespielten Runden -- auch zu Systemen außerhalb des Katalogs. Mitspieler:innen (Vornamen) sind auch öffentlich sichtbar, Notizen nur hier im Adminbereich.');
   body.innerHTML = '<div class="skeleton" style="height:260px"></div>';
   const [{ sessions }, { games }] = await Promise.all([
     api('/api/admin/play-sessions'),

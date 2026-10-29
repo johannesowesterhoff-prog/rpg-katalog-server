@@ -214,10 +214,10 @@ export async function getPlaySessionLog() {
 }
 
 // Kalender-Abo (/kalender.ics): geplante Abende und die des letzten Jahres.
-// Ohne Mitspieler:innen und Notizen – die Adresse ist öffentlich.
+// Ohne Notizen – die Adresse ist öffentlich (Vornamen sind es auch sonst).
 export async function getCalendarSessions() {
   const r = await pool.query(`SELECT ps.id, to_char(ps.played_on, 'YYYYMMDD') AS day, to_char(ps.played_on + 1, 'YYYYMMDD') AS next_day,
-      g.slug, COALESCE(g.title, ps.external_title) AS title, ps.campaign, ps.session_number, ps.play_mode, ps.role,
+      g.slug, COALESCE(g.title, ps.external_title) AS title, ps.campaign, ps.session_number, ps.play_mode, ps.role, ps.participants,
       to_char(ps.created_at AT TIME ZONE 'UTC', 'YYYYMMDD"T"HH24MISS"Z"') AS stamp
     FROM katalog.play_sessions ps LEFT JOIN katalog.games g ON g.id = ps.game_id
     WHERE (g.id IS NULL OR g.status = 'published')

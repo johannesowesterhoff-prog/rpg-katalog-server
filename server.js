@@ -209,7 +209,7 @@ app.get('/kalender.ics', asyncRoute(async (req, res) => {
     'X-WR-CALNAME:RPG-Spielabende', 'X-WR-TIMEZONE:Europe/Berlin', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H'];
   for (const s of await getCalendarSessions()) {
     const part = s.campaign ? `${s.campaign}${s.session_number ? `, Session ${s.session_number}` : ''}` : (s.session_number ? `Session ${s.session_number}` : '');
-    const details = [part, MODE[s.play_mode], ROLE[s.role] && `Rolle: ${ROLE[s.role]}`].filter(Boolean);
+    const details = [part, MODE[s.play_mode], s.participants && `Mit ${s.participants}`, ROLE[s.role] && `Rolle: ${ROLE[s.role]}`].filter(Boolean);
     const url = s.slug ? `${base}/spiele/${s.slug}` : `${base}/#/statistik/spielabende`;
     lines.push('BEGIN:VEVENT', `UID:spielabend-${s.id}@rpg-katalog`, `DTSTAMP:${s.stamp || now}`,
       `DTSTART;VALUE=DATE:${s.day}`, `DTEND;VALUE=DATE:${s.next_day}`,
