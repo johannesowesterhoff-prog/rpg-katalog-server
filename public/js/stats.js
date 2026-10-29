@@ -294,8 +294,13 @@ async function renderSessionLog(root, params) {
   root.appendChild(el(statsTabs('sessions')));
   // Kalender-Abo: webcal:// öffnet auf Handy und Mac direkt den Kalender.
   const icsUrl = `${location.origin}/kalender.ics`;
+  // Android kennt webcal:// nicht – dort führt „Google Kalender“ direkt zur Abo-Seite.
+  const webcal = icsUrl.replace(/^https?:/, 'webcal:');
+  const google = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}`;
   const calendar = el(`<div class="calendar-sub">
-    <a class="btn btn-sm" href="${esc(icsUrl.replace(/^https?:/, 'webcal:'))}">📅 Kalender abonnieren</a>
+    <span class="calendar-sub-label">📅 Kalender abonnieren:</span>
+    <a class="btn btn-sm" href="${esc(google)}" target="_blank" rel="noopener">Google Kalender</a>
+    <a class="btn btn-sm" href="${esc(webcal)}">Apple / Outlook</a>
     <button type="button" class="btn btn-sm btn-ghost">Adresse kopieren</button>
     <span class="faint">Geplante und vergangene Spielabende im eigenen Kalender – aktualisiert sich von selbst.</span>
   </div>`);
