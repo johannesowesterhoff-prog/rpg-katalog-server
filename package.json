@@ -10,7 +10,7 @@
     "deploy:gcp": "bash scripts/deploy-gcp.sh"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.9"
   },
   "dependencies": {
     "compression": "^1.8.1",
@@ -18,6 +18,6 @@
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
     "pg": "^8.13.1",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.5"
   }
 }
