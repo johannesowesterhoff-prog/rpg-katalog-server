@@ -216,7 +216,13 @@ export function emptyState(title, text, actionHtml = '') {
 
 // Geplante Spielabende (Datum nach heute): eine Zeile je Termin, nächster zuerst.
 // showGame = Spieltitel mit ausgeben (Statistik), auf der Detailseite nicht nötig.
-export function plannedSessionsList(planned, { showGame = true } = {}) {
+// Der Aushang gilt pro Kampagne: fehlt er am Termin selbst, kommt er vom
+// neuesten anderen Abend derselben Kampagne (others).
+export function plannedSessionsList(planned, { showGame = true, others = [] } = {}) {
+  const sameGame = (a, b) => (a.slug ?? a.title ?? null) === (b.slug ?? b.title ?? null);
+  const aushang = (s) => s.campaign_announcement_url
+    || (s.campaign && [...planned, ...others].find((x) => x.campaign === s.campaign && sameGame(x, s) && x.campaign_announcement_url)?.campaign_announcement_url)
+    || null;
   const day = (v) => new Date(`${v}T12:00:00`).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
   return `<ul class="planned-list">${planned.map((s) => {
     const game = !showGame ? '' : s.slug ? `<a href="#/spiele/${esc(s.slug)}">${esc(s.title)}</a>` : esc(s.title);
@@ -225,7 +231,8 @@ export function plannedSessionsList(planned, { showGame = true } = {}) {
       PLAY_MODE_LABEL[s.play_mode] || '',
       s.participants ? `mit ${esc(s.participants)}` : '',
     ].filter(Boolean);
-    return `<li><span class="planned-date">${esc(day(s.played_on))}</span>${game ? ` <strong>${game}</strong>` : ''}${bits.length ? ` <span class="muted">· ${bits.join(' · ')}</span>` : ''}</li>`;
+    const link = aushang(s);
+    return `<li><span class="planned-date">${esc(day(s.played_on))}</span>${game ? ` <strong>${game}</strong>` : ''}${bits.length ? ` <span class="muted">· ${bits.join(' · ')}</span>` : ''}${link ? ` <a href="${esc(link)}" target="_blank" rel="noopener" class="tag tag-link">Aushang ↗</a>` : ''}</li>`;
   }).join('')}</ul>`;
 }
 
