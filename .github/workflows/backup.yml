@@ -1,0 +1,74 @@
+# Wöchentliches Backup: holt den vollständigen Datenexport von der Live-Seite,
+# verschlüsselt ihn mit BACKUP_PASSWORT und legt ihn im Branch „backups“ ab.
+# Das Repo ist öffentlich – ohne das Passwort ist die Datei unlesbar.
+# Entschlüsseln: siehe docs/BACKUP.md.
+#
+# Voraussetzung (GitHub → Settings → Secrets and variables → Actions):
+#   ADMIN_API_KEY   – Admin-API-Schlüssel der Live-Seite
+#   BACKUP_PASSWORT – selbst gewählt, sicher aufbewahren
+name: Backup
+
+on:
+  schedule:
+    - cron: '17 2 * * 0' # sonntags 02:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secrets prüfen
+        env:
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          BACKUP_PASSWORT: ${{ secrets.BACKUP_PASSWORT }}
+        run: |
+          [ -n "$ADMIN_API_KEY" ] || { echo "::error::Secret ADMIN_API_KEY fehlt."; exit 1; }
+          [ ${#BACKUP_PASSWORT} -ge 12 ] || { echo "::error::Secret BACKUP_PASSWORT fehlt oder ist kürzer als 12 Zeichen."; exit 1; }
+
+      - name: Export holen und prüfen
+        env:
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+        run: |
+          code=$(curl -sS -o backup.json -w '%{http_code}' -H "Authorization: Bearer $ADMIN_API_KEY" \
+            https://rpg-katalog-666839148899.us-east1.run.app/api/admin/backup.json)
+          [ "$code" = 200 ] || { echo "::error::Export fehlgeschlagen (HTTP $code)."; exit 1; }
+          # Plausibel? Spiele vorhanden, keine Tabelle vergessen.
+          games=$(jq '.games | length' backup.json)
+          missing=$(jq -r '.meta.fehlende_tabellen | join(", ")' backup.json)
+          [ "$games" -ge 10 ] || { echo "::error::Nur $games Spiele im Export."; exit 1; }
+          [ -z "$missing" ] || echo "::warning::Nicht im Backup: $missing"
+          jq -r 'to_entries | map(select(.value | type == "array")) | map("\(.key): \(.value | length)") | join(" · ")' backup.json
+
+      - name: Verschlüsseln
+        env:
+          BACKUP_PASSWORT: ${{ secrets.BACKUP_PASSWORT }}
+        run: |
+          name="rpg-katalog-$(date -u +%Y-%m-%d).json.gz.enc"
+          gzip -9 -c backup.json | openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -pass env:BACKUP_PASSWORT -out "$name"
+          # Gegenprobe: lässt sich die Datei wieder entschlüsseln?
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass env:BACKUP_PASSWORT -in "$name" | gunzip | cmp - backup.json
+          rm backup.json
+          echo "NAME=$name" >> "$GITHUB_ENV"
+
+      - name: Im Branch „backups“ ablegen
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git clone --quiet --no-checkout "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" repo
+          cd repo
+          if git ls-remote --exit-code --heads origin backups >/dev/null; then
+            git checkout --quiet backups
+          else
+            git checkout --quiet --orphan backups && git rm -rfq . 2>/dev/null || true
+            printf '# Verschlüsselte Backups\n\nWöchentlich erzeugt von .github/workflows/backup.yml im Branch main.\nEntschlüsseln: siehe docs/BACKUP.md im Branch main.\n' > README.md
+          fi
+          mkdir -p backups && mv "../$NAME" backups/
+          git add -A && git commit --quiet -m "Backup $(date -u +%Y-%m-%d)" && git push --quiet origin backups
+          echo "Abgelegt: backups/$NAME ($(du -h "backups/$NAME" | cut -f1))"

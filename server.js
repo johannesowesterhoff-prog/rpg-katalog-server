@@ -16,7 +16,7 @@ import {
   hasArchiveAccess,
 } from './src/auth.js';
 import {
-  listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats, getPlaySessionLog, getCalendarSessions,
+  listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats, getPlaySessionLog, getCalendarSessions, getFullBackup,
   getDashboard, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
   deleteMasterEntry, setPublisherWebsite, getAuditLog,
@@ -355,6 +355,12 @@ app.get('/api/admin/import/:runId', requireAdmin, asyncRoute(async (req, res) =>
 }));
 app.post('/api/admin/import/:runId/commit', requireAdmin, asyncRoute(async (req, res) => {
   res.json(await commitImport(req.params.runId, 'admin'));
+}));
+
+// Vollständige Sicherung für das wöchentliche Backup (.github/workflows/backup.yml).
+app.get('/api/admin/backup.json', requireAdmin, asyncRoute(async (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(await getFullBackup());
 }));
 
 app.get('/api/admin/export.json', requireAdmin, asyncRoute(async (_req, res) => {
