@@ -296,7 +296,7 @@ async function renderSessionLog(root, params) {
   if (data.planned?.length) {
     root.appendChild(el(`<section class="section planned-section">
       <h2>Geplant (${data.planned.length})</h2>
-      ${plannedSessionsList(data.planned)}
+      ${plannedSessionsList(data.planned, { others: data.sessions })}
     </section>`));
   }
 
