@@ -1,7 +1,7 @@
 // Statistik-Seite: aggregierte Kennzahlen über die veröffentlichte Sammlung
 // (Verteilungen, Skalen-Durchschnitte, Spielabend-Auswertung).
 import { api } from './api.js';
-import { el, esc, emptyState, CAMPAIGN_KIND_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignSessionParts, campaignId, campaignHref, plannedSessionsList, toast } from './ui.js';
+import { el, esc, emptyState, CAMPAIGN_KIND_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignSessionParts, campaignId, campaignHref, plannedSessionsList } from './ui.js';
 
 function barSection(title, rows) {
   const max = Math.max(1, ...rows.map((r) => r.count));
@@ -292,23 +292,6 @@ async function renderSessionLog(root, params) {
     <p class="lede">Alle protokollierten Spielabende.</p>
   </section>`));
   root.appendChild(el(statsTabs('sessions')));
-  // Kalender-Abo: webcal:// öffnet auf Handy und Mac direkt den Kalender.
-  const icsUrl = `${location.origin}/kalender.ics`;
-  // Android kennt webcal:// nicht – dort führt „Google Kalender“ direkt zur Abo-Seite.
-  const webcal = icsUrl.replace(/^https?:/, 'webcal:');
-  const google = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}`;
-  const calendar = el(`<div class="calendar-sub">
-    <span class="calendar-sub-label">📅 Kalender abonnieren:</span>
-    <a class="btn btn-sm" href="${esc(google)}" target="_blank" rel="noopener">Google Kalender</a>
-    <a class="btn btn-sm" href="${esc(webcal)}">Apple / Outlook</a>
-    <button type="button" class="btn btn-sm btn-ghost">Adresse kopieren</button>
-    <span class="faint">Geplante und vergangene Spielabende im eigenen Kalender – aktualisiert sich von selbst.</span>
-  </div>`);
-  calendar.querySelector('button').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(icsUrl); toast('Kalender-Adresse kopiert – in Google Kalender unter „Per URL hinzufügen“ einfügen.'); }
-    catch { window.prompt('Kalender-Adresse:', icsUrl); }
-  });
-  root.appendChild(calendar);
   // Geplante Termine stehen über allem und zählen in keiner Zahl darunter mit.
   if (data.planned?.length) {
     root.appendChild(el(`<section class="section planned-section">
