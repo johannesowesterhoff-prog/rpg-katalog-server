@@ -16,7 +16,7 @@ import {
   hasArchiveAccess,
 } from './src/auth.js';
 import {
-  listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats, getPlaySessionLog, getCalendarSessions, getFullBackup,
+  listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats, getPlaySessionLog, getFullBackup,
   getDashboard, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
   deleteMasterEntry, setPublisherWebsite, getAuditLog,
@@ -183,44 +183,6 @@ app.delete('/api/wahlomat/groups/:id/members/:memberId', groupWriteLimit, asyncR
 
 app.get('/api/stats.json', asyncRoute(async (_req, res) => {
   res.json(await getStats());
-}));
-
-// Kalender-Abo für Spielabende (iCalendar). Ganztägige Termine, weil nur
-// das Datum erfasst wird. Text nach RFC 5545 maskiert, Zeilen gefaltet.
-const icsText = (v) => String(v ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
-const icsFold = (line) => {
-  const out = [];
-  let rest = Buffer.from(line, 'utf8');
-  while (rest.length > 75) {
-    let cut = 75;
-    while (cut > 0 && (rest[cut] & 0xc0) === 0x80) cut -= 1; // nicht mitten in einem UTF-8-Zeichen trennen
-    out.push(rest.subarray(0, cut).toString('utf8'));
-    rest = Buffer.concat([Buffer.from(' '), rest.subarray(cut)]);
-  }
-  out.push(rest.toString('utf8'));
-  return out.join('\r\n');
-};
-app.get('/kalender.ics', asyncRoute(async (req, res) => {
-  const base = `${req.protocol}://${req.headers.host}`;
-  const MODE = { 'am-tisch': 'Am Tisch', online: 'Online' };
-  const ROLE = { spielleiter: 'Spielleiter:in', spieler: 'Spieler:in' };
-  const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//RPG-Katalog//Spielabende//DE', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-    'X-WR-CALNAME:RPG-Spielabende', 'X-WR-TIMEZONE:Europe/Berlin', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H'];
-  for (const s of await getCalendarSessions()) {
-    const part = s.campaign ? `${s.campaign}${s.session_number ? `, Session ${s.session_number}` : ''}` : (s.session_number ? `Session ${s.session_number}` : '');
-    const details = [part, MODE[s.play_mode], s.participants && `Mit ${s.participants}`, ROLE[s.role] && `Rolle: ${ROLE[s.role]}`].filter(Boolean);
-    const url = s.slug ? `${base}/spiele/${s.slug}` : `${base}/#/statistik/spielabende`;
-    lines.push('BEGIN:VEVENT', `UID:spielabend-${s.id}@rpg-katalog`, `DTSTAMP:${s.stamp || now}`,
-      `DTSTART;VALUE=DATE:${s.day}`, `DTEND;VALUE=DATE:${s.next_day}`,
-      `SUMMARY:${icsText(`🎲 ${s.title}${part ? ` – ${part}` : ''}`)}`,
-      `DESCRIPTION:${icsText([...details, url].join('\n'))}`, `URL:${url}`, 'TRANSP:TRANSPARENT', 'END:VEVENT');
-  }
-  lines.push('END:VCALENDAR');
-  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-  res.setHeader('Content-Disposition', 'inline; filename="rpg-spielabende.ics"');
-  res.setHeader('Cache-Control', 'public, max-age=900');
-  res.send(lines.map(icsFold).join('\r\n') + '\r\n');
 }));
 
 app.get('/api/play-sessions.json', asyncRoute(async (_req, res) => {
