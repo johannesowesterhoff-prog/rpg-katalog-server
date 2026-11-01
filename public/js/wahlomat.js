@@ -114,37 +114,36 @@ const RANGES = {
 // Ein Satz je Stufe: Unter dem Regler steht, was der gewählte Wert bedeutet.
 const RANGE_DESC = {
   gefahr: ['Gemütlich – kaum Gefahr, Scheitern sorgt höchstens für Umwege.', 'Leichte Spannung – Rückschläge, aber selten ernste Folgen.', 'Spürbare Gefahr – Scheitern tut weh, die Figuren kommen meist durch.', 'Hart – ständiger Druck, Verluste und Figurentod sind möglich.', 'Gnadenlos – existenzielle Bedrohung, Figuren sterben schnell.'],
-  handlungsfreiheit: ['Klarer Auftrag – die Handlung ist weitgehend vorgegeben.', 'Feste Abenteuer mit Spielraum, wie ihr sie löst.', 'Mischung aus vorbereiteten Abenteuern und eigenen Zielen.', 'Offene Welt – die Gruppe entscheidet meist selbst, wohin es geht.', 'Sandbox – ihr setzt Ziele und Richtung komplett selbst.'],
+  handlungsfreiheit: ['Klarer Auftrag – die Handlung ist weitgehend vorgegeben.', 'Feste Abenteuer mit Spielraum, wie die Gruppe sie löst.', 'Mischung aus vorbereiteten Abenteuern und eigenen Zielen.', 'Offene Welt – die Gruppe entscheidet meist selbst, wohin es geht.', 'Sandbox – die Gruppe setzt Ziele und Richtung komplett selbst.'],
   crunch: ['Kaum Regeln – ein Wurf entscheidet, fast nichts wird mechanisch abgebildet.', 'Ein paar Werte, kaum Sonderregeln, in 15 Minuten erklärt.', 'Solides Regelwerk – Fertigkeiten, Kampf und einige Sonderregeln.', 'Detailliert – vieles wird mechanisch abgebildet, Charakterbau lohnt sich.', 'Simulation – Kampf, Verletzungen, Ausrüstung und mehr bis ins Detail.'],
-  narrativ: ['Klassisch – Regeln lösen Aktionen auf, erzählt wird frei drumherum.', 'Wenig Erzählmechanik – gutes Rollenspiel wird hier und da belohnt.', 'Ausgewogen – einige Regeln fördern Drama, Charakterspiel und Wendungen.', 'Stark – Mechaniken treiben Szenen und Konflikte an, ihr bringt eigene Fakten ein.', 'Durchgehend narrativ – die Regeln dienen dem Erzählen, ihr gestaltet Handlung und Welt mit.'],
-  fluff: ['Loser Rahmen – fast alles denkt ihr euch selbst aus.', 'Knappe Welt mit ein paar Eckpunkten.', 'Solide ausgearbeitete Welt mit Orten und Fraktionen.', 'Umfangreiche Welt mit viel Hintergrund und Abenteuern.', 'Enzyklopädisch – Geschichte, Karten und Material ohne Ende.'],
+  narrativ: ['Klassisch – Regeln lösen Aktionen auf, erzählt wird frei drumherum.', 'Wenig Erzählmechanik – gutes Rollenspiel wird hier und da belohnt.', 'Ausgewogen – einige Regeln fördern Drama, Charakterspiel und Wendungen.', 'Stark – Mechaniken treiben Szenen und Konflikte an, die Spieler:innen bringen eigene Fakten ein.', 'Durchgehend narrativ – die Regeln dienen dem Erzählen, alle gestalten Handlung und Welt mit.'],
+  fluff: ['Loser Rahmen – fast alles denkt sich die Gruppe selbst aus.', 'Knappe Welt mit ein paar Eckpunkten.', 'Solide ausgearbeitete Welt mit Orten und Fraktionen.', 'Umfangreiche Welt mit viel Hintergrund und Abenteuern.', 'Enzyklopädisch – Geschichte, Karten und Material ohne Ende.'],
 };
 
 const STEPS = [
   { n: 1, title: 'Vor dem Start', lede: '', setup: true },
-  { n: 2, title: 'Genre & Setting', lede: 'Welche Art Welt soll eure Geschichte tragen?', budget: 'genre', budgetLegend: 'Welche Welten interessieren euch?' },
-  { n: 3, title: 'Ton & Themen', lede: 'Welche Stimmung soll eure Runde prägen?', budget: 'ton', budgetLegend: 'Welcher Grundton passt zu euch?' },
-  { n: 4, title: 'Spielstil', lede: 'Was möchtet ihr am Tisch überwiegend tun?', budget: 'aktivitaeten', budgetLegend: 'Verteilt euren Spielfokus' },
-  { n: 5, title: 'Figuren, Härte & Freiheit', lede: 'Wer seid ihr, wie hart darf die Welt sein – und wie offen die Handlung?' },
-  { n: 6, title: 'Regeln, Erzählweise & Welttiefe', lede: 'Wie viel System, wie viel gemeinsame Gestaltung und wie viel ausgearbeitete Welt wollt ihr?' },
+  { n: 2, title: 'Genre & Setting', lede: 'Welche Art Welt soll deine Geschichte tragen?', budget: 'genre', budgetLegend: 'Welche Welten interessieren dich?' },
+  { n: 3, title: 'Ton & Themen', lede: 'Welche Stimmung soll deine Runde prägen?', budget: 'ton', budgetLegend: 'Welcher Grundton passt zu dir?' },
+  { n: 4, title: 'Spielstil', lede: 'Was möchtest du am Tisch überwiegend tun?', budget: 'aktivitaeten', budgetLegend: 'Worauf soll der Fokus liegen?' },
+  { n: 5, title: 'Figuren, Härte & Freiheit', lede: 'Wen spielst du, wie hart darf die Welt sein – und wie offen die Handlung?' },
+  { n: 6, title: 'Regeln, Erzählweise & Welttiefe', lede: 'Wie viel System, wie viel gemeinsame Gestaltung und wie viel ausgearbeitete Welt willst du?' },
   { n: 7, title: 'Prioritäten', lede: 'Optional: Was soll im Ergebnis besonders stark zählen?', priorities: true },
 ];
 
 // Kurze Erklärungen ("Was ist gemeint?") je Frage – bewusst ohne Beispielspiele,
 // damit die Antworten nicht durch bekannte Titel vorgeprägt werden.
 const HELP = {
-  genre: { text: 'Die Art Welt, in der eure Geschichten spielen. „Sehr gern“ zählt doppelt so stark wie „Gern“, „Eher nicht“ zieht so viel ab, wie „Gern“ dazugibt, „Egal“ zählt nicht. Pro Spiel zählt der beste Treffer einmal; hat es etwas mit „Eher nicht“, wird einmal abgezogen.' },
+  genre: { text: 'Die Art Welt, in der die Geschichten spielen: Fantasy, Science-Fiction, Horror, Gegenwart … Markiere, was dich reizt („Sehr gern“ zählt doppelt so viel wie „Gern“) und was du lieber nicht spielen willst („Eher nicht“). Alles andere bleibt „Egal“ und zählt nicht.' },
   ton: { text: 'Die Grundstimmung am Tisch – unabhängig vom Setting. Eine Fantasywelt kann gemütlich-humorvoll oder bitter-düster sein; hier geht es um das Gefühl, nicht um die Welt.' },
-  aktivitaeten: { text: 'Womit verbringt ihr die meiste Spielzeit? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
+  aktivitaeten: { text: 'Womit möchtest du die meiste Spielzeit verbringen? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
   gefahr: { text: 'Wie viel Druck spüren die Figuren – und was passiert, wenn etwas schiefgeht? Niedrig: gemütlich, Rückschläge bleiben ohne große Folgen. Hoch: ständige Bedrohung, Figuren können sterben oder dauerhaft verlieren. Das ist unabhängig vom Genre – auch ein Fantasyspiel kann sehr behaglich sein.' },
-  handlungsfreiheit: { text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die ihr löst? Oder entscheidet ihr selbst, wohin ihr geht und was ihr erreichen wollt (Sandbox)?' },
-  letalitaet: { text: 'Was passiert, wenn etwas schiefgeht? Niedrig: Rückschläge und Komplikationen, die Geschichte läuft weiter. Hoch: Figuren können sterben oder dauerhaft verlieren – Vorsicht und Planung lohnen sich.' },
-  figurenkompetenz: { text: 'Wie fähig sind eure Figuren zu Beginn im Vergleich zur Welt? Kleine Leute, die über sich hinauswachsen – oder Profis und Held:innen, die von Anfang an glänzen?' },
+  handlungsfreiheit: { text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die die Gruppe abarbeitet? Oder entscheidet die Gruppe selbst, wohin es geht und was sie erreichen will (Sandbox)?' },
+  figurenkompetenz: { text: 'Wie fähig sind die Figuren zu Beginn im Vergleich zur Welt? Kleine Leute, die über sich hinauswachsen – oder Profis und Held:innen, die von Anfang an glänzen?' },
   crunch: { text: 'Wie detailliert sind die Regeln – was wird alles mechanisch simuliert? Niedrig: wenige Werte, die meisten Situationen entscheidet ein einfacher Wurf. Hoch: eigene Regeln für Kampf, Verletzungen, Ausrüstung, Reisen und mehr.' },
-  narrativ: { text: 'Wie stark helfen die Regeln dabei, möglichst narrativ zu spielen? Niedrig: Die Regeln lösen Aktionen auf, die Geschichte entsteht frei drumherum. Hoch: Mechaniken für Szenen, Konflikte, Wendungen und Charakterentwicklung – oft gestaltet ihr dabei auch Fakten der Welt mit (z. B. Aspekte in Fate).' },
-  fluff: { text: 'Wie ausgearbeitet ist die Welt – wie viel Lore gibt es? Gemeint ist alles offiziell Veröffentlichte: Geschichte, Orte, Fraktionen, Abenteuer. Niedrig: ein loser Rahmen, den ihr selbst füllt.' },
-  tags: { text: 'Optional und feiner als die Hauptfrage: Wählt bis zu fünf Begriffe, die euch besonders reizen. Jeder Treffer bringt Punkte. Volle Punkte gibt es, wenn ein Spiel alle gewählten Begriffe trägt – oder schon bei 2 passenden Untergenres, 3 Untertönen bzw. 4 Fokus-Begriffen, weil kein Spiel mehr davon hat. Wer mehr wählt, nennt also Alternativen. Die Zahl hinter einem Begriff zeigt, wie viele Spiele ihn haben.' },
-  priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was ihr hier ankreuzt, zählt stärker – etwa „Crunch“, wenn euch die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
+  narrativ: { text: 'Steuern die Regeln nur, ob eine Aktion gelingt – oder auch, wie sich die Geschichte entwickelt? Niedrig: Würfel entscheiden über Treffer und Erfolg, die Handlung erzählt die Spielleitung frei drumherum. Hoch: Regeln für Szenen, Dramatik und Wendungen; Spieler:innen dürfen oft selbst Fakten über die Welt festlegen, nicht nur über ihre Figur.' },
+  fluff: { text: 'Wie ausgearbeitet ist die Welt – wie viel Lore gibt es? Gemeint ist alles offiziell Veröffentlichte: Geschichte, Orte, Fraktionen, Abenteuer. Niedrig: ein loser Rahmen, den die Gruppe selbst füllt. Hoch: viele Bücher voller Hintergrund.' },
+  tags: { text: 'Optional: Wähle bis zu fünf Begriffe, die dich besonders reizen – je mehr davon ein Spiel trägt, desto besser passt es. Mehrere Begriffe sind Alternativen, kein Spiel muss alle haben. Die Zahl dahinter zeigt, wie viele Spiele den Begriff tragen.' },
+  priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was du hier ankreuzt, zählt anderthalbmal so viel – etwa „Crunch“, wenn dir die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
 };
 
 // ---- Spielstil/Aktivitäten weiterhin aus Spielfokus-Tags abgeleitet.
@@ -549,7 +548,7 @@ function radarSvg(game, members) {
     const anchor = Math.abs(x - cx) < 2 ? 'middle' : x > cx ? 'start' : 'end';
     return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle">${label}</text>`;
   }).join('');
-  const title = `Profil von ${game.title}${wish.length ? ' im Vergleich mit euren Wünschen' : ''}`;
+  const title = `Profil von ${game.title}${wish.length ? ' im Vergleich mit den Wünschen' : ''}`;
   return `<svg viewBox="0 0 ${w} ${h}" class="radar" role="img" aria-label="${esc(title)}">
     ${rings}${spokes}
     <polygon points="${poly(gamePts)}" class="radar-game"/>
@@ -717,7 +716,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat${group ? ` <span class="wahlomat-group-title">· ${esc(group.name)}</span>` : ''}</h1>
     <p class="lede">Welches Spiel aus der Sammlung (${games.length} Spiele) passt zu dir oder eurer Gruppe? Sieben kurze Schritte.</p>
-    <details class="wahlomat-howto"><summary>So funktioniert’s</summary><p>Alle Werte kommen aus den recherchierten Katalogdaten der Spiele. Unter jeder Frage erklärt „Was ist gemeint?“, worum es geht. Regler stehen anfangs auf „Egal“ und zählen erst, wenn ihr sie bewegt – was euch nicht wichtig ist, lasst ihr einfach stehen. Im letzten Schritt könnt ihr bis zu drei Dimensionen stärker gewichten. Euer Zwischenstand wird in diesem Browser gespeichert.</p></details>
+    <details class="wahlomat-howto"><summary>So funktioniert’s</summary><ol><li><strong>Vor dem Start:</strong> Name eintragen (optional, außer in einer Gruppe). Wer mag, wählt ein Spiel, das gefallen hat, als Blaupause – dann sind alle Fragen damit vorausgefüllt und du änderst nur, was anders sein soll.</li><li><strong>Genre, Ton, Spielstil:</strong> Tippe an, was dich reizt („Sehr gern“ zählt doppelt so viel wie „Gern“) oder was du lieber nicht willst („Eher nicht“). Was du nicht antippst, bleibt „Egal“. Darunter kannst du optional bis zu fünf genauere Begriffe wählen.</li><li><strong>Figuren, Härte, Freiheit, Regeln, Welt:</strong> Figurenstufen ankreuzen, den Rest mit Reglern einstellen. Alles steht auf „Egal“, bis du es anfasst – was dir nicht wichtig ist, lässt du einfach stehen.</li><li><strong>Prioritäten (optional):</strong> bis zu drei Punkte, die anderthalbmal so viel zählen.</li></ol><p>Danach bekommt jedes Spiel bis zu 100 Punkte, je nachdem, wie gut seine Katalogdaten zu deinen Antworten passen. „Was ist gemeint?“ unter jeder Frage erklärt die Begriffe. Als Gruppe: Gruppe erstellen und den Link verschicken – alle füllen für sich aus, und wer neu dazukommt, sieht das Gruppenergebnis erst nach dem eigenen Ausfüllen. Dein Zwischenstand wird in diesem Browser gespeichert.</p></details>
   </section>`);
   root.appendChild(head);
 
@@ -935,7 +934,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     const cfg = TAG_KINDS[kind];
     const wrap = el(`<fieldset class="wahlomat-field wahlomat-tagmatrix">
       <legend>Genauer: ${esc(cfg.label)} <span class="tm-count"></span></legend>
-      <small>Optional: bis zu ${TAG_MAX} Begriffe, die euch besonders reizen.</small>
+      <small>Optional: bis zu ${TAG_MAX} Begriffe, die dich besonders reizen.</small>
       <div class="tm-body"></div>
     </fieldset>`);
     const help = helpBox('tags');
@@ -984,8 +983,8 @@ export async function renderWahlomat(root, params, groupId = null) {
 
   function figureField() {
     const wrap = el(`<fieldset class="wahlomat-field">
-      <legend>Welche Art Figuren möchtet ihr spielen?</legend>
-      <small>Mehrfachauswahl möglich — wählt alle Kompetenzstufen, die für euch in Frage kommen.</small>
+      <legend>Welche Art Figuren möchtest du spielen?</legend>
+      <small>Wähle alle Stufen, die für dich passen.</small>
       <div class="wahlomat-choices"></div>
       <label class="wahlomat-skip"><input type="checkbox"> Egal</label>
     </fieldset>`);
@@ -1018,8 +1017,8 @@ export async function renderWahlomat(root, params, groupId = null) {
 
   function priorityField() {
     const wrap = el(`<fieldset class="wahlomat-field">
-      <legend>Was ist euch am wichtigsten?</legend>
-      <small>Optional: wählt bis zu ${PRIORITY_MAX} Dimensionen, die ${Math.round((PRIORITY_BOOST - 1) * 100)} % stärker gewichtet werden sollen (${PRIORITY_BOOST}x statt 1x). Ohne Auswahl bleibt alles gleich gewichtet.</small>
+      <legend>Was ist dir am wichtigsten?</legend>
+      <small>Optional: Wähle bis zu ${PRIORITY_MAX} Dimensionen, die dir besonders wichtig sind. Sie zählen anderthalbmal so viel. Ohne Auswahl zählt alles normal.</small>
       <div class="wahlomat-choices"></div>
     </fieldset>`);
     const list = wrap.querySelector('.wahlomat-choices');
@@ -1088,12 +1087,12 @@ export async function renderWahlomat(root, params, groupId = null) {
     const sorted = [...games].sort((a, b) => a.title.localeCompare(b.title, 'de'));
     const wrap = el(`<div class="wahlomat-base">
       <label for="wBase"><strong>Mit einem Spiel als Blaupause starten</strong></label>
-      <p class="muted">Wählt ein Spiel, das euch gefallen hat – alle Fragen werden mit seiner Einordnung vorausgefüllt. Ändert dann nur, was anders sein soll.</p>
+      <p class="muted">Wähle ein Spiel, das dir gefallen hat – alle Fragen werden mit seiner Einordnung vorausgefüllt. Ändere dann nur, was anders sein soll.</p>
       <div class="wahlomat-base-row">
         <select id="wBase"><option value="">– Spiel wählen –</option>${sorted.map((g) => `<option value="${esc(g.id)}">${esc(g.title)}</option>`).join('')}</select>
         <button type="button" class="btn btn-primary">Übernehmen</button>
       </div>
-      ${state.baseGame ? `<p class="wahlomat-base-note">✓ Vorausgefüllt mit „${esc(gamesById.get(state.baseGame)?.title || '')}“ – geht die Fragen durch und passt an, was anders sein soll.</p>` : ''}
+      ${state.baseGame ? `<p class="wahlomat-base-note">✓ Vorausgefüllt mit „${esc(gamesById.get(state.baseGame)?.title || '')}“ – geh die Fragen durch und pass an, was anders sein soll.</p>` : ''}
     </div>`);
     const select = wrap.querySelector('select');
     select.value = state.baseGame || '';
@@ -1152,9 +1151,9 @@ export async function renderWahlomat(root, params, groupId = null) {
     const s = STEPS[n - 1];
     let msg = '';
     if (s.budget) {
-      if (!Object.values(state[s.budget]).some((v) => v > 0)) msg = 'Bitte wählt mindestens eine Option mit „Sehr gern“ oder „Gern“.';
+      if (!Object.values(state[s.budget]).some((v) => v > 0)) msg = 'Bitte wähle mindestens eine Option mit „Sehr gern“ oder „Gern“.';
     }
-    if (s.n === 5 && state.figurenkompetenz && !state.figurenkompetenz.length) msg = 'Bitte wählt mindestens ein Figurenbild – oder hakt „Egal“ an.';
+    if (s.n === 5 && state.figurenkompetenz && !state.figurenkompetenz.length) msg = 'Bitte wähle mindestens ein Figurenbild – oder hake „Egal“ an.';
     if (s.n === 1 && group) {
       const nm = state.name.trim();
       if (!nm) msg = 'Bitte trag deinen Namen ein.';
@@ -1181,13 +1180,13 @@ export async function renderWahlomat(root, params, groupId = null) {
     quizWrap.innerHTML = '';
     const section = el(`<section class="panel wahlomat-step">
       <h2><span class="step-num">${s.n}</span> ${esc(s.title)}</h2>
-      <p class="muted">${esc(s.setup ? (group ? 'Dein Name ist Pflicht, die Blaupause optional.' : 'Alles optional – ihr könnt direkt auf „Weiter“ gehen.') : s.lede)}</p>
+      <p class="muted">${esc(s.setup ? (group ? 'Dein Name ist Pflicht, die Blaupause optional.' : 'Alles optional – du kannst direkt auf „Weiter“ gehen.') : s.lede)}</p>
     </section>`);
     if (s.setup) section.appendChild(setupPanel());
 
     if (s.budget) {
       const cfg = B[s.budget];
-      const fs = el(`<fieldset class="wahlomat-field"><legend>${esc(s.budgetLegend)}</legend><small>Tippt an, was euch reizt – alles andere bleibt „Egal“.</small></fieldset>`);
+      const fs = el(`<fieldset class="wahlomat-field"><legend>${esc(s.budgetLegend)}</legend><small>Tippe an, was dich reizt – alles andere bleibt „Egal“.</small></fieldset>`);
       const help = helpBox(s.budget);
       if (help) fs.appendChild(help);
       fs.appendChild(renderBudget(cfg));
@@ -1371,7 +1370,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     const breakdown = group ? '' : `<details><summary>Punkteaufschlüsselung</summary><div class="tag-row" style="margin-top:var(--space-2)">${Object.entries(g.breakdown).map(([n, v]) => `<span class="badge">${esc(n)}: <strong>${v.toFixed(1)}</strong></span>`).join(' ')}</div></details>`;
     return `<article class="card wahlomat-result">
       <div class="wahlomat-result-top">
-        <span class="faint">#${rank}${g.tied ? `<span class="wahlomat-tied" title="Gleiche Punktzahl wie andere Spiele. Die Reihenfolge richtet sich danach, wie viele eurer Wünsche (Genre, Ton, Spielstil) das Spiel insgesamt trifft – und danach, wie gezielt es passt, also ohne viel Ungewünschtes drumherum.">gleichauf</span>` : ''}</span>
+        <span class="faint">#${rank}${g.tied ? `<span class="wahlomat-tied" title="Gleiche Punktzahl wie andere Spiele. Die Reihenfolge richtet sich danach, wie viele der Wünsche (Genre, Ton, Spielstil) das Spiel insgesamt trifft – und danach, wie gezielt es passt, also ohne viel Ungewünschtes drumherum.">gleichauf</span>` : ''}</span>
         <div><h3><a href="#/spiele/${esc(g.id)}">${esc(g.title)}</a></h3><div class="muted" style="font-size:var(--text-xs)">${esc(g.system_family || '–')} · ${esc(langLabel(g.language))} · ${playedHtml}</div></div>
         <span class="badge badge-lang">${score}/100</span>
       </div>
@@ -1395,7 +1394,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       ? (mine
         ? 'Schick den Gruppenlink an alle, die mitspielen. Wer ausgefüllt hat, erscheint hier – „Aktualisieren“ holt den neuesten Stand.'
         : 'Trag dich mit deinem Namen ein und beantworte die Fragen. Danach siehst du hier das gemeinsame Ergebnis.')
-      : 'Spielt ihr zu mehreren? Erstellt eine Gruppe und schickt den Link herum: Jede:r trägt sich mit Namen ein und füllt aus, das Ergebnis sammelt sich automatisch.';
+      : 'Spielst du mit anderen? Erstelle eine Gruppe und schick den Link herum: Jede:r trägt sich mit Namen ein und füllt aus, das Ergebnis sammelt sich automatisch.';
     const rule = multi ? ' Das Ranking verbindet alle Antworten: 60 % Durchschnitt, 40 % der schwächste Einzelwert – oben steht, womit alle gut leben können.' : '';
     const panel = el(`<div class="panel wahlomat-members">
       <div class="wahlomat-members-head">
@@ -1484,7 +1483,7 @@ export async function renderWahlomat(root, params, groupId = null) {
 
     const section = el(`<section>
       <div class="result-bar">
-        <div><p class="eyebrow">${group ? 'Gruppenergebnis' : multi ? 'Gruppenergebnis' : 'Euer Ergebnis'}</p><h2>${hidden ? 'Erst ausfüllen, dann vergleichen' : members.length ? 'Passende Spiele' : 'Noch keine Antworten'}</h2></div>
+        <div><p class="eyebrow">${group ? 'Gruppenergebnis' : multi ? 'Gruppenergebnis' : 'Dein Ergebnis'}</p><h2>${hidden ? 'Erst ausfüllen, dann vergleichen' : members.length ? 'Passende Spiele' : 'Noch keine Antworten'}</h2></div>
         <div class="row-actions">
           ${editTarget() ? '<button type="button" class="btn" id="wEdit">Antworten ändern</button>' : ''}
           <button type="button" class="btn btn-primary" id="wShare">${group ? 'Gruppenlink teilen' : 'Link teilen'}</button>
@@ -1535,7 +1534,7 @@ export async function renderWahlomat(root, params, groupId = null) {
         d.dataset.ready = '1';
         const g = gamesById.get(d.dataset.id);
         d.querySelector('.radar-slot').innerHTML = `<div class="radar-wrap">${radarSvg(g, members)}
-          <div class="radar-legend"><span><i class="lg-game"></i>${esc(g.title)}</span><span><i class="lg-wish"></i>${multi ? 'Gruppe (Ø)' : 'Euer Wunsch'}</span></div>
+          <div class="radar-legend"><span><i class="lg-game"></i>${esc(g.title)}</span><span><i class="lg-wish"></i>${multi ? 'Gruppe (Ø)' : 'Dein Wunsch'}</span></div>
           ${radarTable(g, members)}</div>`;
       }));
       // Die ersten drei Treffer zeigen ihr Netzdiagramm gleich aufgeklappt.

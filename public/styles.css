@@ -660,7 +660,9 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .wahlomat-more-results:empty { display: none; }
 .wahlomat-howto { font-size: var(--text-sm); color: var(--text-muted); max-width: 70ch; }
 .wahlomat-howto summary { cursor: pointer; color: var(--accent); width: fit-content; }
-.wahlomat-howto p { margin: var(--space-2) 0 0; font-size: var(--text-xs); line-height: 1.5; }
+.wahlomat-howto p, .wahlomat-howto ol { margin: var(--space-2) 0 0; font-size: var(--text-xs); line-height: 1.5; }
+.wahlomat-howto ol { padding-left: 1.4em; }
+.wahlomat-howto li + li { margin-top: var(--space-1); }
 #wResults > section > .panel.wahlomat-members:last-child { margin-top: var(--space-5); }
 @media (max-width: 720px) { .wahlomat-progress { position: static; } }
 
