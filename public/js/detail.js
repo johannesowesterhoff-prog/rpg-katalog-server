@@ -84,7 +84,7 @@ export async function renderDetail(root, slug, ctx) {
       <section class="section">
         <h2>Vorhandene Produkte (${products.length})</h2>
         ${products.length ? `<div class="scroll-x"><table>
-          <thead><tr><th>Titel</th><th>Typ</th><th>Format</th><th>Be- &amp; Anmerkungen</th><th>Sprache</th><th>ISBN</th></tr></thead>
+          <thead><tr><th>Titel</th><th>Typ</th><th>Format</th><th>Ausgabe / Anmerkung</th><th>Sprache</th><th>ISBN</th></tr></thead>
           <tbody>${products.map((p) => `<tr>
             <td>${esc(p.title)}</td>
             <td>${esc(p.product_type)}</td>

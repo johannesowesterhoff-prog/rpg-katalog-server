@@ -100,6 +100,11 @@ export function buildWhere(f, isAdmin, opts = {}) {
       qConds.push(`gd.search_vector @@ to_tsquery('german', ${p(prefixQuery)})`);
     }
     qConds.push(`similarity(lower(katalog.imm_unaccent(gd.title)), lower(katalog.imm_unaccent(${p(f.q)}))) > 0.2`);
+    // Systemfamilie und Verlage stehen nicht im search_vector (eigene Tabellen):
+    // Teilstring-Suche, damit z. B. „Year Zero“ alle Spiele der Engine findet.
+    const like = p(`%${f.q.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+    qConds.push(`lower(katalog.imm_unaccent(gd.system_family)) LIKE lower(katalog.imm_unaccent(${like}))`);
+    qConds.push(`EXISTS (SELECT 1 FROM unnest(gd.publisher_names) AS pn(name) WHERE lower(katalog.imm_unaccent(pn.name)) LIKE lower(katalog.imm_unaccent(${like})))`);
     conds.push(`(${qConds.join(' OR ')})`);
   }
   if (f.language.length) conds.push(`gd.language_code = ANY(${p(f.language)}::text[])`);
