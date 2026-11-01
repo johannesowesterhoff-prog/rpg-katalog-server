@@ -609,6 +609,64 @@ function memberAnswers(m) {
   </section>`;
 }
 
+// Alle Antworten nebeneinander: Spalte „Gruppe“ (Durchschnitt bzw. wie oft
+// etwas gewählt wurde), dann eine Spalte je Person.
+function groupAnswers(members) {
+  const egal = '<span class="faint">egal</span>';
+  const level = (v) => (v >= 3 ? 'Sehr gern' : v > 0 ? 'Gern' : v < 0 ? 'Eher nicht' : null);
+  const personBudget = (m, key) => {
+    const groups = { 'Sehr gern': [], Gern: [], 'Eher nicht': [] };
+    Object.entries(m.profile[key] || {}).forEach(([k, v]) => { const l = level(v); if (l) groups[l].push(B[key].labels[k] || k); });
+    const parts = Object.entries(groups).filter(([, list]) => list.length).map(([l, list]) => `<span class="faint">${l}:</span> ${esc(list.join(', '))}`);
+    return parts.length ? parts.join('<br>') : egal;
+  };
+  // Je Option: wer was gewählt hat, sortiert nach Gesamtzustimmung.
+  const groupBudget = (key) => {
+    const opts = new Map();
+    members.forEach((m) => Object.entries(m.profile[key] || {}).forEach(([k, v]) => {
+      const l = level(v);
+      if (!l) return;
+      const o = opts.get(k) || { sum: 0, counts: {} };
+      o.sum += v; o.counts[l] = (o.counts[l] || 0) + 1;
+      opts.set(k, o);
+    }));
+    if (!opts.size) return egal;
+    return [...opts.entries()].sort((a, b) => b[1].sum - a[1].sum).map(([k, o]) => {
+      const detail = ['Sehr gern', 'Gern', 'Eher nicht'].filter((l) => o.counts[l]).map((l) => `${l}${o.counts[l] > 1 ? ` ×${o.counts[l]}` : ''}`).join(', ');
+      return `${esc(B[key].labels[k] || k)} <span class="faint">(${detail})</span>`;
+    }).join('<br>');
+  };
+  const tagList = (lists) => {
+    const count = new Map();
+    lists.flat().forEach((t) => count.set(t, (count.get(t) || 0) + 1));
+    return count.size ? [...count.entries()].sort((a, b) => b[1] - a[1]).map(([t, n]) => `${esc(t)}${n > 1 ? ` <span class="faint">×${n}</span>` : ''}`).join(', ') : egal;
+  };
+  const scalar = (v) => (v == null ? egal : fmtNum(v));
+  const figureLabel = (v) => FIGURE_OPTIONS.reduce((a, b) => (Math.abs(b[0] - v) < Math.abs(a[0] - v) ? b : a))[1];
+  const figuresOf = (m) => (m.profile.figurenkompetenz?.length
+    ? esc(FIGURE_OPTIONS.filter(([v]) => m.profile.figurenkompetenz.includes(v)).map(([, l]) => l).join(', ')) : egal);
+  const prioLabel = (k) => PRIORITY_OPTIONS.find(([x]) => x === k)?.[1] || k;
+  const rows = [
+    ['Genre & Setting', groupBudget('genre'), (m) => personBudget(m, 'genre')],
+    ['Untergenres', tagList(members.map((m) => m.profile.subGenre || [])), (m) => tagList([m.profile.subGenre || []])],
+    ['Ton & Themen', groupBudget('ton'), (m) => personBudget(m, 'ton')],
+    ['Untertöne', tagList(members.map((m) => m.profile.subTon || [])), (m) => tagList([m.profile.subTon || []])],
+    ['Spielstil', groupBudget('aktivitaeten'), (m) => personBudget(m, 'aktivitaeten')],
+    ['Spielfokus', tagList(members.map((m) => m.profile.fokus || [])), (m) => tagList([m.profile.fokus || []])],
+    ['Welche Art Figuren?', (() => { const v = wishValue(members, 'figurenkompetenz'); return v == null ? egal : `Ø ${fmtNum(v)} <span class="faint">– ${esc(figureLabel(v))}</span>`; })(), figuresOf],
+    ...[...RANGES[5], ...RANGES[6]].map(([key, question]) => [question, (() => { const v = wishValue(members, key); return v == null ? egal : `Ø ${fmtNum(v)}`; })(), (m) => scalar(m.profile[key])]),
+    ['Besonders wichtig', tagList(members.map((m) => (m.profile.priorities || []).map(prioLabel))).replace(egal, '<span class="faint">keine</span>'),
+      (m) => (m.profile.priorities?.length ? esc(m.profile.priorities.map(prioLabel).join(', ')) : '<span class="faint">keine</span>')],
+  ];
+  return `<section class="panel wahlomat-answers">
+    <h3>Antworten der Gruppe</h3>
+    <div class="scroll-x"><table class="wahlomat-answers-table">
+      <thead><tr><th>Frage</th><th>Gruppe</th>${members.map((m) => `<th>${esc(m.name)}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(([q, g, per]) => `<tr><th scope="row">${esc(q)}</th><td class="is-group">${g}</td>${members.map((m) => `<td>${per(m)}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>
+  </section>`;
+}
+
 // ------------------------------------------------------- Gruppenbild
 // Wo liegen die Wünsche nah beieinander, wo weit auseinander? Hilft beim
 // Gespräch, warum das Gruppenergebnis so aussieht.
@@ -1452,7 +1510,18 @@ export async function renderWahlomat(root, params, groupId = null) {
     const canView = members.length > 1 && !hidden;
     const answersSlot = el('<div class="wahlomat-answers-slot"></div>');
     let shown = null;
-    if (canView) panel.querySelector('.wahlomat-members-head p').insertAdjacentText('beforeend', ' Tippe auf einen Namen, um die Antworten dieser Person zu sehen.');
+    if (canView) {
+      panel.querySelector('.wahlomat-members-head p').insertAdjacentText('beforeend', ' Tippe auf „Gruppe“ für alle Antworten nebeneinander oder auf einen Namen für die Antworten dieser Person.');
+      const all = el('<span class="wahlomat-member wahlomat-member-all"><button type="button" class="wahlomat-member-name" data-act="view" aria-expanded="false" title="Antworten aller nebeneinander ansehen">Gruppe</button></span>');
+      all.querySelector('button').addEventListener('click', (ev) => {
+        list.querySelectorAll('[data-act=view]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+        if (shown === 'all') { shown = null; answersSlot.innerHTML = ''; return; }
+        shown = 'all';
+        ev.currentTarget.setAttribute('aria-expanded', 'true');
+        answersSlot.innerHTML = groupAnswers(members);
+      });
+      list.appendChild(all);
+    }
     members.forEach((m, i) => {
       const canEdit = group ? isMine(m) : members.length === 1;
       const canRemove = group ? (isMine(m) || !!store.adminToken) : multi;
