@@ -2,6 +2,7 @@
 // CRUD-Operationen auf Spielen, Produkten und Stammdaten.
 import { pool, withTransaction } from './db.js';
 import { parseFilters, buildWhere, gameDetailCte, CARD_COLUMNS, SORTS, PAGE_SIZE, PLAYED } from './filters.js';
+import { BACKUP_TABLES, backupSelect } from './backupTables.js';
 
 // ------------------------------------------------------------- Hilfsfunktionen
 export function slugify(text) {
@@ -213,19 +214,9 @@ export async function getPlaySessionLog() {
   return { sessions: sessions.rows, planned: planned.rows, rolesByYear: roles.rows };
 }
 
-// Vollständige Sicherung aller Tabellen im Schema „katalog“ (wöchentlich per
-// GitHub Actions abgeholt und verschlüsselt abgelegt). Ohne die Cover-Bilder
-// (game_covers.data; sie werden aus source_url neu geladen) und ohne den
-// berechneten Suchindex (games.search_vector).
-const BACKUP_TABLES = {
-  games: "to_jsonb(t) - 'search_vector'", game_covers: "to_jsonb(t) - 'data'",
-  game_tags: null, game_publishers: null, tags: null, products: null, product_types: null, publishers: null,
-  system_families: null, languages: null, play_sessions: null, app_settings: null, wahlomat_groups: null,
-  wahlomat_group_members: null, audit_log: null, import_runs: null, import_issues: null, staging_games_raw: null,
-};
+// Vollständige Sicherung aller Tabellen (Tabellenliste: src/backupTables.js).
 export async function getFullBackup() {
-  const parts = Object.entries(BACKUP_TABLES).map(([name, expr]) => `'${name}', (SELECT coalesce(jsonb_agg(${expr || 'to_jsonb(t)'}), '[]'::jsonb) FROM katalog.${name} t)`);
-  const r = await pool.query(`SELECT jsonb_build_object(${parts.join(', ')}) AS data`);
+  const r = await pool.query(backupSelect());
   const missing = (await pool.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'katalog' AND table_type = 'BASE TABLE'`))
     .rows.map((x) => x.table_name).filter((t) => !(t in BACKUP_TABLES));
   return { meta: { erstellt: new Date().toISOString(), schema: 'katalog', fehlende_tabellen: missing }, ...r.rows[0].data };
