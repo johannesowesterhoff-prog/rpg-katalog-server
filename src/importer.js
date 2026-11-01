@@ -64,7 +64,7 @@ function normalizeRow(raw, format) {
       tone_theme: raw.tone_theme || [],
       products: (raw.products || []).map((p) => ({
         title: p.title, product_type: p.product_type, binding: p.binding, edition: p.edition,
-        language: p.language, isbn: p.isbn,
+        language: p.language, isbn: p.isbn, no_isbn: p.no_isbn === true,
       })),
     };
   }

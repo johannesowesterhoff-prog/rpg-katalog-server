@@ -457,7 +457,7 @@ export async function getGameById(id) {
        WHERE gp.game_id = $1 ORDER BY gp.is_primary DESC, p.name`, [g.id],
     ),
     pool.query(
-      `SELECT pr.id, pr.title, pt.name AS product_type, pr.binding, pr.edition, l.code AS language, pr.isbn
+      `SELECT pr.id, pr.title, pt.name AS product_type, pr.binding, pr.edition, l.code AS language, pr.isbn, pr.no_isbn
        FROM katalog.products pr JOIN katalog.product_types pt ON pt.id = pr.product_type_id
        LEFT JOIN katalog.languages l ON l.id = pr.language_id
        WHERE pr.game_id = $1 ORDER BY pr.sort_order, pr.title`, [g.id],
@@ -500,7 +500,7 @@ export async function getMasterData() {
 }
 
 export async function getDashboard() {
-  const [counts, productCount, audit] = await Promise.all([
+  const [counts, productCount, audit, openIsbn] = await Promise.all([
     pool.query(`SELECT
       count(*) FILTER (WHERE status = 'published')::int AS published,
       count(*) FILTER (WHERE status = 'draft')::int AS draft,
@@ -508,8 +508,13 @@ export async function getDashboard() {
       FROM katalog.games`),
     pool.query('SELECT count(*)::int AS n FROM katalog.products'),
     getAuditLog(20),
+    // Produkte ohne ISBN, die nicht als „keine ISBN“ markiert sind.
+    pool.query(`SELECT pr.id, pr.title, pr.game_id, g.title AS game_title
+      FROM katalog.products pr JOIN katalog.games g ON g.id = pr.game_id
+      WHERE coalesce(pr.isbn, '') = '' AND NOT pr.no_isbn AND g.status <> 'archived'
+      ORDER BY g.title, pr.sort_order`),
   ]);
-  return { counts: counts.rows[0], productCount: productCount.rows[0].n, audit };
+  return { counts: counts.rows[0], productCount: productCount.rows[0].n, audit, openIsbn: openIsbn.rows };
 }
 
 // ------------------------------------------------- Spielabende (Verwaltung)
@@ -631,9 +636,9 @@ async function upsertRelations(client, gameId, payload) {
     if (!typeR.rowCount) throw httpError(400, `Unbekannter Produkttyp „${prod.product_type}".`);
     const langId = prod.language ? await languageIdByCode(client, prod.language) : null;
     await client.query(
-      `INSERT INTO katalog.products (game_id, product_type_id, title, binding, edition, language_id, isbn, sort_order)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [gameId, typeR.rows[0].id, prod.title.trim(), prod.binding || null, prod.edition || null, langId, prod.isbn || null, sortOrder],
+      `INSERT INTO katalog.products (game_id, product_type_id, title, binding, edition, language_id, isbn, no_isbn, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [gameId, typeR.rows[0].id, prod.title.trim(), prod.binding || null, prod.edition || null, langId, prod.isbn || null, !prod.isbn && prod.no_isbn === true, sortOrder],
     );
     sortOrder += 10;
   }
