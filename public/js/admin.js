@@ -219,6 +219,17 @@ export async function renderDashboard(root) {
   if (!d.audit.length) tb.appendChild(el('<tr><td colspan="4" class="muted">Noch keine Änderungen protokolliert.</td></tr>'));
   d.audit.forEach((a) => tb.appendChild(auditRow(a)));
   body.appendChild(sec);
+
+  // Offene ISBNs: Produkte ohne ISBN, die nicht als „keine ISBN“ markiert sind.
+  const open = d.openIsbn || [];
+  const byGame = new Map();
+  open.forEach((p) => { const e = byGame.get(p.game_id) || { title: p.game_title, items: [] }; e.items.push(p.title); byGame.set(p.game_id, e); });
+  body.appendChild(el(`<section class="section"><h2>Offene ISBNs (${open.length})</h2>
+    ${open.length ? `<p class="muted" style="font-size:var(--text-sm)">Produkte ohne ISBN. Hat ein Produkt keine eigene ISBN (Zubehör, Crowdfunding-Extra, Box-Inhalt), im Editor bei „ISBN“ das Häkchen „keine“ setzen.</p>
+    <div class="panel scroll-x" style="padding:0"><table><thead><tr><th>Spiel</th><th>Produkte ohne ISBN</th></tr></thead><tbody>
+      ${[...byGame.entries()].map(([id, g]) => `<tr><td style="white-space:nowrap"><a href="#/admin/editor/${id}">${esc(g.title)}</a></td><td>${esc(g.items.join(' · '))}</td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="muted">Alle Produkte haben eine ISBN oder sind als „keine ISBN“ markiert.</p>'}
+  </section>`));
 }
 
 const ACTION_LABEL = { insert: 'Neu angelegt', update: 'Geändert', delete: 'Gelöscht', import: 'Import', publish: 'Veröffentlicht', archive: 'Archiviert', restore: 'Zurückgeholt' };
@@ -472,11 +483,14 @@ export async function renderEditor(root, id) {
       <div class="field" style="margin:0"><label>Ausgabe / Anmerkung</label><input type="text" class="p-edition" value="${esc(p.edition || '')}"></div>
       <div class="field" style="margin:0"><label>Sprache</label><select class="p-lang"><option value="">wie Spiel</option>
         ${md.languages.map((l) => `<option value="${l.code}" ${p.language === l.code ? 'selected' : ''}>${l.code.toUpperCase()}</option>`).join('')}</select></div>
-      <div class="field" style="margin:0"><label>ISBN</label><input type="text" class="p-isbn" inputmode="numeric" placeholder="978-…" value="${esc(p.isbn || '')}"></div>
+      <div class="field" style="margin:0"><label>ISBN <span class="p-noisbn-wrap" title="Für Zubehör, Crowdfunding-Extras oder Box-Inhalte ohne eigene ISBN"><input type="checkbox" class="p-noisbn" ${p.no_isbn && !p.isbn ? 'checked' : ''}> keine</span></label><input type="text" class="p-isbn" inputmode="numeric" placeholder="978-…" value="${esc(p.isbn || '')}" ${p.no_isbn && !p.isbn ? 'disabled' : ''}></div>
       <button type="button" class="btn btn-sm btn-danger" title="Produkt entfernen">Entfernen</button>
     </div>`);
     row.querySelector('button').addEventListener('click', () => { row.remove(); productRows.splice(productRows.indexOf(row), 1); updatePreview(); });
     row.querySelectorAll('input,select').forEach((i) => i.addEventListener('input', updatePreview));
+    const noIsbn = row.querySelector('.p-noisbn');
+    const isbnInput = row.querySelector('.p-isbn');
+    noIsbn.addEventListener('change', () => { isbnInput.disabled = noIsbn.checked; if (noIsbn.checked) isbnInput.value = ''; });
     productRows.push(row);
     prodBox.appendChild(row);
     updatePreview();
@@ -588,6 +602,7 @@ export async function renderEditor(root, id) {
         edition: r.querySelector('.p-edition').value.trim() || null,
         language: r.querySelector('.p-lang').value || null,
         isbn: r.querySelector('.p-isbn').value.trim() || null,
+        no_isbn: r.querySelector('.p-noisbn').checked,
       })).filter((p) => p.title),
       play_sessions: sessionRows.map((r) => ({
         played_on: r.querySelector('.s-date').value || null,

@@ -335,7 +335,7 @@ app.get('/api/admin/export.json', requireAdmin, asyncRoute(async (_req, res) => 
     const [publishers, tags, products] = await Promise.all([
       pool.query(`SELECT p.name, gp.is_primary FROM katalog.game_publishers gp JOIN katalog.publishers p ON p.id=gp.publisher_id WHERE gp.game_id=$1`, [g.id]),
       pool.query(`SELECT t.kind, t.name FROM katalog.game_tags gt JOIN katalog.tags t ON t.id=gt.tag_id WHERE gt.game_id=$1`, [g.id]),
-      pool.query(`SELECT pr.title, pt.name AS product_type, pr.binding, pr.edition, l.code AS language, pr.isbn, pr.sort_order
+      pool.query(`SELECT pr.title, pt.name AS product_type, pr.binding, pr.edition, l.code AS language, pr.isbn, pr.no_isbn, pr.sort_order
         FROM katalog.products pr JOIN katalog.product_types pt ON pt.id=pr.product_type_id LEFT JOIN katalog.languages l ON l.id=pr.language_id
         WHERE pr.game_id=$1 ORDER BY pr.sort_order`, [g.id]),
     ]);
