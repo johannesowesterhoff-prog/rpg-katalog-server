@@ -11,7 +11,7 @@ export const SCALE_HELP = {
 };
 export const SCALE_LABELS = {
   crunch: ['1 = sehr regelleicht', '2 = leicht', '3 = mittel', '4 = regelreich', '5 = Regelsimulation'],
-  narrative: ['1 = klassisch simulativ', '2 = wenig Erzählmechanik', '3 = ausgewogen', '4 = erzählmechanisch stark', '5 = durchgehend narrativ'],
+  narrative: ['1 = klassisch (Regeln lösen nur Aktionen auf)', '2 = wenig Erzählmechanik', '3 = ausgewogen', '4 = erzählmechanisch stark', '5 = durchgehend narrativ'],
   fluff: ['1 = kaum Weltmaterial', '2 = knappe Welt', '3 = solide ausgearbeitet', '4 = umfangreiche Welt', '5 = enzyklopädisch'],
 };
 

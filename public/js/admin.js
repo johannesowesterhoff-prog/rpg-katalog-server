@@ -9,9 +9,8 @@ const todayIso = () => new Date().toLocaleDateString('sv-SE');
 const SCALE_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 // Interne Wahlomat-Achsen (siehe wahlomat.js); werden nur im Editor gezeigt.
 const WAHLOMAT_FIELDS = [
-  ['welt_fremdheit', 'Welt-Fremdheit', '1 = wie unsere Realität · 5 = völlig fremdartig'],
-  ['gefahr', 'Bedrohung & Druck', '1 = entspannt und sicher · 5 = existenziell bedrohlich'],
-  ['letalitaet', 'Folgen des Scheiterns', '1 = Handlung geht immer weiter · 5 = echter Verlust bis Charaktertod'],
+  ['gefahr', 'Bedrohung & Druck', '1 = entspannt und sicher · 5 = existenziell bedrohlich (im Wahlomat zusammen mit „Folgen des Scheiterns“ als „Wie hart soll es werden?“ abgefragt)'],
+  ['letalitaet', 'Folgen des Scheiterns', '1 = Handlung geht immer weiter · 5 = echter Verlust bis Charaktertod (im Wahlomat zusammen mit „Bedrohung“ abgefragt)'],
   ['figurenkompetenz', 'Figurenkompetenz', '1,5 = Alltagsmenschen · 3 = fähige Abenteurer:innen · 5 = große Held:innen'],
   ['handlungsfreiheit', 'Handlungsfreiheit', '1 = klarer Auftrag · 5 = Gruppe setzt Ziele und Richtung'],
 ];
@@ -201,7 +200,7 @@ export async function renderLogin(root, next) {
 
 // -------------------------------------------------------------- Dashboard
 export async function renderDashboard(root) {
-  const body = mount(root, 'dashboard', 'Übersicht', 'Stand der Sammlung und offene Aufgaben.');
+  const body = mount(root, 'dashboard', 'Übersicht', 'Stand der Sammlung und letzte Änderungen.');
   body.innerHTML = '<div class="skeleton" style="height:140px"></div>';
   const d = await api('/api/admin/dashboard');
   body.innerHTML = '';
@@ -223,6 +222,7 @@ export async function renderDashboard(root) {
 }
 
 const ACTION_LABEL = { insert: 'Neu angelegt', update: 'Geändert', delete: 'Gelöscht', import: 'Import', publish: 'Veröffentlicht', archive: 'Archiviert', restore: 'Zurückgeholt' };
+const actionLabel = (a) => (a.action === 'restore' && a.entity === 'database' ? 'Backup eingespielt' : ACTION_LABEL[a.action] || a.action);
 
 function auditRow(a) {
   const keys = a.diff ? Object.keys(a.diff) : [];
@@ -234,7 +234,7 @@ function auditRow(a) {
     }).join(' · ') + (keys.length > 4 ? ` … (+${keys.length - 4})` : '')
     : 'keine Feldänderung';
   return el(`<tr><td class="muted" style="white-space:nowrap">${fmtDate(a.created_at)}</td>
-    <td>${esc(ACTION_LABEL[a.action] || a.action)}<div class="faint" style="font-size:var(--text-xs)">${esc(a.actor)}</div></td>
+    <td>${esc(actionLabel(a))}<div class="faint" style="font-size:var(--text-xs)">${esc(a.actor)}</div></td>
     <td>${a.entity === 'games' && a.entity_id ? `<a href="#/admin/editor/${a.entity_id}">${esc(a.title || 'Eintrag ' + a.entity_id)}</a>` : esc(a.entity)}</td>
     <td class="diff">${esc(summary)}</td></tr>`);
 }
@@ -433,7 +433,7 @@ export async function renderEditor(root, id) {
     </select><div class="hint">${esc(SCALE_HELP[key])}</div></div>`;
   const s3 = step(3, 'Skalen (Crunch, Narrativ, Fluff)', `
     <div class="help-box">Die drei Skalen sind gleichwertig und laufen von 1 bis 5 in 0,5er-Schritten.
-      Zum Veröffentlichen sind Crunch und Narrativ nötig; Fluff darf offen bleiben und erscheint dann in der Schnellerfassung.</div>
+      Zum Veröffentlichen sind Crunch und Narrativ nötig; Fluff darf offen bleiben.</div>
     <div class="grid-2">${scaleSelect('crunch', 'Crunch – Detailgrad der Regeln')}${scaleSelect('narrative', 'Narrativ – Erzählmechanik')}${scaleSelect('fluff', 'Fluff – Ausarbeitung der Spielwelt (Lore)')}</div>
     <details><summary class="muted" style="font-size:var(--text-sm);cursor:pointer">Was bedeuten die Stufen?</summary>
       <div class="muted" style="font-size:var(--text-sm);margin-top:var(--space-2)">
@@ -469,7 +469,7 @@ export async function renderEditor(root, id) {
       <div class="field" style="margin:0"><label>Format</label><select class="p-binding">
         <option value="">–</option>
         ${Object.entries(BINDING_LABEL).map(([b, label]) => `<option value="${b}" ${p.binding === b ? 'selected' : ''}>${label}</option>`).join('')}</select></div>
-      <div class="field" style="margin:0"><label>Be- &amp; Anmerkungen</label><input type="text" class="p-edition" value="${esc(p.edition || '')}"></div>
+      <div class="field" style="margin:0"><label>Ausgabe / Anmerkung</label><input type="text" class="p-edition" value="${esc(p.edition || '')}"></div>
       <div class="field" style="margin:0"><label>Sprache</label><select class="p-lang"><option value="">wie Spiel</option>
         ${md.languages.map((l) => `<option value="${l.code}" ${p.language === l.code ? 'selected' : ''}>${l.code.toUpperCase()}</option>`).join('')}</select></div>
       <div class="field" style="margin:0"><label>ISBN</label><input type="text" class="p-isbn" inputmode="numeric" placeholder="978-…" value="${esc(p.isbn || '')}"></div>
@@ -487,7 +487,7 @@ export async function renderEditor(root, id) {
 
   // ---- 5. Spielabende
   const s5sessions = step(5, 'Spielabende', `
-    <div class="help-box">Protokolliert, wann und mit wem ihr dieses Spiel tatsächlich gespielt habt.</div>
+    <div class="help-box">Wann und mit wem dieses Spiel gespielt wurde. Ein Datum in der Zukunft gilt als geplanter Spieleabend.</div>
     <div id="sessions"></div>
     <button type="button" class="btn btn-sm" id="add-session">+ Weiteren Spielabend hinzufügen</button>`);
   form.appendChild(s5sessions.wrap);
@@ -577,7 +577,8 @@ export async function renderEditor(root, id) {
       crunch: val('#f-crunch') || null,
       narrative: val('#f-narrative') || null,
       fluff: val('#f-fluff') || null,
-      wahlomat_profile: Object.fromEntries(WAHLOMAT_FIELDS.map(([key]) => [key, val(`#f-wo-${key}`) || null]).filter(([, v]) => v)),
+      // Werte ohne Formularfeld (z. B. die nicht mehr abgefragte Welt-Fremdheit) bleiben erhalten.
+      wahlomat_profile: { ...(state.wahlomat_profile || {}), ...Object.fromEntries(WAHLOMAT_FIELDS.map(([key]) => [key, val(`#f-wo-${key}`) || null])) },
       status: val('#f-status') || state.status || 'draft',
       editorial_note: val('#f-note').trim() || null,
       products: productRows.map((r) => ({
@@ -702,16 +703,16 @@ function fieldWrap(label, node, hint = '') {
 
 // -------------------------------------------------------- Import / Export
 export function renderImport(root) {
-  const body = mount(root, 'import', 'Import & Export', 'CSV oder JSON einlesen – erst Vorschau, dann Übernahme. Export als vollständiges Backup.');
+  const body = mount(root, 'import', 'Import & Export', 'CSV oder JSON einlesen – erst Vorschau, dann Übernahme. Export der Einträge zum Weiterverarbeiten.');
   body.appendChild(el(`<section class="section">
-    <h2>Export (Backup)</h2>
+    <h2>Export</h2>
     <div class="panel">
-      <p class="muted">Vollständiger Bestand inklusive Produkte, Stammdaten und Skalen.</p>
+      <p class="muted">Alle Einträge mit Skalen, Verlagen, Tags und Produkten – zum Weiterverarbeiten, z. B. in Excel. Spielabende, Cover und Protokoll sind nicht enthalten.</p>
       <div class="row-actions">
         <button type="button" class="btn btn-sm btn-primary" id="dl-json">JSON herunterladen</button>
         <button type="button" class="btn btn-sm" id="dl-csv">CSV herunterladen (Altformat + Spalte „fluff“)</button>
       </div>
-      <p class="faint" style="font-size:var(--text-xs);margin-top:var(--space-3)">Die Datei wird direkt im Browser erzeugt. JSON eignet sich als vollständiges Backup, CSV für die Bearbeitung in Excel.</p>
+      <p class="faint" style="font-size:var(--text-xs);margin-top:var(--space-3)">JSON lässt sich hier wieder importieren, CSV eignet sich für Excel. Das vollständige Backup aller Daten läuft automatisch jeden Sonntag verschlüsselt über GitHub (Anleitung: docs/BACKUP.md).</p>
     </div>
   </section>`));
 
@@ -914,7 +915,7 @@ export async function renderMasterData(root) {
 // ----------------------------------------------------------- Spielabende
 export async function renderPlaySessions(root) {
   const body = mount(root, 'spielabende', 'Spielabende',
-    'Protokoll aller gespielten Runden -- auch zu Systemen außerhalb des Katalogs. Mitspieler:innen (Vornamen) sind auch öffentlich sichtbar, Notizen nur hier im Adminbereich.');
+    'Gespielte und geplante Runden – auch zu Systemen außerhalb des Katalogs. Ein Datum in der Zukunft gilt als geplant. Vornamen der Mitspieler:innen sind öffentlich sichtbar, Notizen nur hier im Adminbereich.');
   body.innerHTML = '<div class="skeleton" style="height:260px"></div>';
   const [{ sessions }, { games }] = await Promise.all([
     api('/api/admin/play-sessions'),

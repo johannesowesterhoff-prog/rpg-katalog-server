@@ -75,7 +75,7 @@ export function renderCatalog(root, ctx) {
     <div class="search-row">
       <div class="search-box">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg>
-        <input type="search" id="suche" placeholder="Titel, System oder Beschreibung suchen …" value="${esc(s.q)}" aria-label="Katalog durchsuchen">
+        <input type="search" id="suche" placeholder="Titel, System, Verlag oder Beschreibung suchen …" value="${esc(s.q)}" aria-label="Katalog durchsuchen">
       </div>
       <button type="button" class="btn filter-toggle" id="drawer-open">Filter</button>
       <div class="sort-box">
@@ -399,6 +399,7 @@ function renderFilters(container, s, facets, push) {
   const scaleGroup = el('<div class="filter-group"><h3>Skalen (gleichwertig)</h3></div>');
   SCALES.forEach(([key, label]) => scaleGroup.appendChild(rangeGroup(key, label, s, push)));
   scaleGroup.appendChild(el('<p class="faint" style="font-size:var(--text-xs);margin:0">Einträge ohne Wert werden ausgeblendet, sobald ein Bereich eingeschränkt wird.</p>'));
+  scaleGroup.appendChild(el(`<details class="scale-info"><summary>ⓘ Was bedeuten die Skalen?</summary>${SCALES.map(([key]) => `<p>${esc(SCALE_HELP[key])}</p>`).join('')}</details>`));
   container.appendChild(scaleGroup);
 
   container.appendChild(facetGroup('Spielfokus', 'focus', facets.focus, s, push));
