@@ -711,6 +711,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     members.forEach((m, i) => { if (!m.name) m.name = `Person ${i + 1}`; });
   }
   const isMine = (m) => !!(group && m.id != null && store.members[m.id]);
+  let peekResults = false;
 
   root.innerHTML = '';
   const head = el(`<section class="catalog-head">
@@ -1461,7 +1462,10 @@ export async function renderWahlomat(root, params, groupId = null) {
     setUrl(resultsHash(), push);
     resumeWrap.innerHTML = '';
     const multi = members.length > 1;
-    const results = members.length ? games.map((g) => scoreForGroup(g, members)).sort(compareResults) : [];
+    // Wer über den Gruppenlink kommt und noch nicht ausgefüllt hat, sieht das
+    // Ergebnis der anderen erst danach – sonst beeinflusst es die Antworten.
+    const hidden = !!group && members.length > 0 && !members.some(isMine) && !peekResults;
+    const results = members.length && !hidden ? games.map((g) => scoreForGroup(g, members)).sort(compareResults) : [];
     // Spiele mit gleicher angezeigter Punktzahl bekommen den Hinweis „gleichauf“.
     const scoreCount = new Map();
     results.forEach((g) => { const k = Math.round(g.score); scoreCount.set(k, (scoreCount.get(k) || 0) + 1); });
@@ -1480,7 +1484,7 @@ export async function renderWahlomat(root, params, groupId = null) {
 
     const section = el(`<section>
       <div class="result-bar">
-        <div><p class="eyebrow">${group ? 'Gruppenergebnis' : multi ? 'Gruppenergebnis' : 'Euer Ergebnis'}</p><h2>${members.length ? 'Passende Spiele' : 'Noch keine Antworten'}</h2></div>
+        <div><p class="eyebrow">${group ? 'Gruppenergebnis' : multi ? 'Gruppenergebnis' : 'Euer Ergebnis'}</p><h2>${hidden ? 'Erst ausfüllen, dann vergleichen' : members.length ? 'Passende Spiele' : 'Noch keine Antworten'}</h2></div>
         <div class="row-actions">
           ${editTarget() ? '<button type="button" class="btn" id="wEdit">Antworten ändern</button>' : ''}
           <button type="button" class="btn btn-primary" id="wShare">${group ? 'Gruppenlink teilen' : 'Link teilen'}</button>
@@ -1489,8 +1493,10 @@ export async function renderWahlomat(root, params, groupId = null) {
       </div>
       ${group || multi ? '<div id="wMembersSlot"></div>' : ''}
       <div id="wDraftSlot"></div>
-      ${multi ? groupPicture(members) : ''}
-      ${members.length ? `<p class="wahlomat-meta">Bewertet: alle ${results.length} Spiele der Sammlung.${skippedNote}</p>
+      ${hidden ? `<div class="help-box wahlomat-hidden-results"><span>Das Ergebnis der Gruppe bleibt verdeckt, bis du selbst ausgefüllt hast – so beeinflusst es deine Antworten nicht.</span>
+        <span class="row-actions"><button type="button" class="btn btn-sm btn-ghost" id="wPeek">Trotzdem ansehen</button></span></div>` : ''}
+      ${multi && !hidden ? groupPicture(members) : ''}
+      ${members.length && !hidden ? `<p class="wahlomat-meta">Bewertet: alle ${results.length} Spiele der Sammlung.${skippedNote}</p>
       ${played.size ? '<label class="wahlomat-skip wahlomat-filter"><input type="checkbox" id="wUnplayed"> Nur Spiele, die noch nie am Tisch lagen</label>' : ''}
       <div class="wahlomat-results"></div>
       <div class="wahlomat-more-results"></div>` : ''}
@@ -1538,6 +1544,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     if (listWrap) { unplayed?.addEventListener('change', renderList); renderList(); }
 
     section.querySelector('#wShare').addEventListener('click', share);
+    section.querySelector('#wPeek')?.addEventListener('click', () => { peekResults = true; renderResults(); });
     section.querySelector('#wEdit')?.addEventListener('click', () => { const t = editTarget(); startQuiz(t.member, t.index); });
     section.querySelector('#wRestart')?.addEventListener('click', restart);
     section.querySelector('#wReload')?.addEventListener('click', async (ev) => {
