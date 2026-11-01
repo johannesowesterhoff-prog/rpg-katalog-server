@@ -559,10 +559,13 @@ function radarSvg(game, members) {
 }
 
 function radarTable(game, members) {
-  return `<table class="radar-table"><thead><tr><th>Achse</th><th>Spiel</th><th>${members.length > 1 ? 'Gruppe (Ø)' : 'Wunsch'}</th></tr></thead><tbody>${RADAR_AXES.map(([k, , long]) => {
+  // In der Gruppe zusätzlich eine Spalte je Person (rechts vom Durchschnitt).
+  const people = members.length > 1 ? members : [];
+  const cell = (v) => (v == null ? '<span class="faint">egal</span>' : fmtNum(v));
+  return `<div class="radar-table-wrap scroll-x"><table class="radar-table"><thead><tr><th>Achse</th><th>Spiel</th><th>${people.length ? 'Gruppe (Ø)' : 'Wunsch'}</th>${people.map((m) => `<th class="radar-person">${esc(m.name)}</th>`).join('')}</tr></thead><tbody>${RADAR_AXES.map(([k, , long]) => {
     const v = wishValue(members, k);
-    return `<tr><td>${long}</td><td>${fmtNum(Number(game[k] ?? 3))}</td><td>${v == null ? 'egal' : fmtNum(v)}</td></tr>`;
-  }).join('')}</tbody></table>`;
+    return `<tr><td>${long}</td><td>${fmtNum(Number(game[k] ?? 3))}</td><td>${cell(v)}</td>${people.map((m) => `<td class="radar-person">${cell(wishValue([m], k))}</td>`).join('')}</tr>`;
+  }).join('')}</tbody></table></div>`;
 }
 
 // ------------------------------------------------- Antworten einer Person
