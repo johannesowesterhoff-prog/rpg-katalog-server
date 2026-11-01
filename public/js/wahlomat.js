@@ -1565,7 +1565,14 @@ export async function renderWahlomat(root, params, groupId = null) {
     return;
   }
 
-  // Gruppe: immer erst die Gruppenansicht (Mitmachen bzw. Ergebnis).
+  // Wer über den Gruppenlink kommt und an diesem Gerät noch nicht eingetragen
+  // ist, landet direkt im Fragebogen (Name in Schritt 1) – das Ergebnis der
+  // anderen sieht er erst danach und bleibt so unbeeinflusst.
+  if (group && !members.some(isMine)) {
+    if (draft && !draft.done && hasAnswers(draft)) { restoreDraft(draft); setStep(state.step, { push: false }); } else startQuiz(null, null, { push: false });
+    return;
+  }
+  // Sonst die Gruppenansicht mit dem Ergebnis.
   if (group || members.length) { renderResults(); return; }
 
   // Einzeln: Fragebogen starten; angefangene bzw. frühere Antworten anbieten.
