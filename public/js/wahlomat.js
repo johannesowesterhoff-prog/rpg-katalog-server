@@ -565,6 +565,47 @@ function radarTable(game, members) {
   }).join('')}</tbody></table>`;
 }
 
+// ------------------------------------------------- Antworten einer Person
+// Nur zum Ansehen (Klick auf einen Namen in der Gruppe). „Egal“ wird nicht
+// aufgezählt, damit die Übersicht kurz bleibt.
+function memberAnswers(m) {
+  const p = m.profile;
+  const level = (v) => (v >= 3 ? 'Sehr gern' : v > 0 ? 'Gern' : v < 0 ? 'Eher nicht' : null);
+  const budget = (key) => {
+    const groups = { 'Sehr gern': [], Gern: [], 'Eher nicht': [] };
+    Object.entries(p[key] || {}).forEach(([k, v]) => { const l = level(v); if (l) groups[l].push(B[key].labels[k] || k); });
+    const parts = Object.entries(groups).filter(([, list]) => list.length).map(([l, list]) => `<span class="faint">${l}:</span> ${esc(list.join(', '))}`);
+    return parts.length ? parts.join('<br>') : '<span class="faint">Egal</span>';
+  };
+  const tags = (key) => (p[key]?.length ? `<br><span class="faint">Begriffe:</span> ${esc(p[key].join(', '))}` : '');
+  const scalar = (key) => {
+    const v = p[key];
+    if (v == null) return '<span class="faint">Egal</span>';
+    const texts = RANGE_DESC[key];
+    const lo = texts?.[Math.floor(v) - 1];
+    const hi = texts?.[Math.ceil(v) - 1];
+    return `${fmtNum(v)} <span class="faint">– ${esc(!texts ? '' : lo === hi ? lo : `zwischen „${lo}“ und „${hi}“`)}</span>`;
+  };
+  const figures = p.figurenkompetenz?.length
+    ? esc(FIGURE_OPTIONS.filter(([v]) => p.figurenkompetenz.includes(v)).map(([, l]) => l).join(', '))
+    : '<span class="faint">Egal</span>';
+  const prios = p.priorities?.length
+    ? esc(p.priorities.map((k) => PRIORITY_OPTIONS.find(([x]) => x === k)?.[1] || k).join(', '))
+    : '<span class="faint">keine</span>';
+  const ranges = [...RANGES[5], ...RANGES[6]].map(([key, question]) => `<div><dt>${esc(question)}</dt><dd>${scalar(key)}</dd></div>`).join('');
+  return `<section class="panel wahlomat-answers">
+    <h3>Antworten von ${esc(m.name)}</h3>
+    <dl>
+      <div><dt>Genre & Setting</dt><dd>${budget('genre')}${tags('subGenre')}</dd></div>
+      <div><dt>Ton & Themen</dt><dd>${budget('ton')}${tags('subTon')}</dd></div>
+      <div><dt>Spielstil</dt><dd>${budget('aktivitaeten')}${tags('fokus')}</dd></div>
+      <div><dt>Welche Art Figuren?</dt><dd>${figures}</dd></div>
+      ${ranges}
+      <div><dt>Besonders wichtig</dt><dd>${prios}</dd></div>
+    </dl>
+  </section>`;
+}
+
 // ------------------------------------------------------- Gruppenbild
 // Wo liegen die Wünsche nah beieinander, wo weit auseinander? Hilft beim
 // Gespräch, warum das Gruppenergebnis so aussieht.
@@ -1387,7 +1428,7 @@ export async function renderWahlomat(root, params, groupId = null) {
 
   // Personen-Leiste: Namen mit ✎/× und – je nach Modus – Mitmachen,
   // weitere Person am selben Gerät oder Gruppe erstellen.
-  function membersPanel(multi) {
+  function membersPanel(multi, hidden) {
     const mine = members.filter(isMine).length;
     const people = members.length === 1 ? '1 Person' : `${members.length} Personen`;
     const intro = group
@@ -1404,14 +1445,26 @@ export async function renderWahlomat(root, params, groupId = null) {
       <div class="wahlomat-member-list"></div>
     </div>`);
     const list = panel.querySelector('.wahlomat-member-list');
+    // Antworten der anderen ansehen: erst, wenn das Gruppenergebnis sichtbar ist.
+    const canView = members.length > 1 && !hidden;
+    const answersSlot = el('<div class="wahlomat-answers-slot"></div>');
+    let shown = null;
+    if (canView) panel.querySelector('.wahlomat-members-head p').insertAdjacentText('beforeend', ' Tippe auf einen Namen, um die Antworten dieser Person zu sehen.');
     members.forEach((m, i) => {
       const canEdit = group ? isMine(m) : members.length === 1;
       const canRemove = group ? (isMine(m) || !!store.adminToken) : multi;
-      const chip = el(`<span class="wahlomat-member${isMine(m) ? ' is-mine' : ''}"><span>${esc(m.name)}</span>
+      const chip = el(`<span class="wahlomat-member${isMine(m) ? ' is-mine' : ''}">${canView ? `<button type="button" class="wahlomat-member-name" data-act="view" aria-expanded="false" title="Antworten von ${esc(m.name)} ansehen">${esc(m.name)}</button>` : `<span>${esc(m.name)}</span>`}
         ${canEdit ? `<button type="button" class="wahlomat-member-btn" data-act="edit" title="Antworten von ${esc(m.name)} ändern" aria-label="Antworten von ${esc(m.name)} ändern">✎</button>` : ''}
         ${canRemove ? `<button type="button" class="wahlomat-member-btn" data-act="remove" title="${esc(m.name)} entfernen" aria-label="${esc(m.name)} entfernen">×</button>` : ''}
       </span>`);
       chip.querySelector('[data-act=edit]')?.addEventListener('click', () => startQuiz(m, i));
+      chip.querySelector('[data-act=view]')?.addEventListener('click', (ev) => {
+        list.querySelectorAll('[data-act=view]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+        if (shown === i) { shown = null; answersSlot.innerHTML = ''; return; }
+        shown = i;
+        ev.currentTarget.setAttribute('aria-expanded', 'true');
+        answersSlot.innerHTML = memberAnswers(m);
+      });
       chip.querySelector('[data-act=remove]')?.addEventListener('click', async () => {
         if (!group) { members.splice(i, 1); renderResults(); return; }
         if (!window.confirm(`${m.name} aus der Gruppe entfernen?`)) return;
@@ -1425,6 +1478,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       });
       list.appendChild(chip);
     });
+    if (canView) panel.appendChild(answersSlot);
     if (group && !mine) {
       let pending = '';
       try { pending = sessionStorage.getItem('rpg-wahlomat:joinName') || ''; sessionStorage.removeItem('rpg-wahlomat:joinName'); } catch { /* privat/gesperrt */ }
@@ -1501,7 +1555,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       <div class="wahlomat-more-results"></div>` : ''}
       ${group || multi ? '' : '<div id="wMembersSlot"></div>'}
     </section>`);
-    section.querySelector('#wMembersSlot').replaceWith(membersPanel(multi));
+    section.querySelector('#wMembersSlot').replaceWith(membersPanel(multi, hidden));
     // Angefangener, noch nicht abgeschickter Fragebogen in dieser Gruppe.
     const draft = loadDraft();
     if (group && draft && !draft.done && hasAnswers(draft)) {

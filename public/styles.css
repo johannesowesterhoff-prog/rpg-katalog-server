@@ -509,6 +509,15 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .wahlomat-member { display: inline-flex; align-items: center; gap: .15rem; padding: .2rem .25rem .2rem .7rem; border-radius: var(--radius-full); background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line); font-weight: 700; font-size: var(--text-sm); }
 .wahlomat-member-btn { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; line-height: 1; padding: .2rem .4rem; border-radius: var(--radius-full); }
 .wahlomat-member-btn:hover { background: var(--surface-hover); }
+.wahlomat-member-name { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; padding: 0; text-decoration: underline dotted; text-underline-offset: 3px; }
+.wahlomat-member-name[aria-expanded="true"] { text-decoration-style: solid; }
+.wahlomat-answers { margin-top: var(--space-3); }
+.wahlomat-answers h3 { margin: 0 0 var(--space-2); font-size: var(--text-md); }
+.wahlomat-answers dl { display: grid; gap: var(--space-2); margin: 0; font-size: var(--text-sm); }
+.wahlomat-answers dl > div { display: grid; grid-template-columns: minmax(9rem, 16rem) 1fr; gap: var(--space-3); }
+.wahlomat-answers dt { font-weight: 600; }
+.wahlomat-answers dd { margin: 0; }
+@media (max-width: 600px) { .wahlomat-answers dl > div { grid-template-columns: 1fr; gap: 0; } }
 .wahlomat-group { margin-bottom: var(--space-4); }
 .wahlomat-member.is-mine { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .wahlomat-join { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
