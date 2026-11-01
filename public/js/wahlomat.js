@@ -137,7 +137,7 @@ const HELP = {
   ton: { text: 'Die Grundstimmung am Tisch – unabhängig vom Setting. Eine Fantasywelt kann gemütlich-humorvoll oder bitter-düster sein; hier geht es um das Gefühl, nicht um die Welt.' },
   aktivitaeten: { text: 'Womit möchtest du die meiste Spielzeit verbringen? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
   gefahr: { text: 'Wie viel Druck spüren die Figuren – und was passiert, wenn etwas schiefgeht? Niedrig: gemütlich, Rückschläge bleiben ohne große Folgen. Hoch: ständige Bedrohung, Figuren können sterben oder dauerhaft verlieren. Das ist unabhängig vom Genre – auch ein Fantasyspiel kann sehr behaglich sein.' },
-  handlungsfreiheit: { text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die die Gruppe löst? Oder entscheidet ihr am Tisch selbst, wohin es geht und was ihr erreichen wollt (Sandbox)?' },
+  handlungsfreiheit: { text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die die Gruppe abarbeitet? Oder entscheidet die Gruppe selbst, wohin es geht und was sie erreichen will (Sandbox)?' },
   figurenkompetenz: { text: 'Wie fähig sind die Figuren zu Beginn im Vergleich zur Welt? Kleine Leute, die über sich hinauswachsen – oder Profis und Held:innen, die von Anfang an glänzen?' },
   crunch: { text: 'Wie detailliert sind die Regeln – was wird alles mechanisch simuliert? Niedrig: wenige Werte, die meisten Situationen entscheidet ein einfacher Wurf. Hoch: eigene Regeln für Kampf, Verletzungen, Ausrüstung, Reisen und mehr.' },
   narrativ: { text: 'Steuern die Regeln nur, ob eine Aktion gelingt – oder auch, wie sich die Geschichte entwickelt? Niedrig: Würfel entscheiden über Treffer und Erfolg, die Handlung erzählt die Spielleitung frei drumherum. Hoch: Regeln für Szenen, Dramatik und Wendungen; Spieler:innen dürfen oft selbst Fakten über die Welt festlegen, nicht nur über ihre Figur.' },
@@ -1394,7 +1394,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       ? (mine
         ? 'Schick den Gruppenlink an alle, die mitspielen. Wer ausgefüllt hat, erscheint hier – „Aktualisieren“ holt den neuesten Stand.'
         : 'Trag dich mit deinem Namen ein und beantworte die Fragen. Danach siehst du hier das gemeinsame Ergebnis.')
-      : 'Spielt ihr zu mehreren? Erstellt eine Gruppe und schickt den Link herum: Jede:r trägt sich mit Namen ein und füllt aus, das Ergebnis sammelt sich automatisch.';
+      : 'Spielst du mit anderen? Erstelle eine Gruppe und schick den Link herum: Jede:r trägt sich mit Namen ein und füllt aus, das Ergebnis sammelt sich automatisch.';
     const rule = multi ? ' Das Ranking verbindet alle Antworten: 60 % Durchschnitt, 40 % der schwächste Einzelwert – oben steht, womit alle gut leben können.' : '';
     const panel = el(`<div class="panel wahlomat-members">
       <div class="wahlomat-members-head">
