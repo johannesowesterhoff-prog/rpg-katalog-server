@@ -228,7 +228,7 @@ export function renderCatalog(root, ctx) {
         moreBox.innerHTML = '';
         const shownCount = grid.children.length;
         if (page >= data.pages) return;
-        const more = el(`<button type="button" class="btn">Weitere ${Math.min(data.pageSize || 25, data.total - (page * (data.pageSize || 25)))} laden <span class="faint">(${shownCount} von ${data.total})</span></button>`);
+        const more = el(`<button type="button" class="btn">Weitere ${Math.min(data.pageSize || 24, data.total - (page * (data.pageSize || 24)))} laden <span class="faint">(${shownCount} von ${data.total})</span></button>`);
         more.addEventListener('click', async () => {
           more.disabled = true;
           try {
