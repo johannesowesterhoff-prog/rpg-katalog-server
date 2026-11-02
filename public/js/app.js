@@ -4,7 +4,7 @@ import { renderCatalog } from './catalog.js';
 import { renderDetail } from './detail.js';
 import { renderWahlomat } from './wahlomat.js';
 import { renderStats } from './stats.js';
-import { renderLogin, renderDashboard, renderList, renderEditor, renderImport, renderMasterData, renderAudit, renderPlaySessions } from './admin.js';
+import { renderLogin, renderDashboard, renderList, renderEditor, renderImport, renderMasterData, renderAudit, renderPlaySessions, renderWahlomatGroups } from './admin.js';
 import { toast, emptyState } from './ui.js';
 
 const root = document.getElementById('app');
@@ -68,6 +68,7 @@ async function route() {
         import: () => renderImport(root),
         stammdaten: () => renderMasterData(root),
         protokoll: () => renderAudit(root),
+        gruppen: () => renderWahlomatGroups(root),
       };
       const fn = map[sub];
       if (!fn) { root.innerHTML = ''; root.appendChild(emptyState('Seite nicht gefunden', 'Diese Adminseite gibt es nicht.', '<p><a class="btn btn-sm" href="#/admin">Zur Übersicht</a></p>')); return; }

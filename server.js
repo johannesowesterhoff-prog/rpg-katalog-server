@@ -23,7 +23,7 @@ import {
   listPlaySessions, getGameLookup, createPlaySession, updatePlaySession, deletePlaySession,
 } from './src/catalog.js';
 import { stagingPreview, getImportRun, commitImport } from './src/importer.js';
-import { createGroup, getGroup, saveMember, removeMember } from './src/wahlomatGroups.js';
+import { createGroup, getGroup, saveMember, removeMember, listGroups } from './src/wahlomatGroups.js';
 import {
   getCoverImage, getCoverJpeg, getCoverMeta, setCoverFromUrl, setCoverFromUpload, updateCoverSettings, deleteCover,
   trimStoredCovers,
@@ -179,6 +179,10 @@ app.post('/api/wahlomat/groups/:id/members', groupWriteLimit, asyncRoute(async (
 }));
 app.delete('/api/wahlomat/groups/:id/members/:memberId', groupWriteLimit, asyncRoute(async (req, res) => {
   res.json(await removeMember(req.params.id, req.params.memberId, req.body));
+}));
+app.get('/api/admin/wahlomat-groups', requireAdmin, asyncRoute(async (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ groups: await listGroups() });
 }));
 
 app.get('/api/stats.json', asyncRoute(async (_req, res) => {
