@@ -499,6 +499,9 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .wahlomat-range.is-egal + .wahlomat-range-desc { color: var(--text-faint); }
 .wahlomat-base { margin: 0 0 var(--space-5); padding: var(--space-3) var(--space-4); border: 1px dashed var(--accent-line); border-radius: var(--radius-md); }
 .wahlomat-base p { margin: .3rem 0 var(--space-2); font-size: var(--text-xs); }
+.wahlomat-base summary { cursor: pointer; color: var(--accent); font-size: var(--text-sm); font-weight: 600; width: fit-content; }
+.wahlomat-base[open] summary { margin-bottom: var(--space-2); }
+.wahlomat-base:not([open]) { border-style: none; padding: 0; }
 .wahlomat-base-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .wahlomat-base-row select { flex: 1 1 220px; max-width: 360px; }
 .wahlomat-base .wahlomat-base-note { color: var(--accent); font-weight: 700; margin-bottom: 0; }
