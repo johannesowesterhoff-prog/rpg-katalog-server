@@ -8,7 +8,7 @@ export const BACKUP_TABLES = {
   game_covers: "CASE WHEN coalesce(t.source_url, '') = '' THEN to_jsonb(t) ELSE to_jsonb(t) - 'data' END",
   game_tags: null, game_publishers: null, tags: null, products: null, product_types: null, publishers: null,
   system_families: null, languages: null, play_sessions: null, app_settings: null, wahlomat_groups: null,
-  wahlomat_group_members: null, audit_log: null, import_runs: null, import_issues: null, staging_games_raw: null,
+  wahlomat_group_members: null, wahlomat_results: null, audit_log: null, import_runs: null, import_issues: null, staging_games_raw: null,
 };
 
 // Eine Abfrage, die alle (oder die genannten) Tabellen als ein JSON-Objekt liefert.

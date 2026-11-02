@@ -504,6 +504,7 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .wahlomat-base .wahlomat-base-note { color: var(--accent); font-weight: 700; margin-bottom: 0; }
 .wahlomat-name { display: grid; gap: .35rem; margin: 0 0 var(--space-5); font-weight: 700; font-size: var(--text-base); }
 .wahlomat-name input { max-width: 320px; font-weight: 400; }
+.wahlomat-name small { font-weight: 400; font-size: var(--text-xs); }
 .wahlomat-resume { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); max-width: 760px; margin-inline: auto; margin-bottom: var(--space-5); }
 .wahlomat-members { margin-bottom: var(--space-4); display: grid; gap: var(--space-3); }
 .wahlomat-members-head p { margin: .25rem 0 0; font-size: var(--text-sm); max-width: 75ch; }
