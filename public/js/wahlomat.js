@@ -823,7 +823,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat${group ? ` <span class="wahlomat-group-title">· ${esc(group.name)}</span>` : ''}</h1>
     <p class="lede">Welches Spiel aus der Sammlung (${games.length} Spiele) passt zu dir oder eurer Gruppe? Sieben kurze Schritte.</p>
-    <details class="wahlomat-howto"><summary>So funktioniert’s</summary><ol><li><strong>Vor dem Start:</strong> Name eintragen (optional, außer in einer Gruppe). Wer mag, wählt ein Spiel, das gefallen hat, als Blaupause – dann sind alle Fragen damit vorausgefüllt und du änderst nur, was anders sein soll.</li><li><strong>Genre, Ton, Spielstil:</strong> Tippe an, was dich reizt („Sehr gern“ zählt doppelt so viel wie „Gern“) oder was du lieber nicht willst („Eher nicht“). Was du nicht antippst, bleibt „Egal“. Darunter kannst du optional bis zu fünf genauere Begriffe wählen.</li><li><strong>Figuren, Härte, Freiheit, Regeln, Welt:</strong> Figurenstufen ankreuzen, den Rest mit Reglern einstellen. Alles steht auf „Egal“, bis du es anfasst – was dir nicht wichtig ist, lässt du einfach stehen.</li><li><strong>Prioritäten (optional):</strong> bis zu drei Punkte, die anderthalbmal so viel zählen.</li></ol><p>Danach bekommt jedes Spiel bis zu 100 Punkte, je nachdem, wie gut seine Katalogdaten zu deinen Antworten passen. „Was ist gemeint?“ unter jeder Frage erklärt die Begriffe. Als Gruppe: Gruppe erstellen und den Link verschicken – alle füllen für sich aus, und wer neu dazukommt, sieht das Gruppenergebnis erst nach dem eigenen Ausfüllen. Dein Zwischenstand wird in diesem Browser gespeichert; abgeschlossene Antworten werden mit deinem Namen auch auf dem Server abgelegt, damit sie einer Gruppe zugeordnet werden können.</p></details>
+    <details class="wahlomat-howto"><summary>So funktioniert’s</summary><ol><li><strong>Vor dem Start:</strong> Name eintragen (optional, außer in einer Gruppe). Optional als Abkürzung: ein Lieblingsspiel als Vorlage wählen – dann sind alle Fragen damit vorausgefüllt und du änderst nur, was anders sein soll.</li><li><strong>Genre, Ton, Spielstil:</strong> Tippe an, was dich reizt („Sehr gern“ zählt doppelt so viel wie „Gern“) oder was du lieber nicht willst („Eher nicht“). Was du nicht antippst, bleibt „Egal“. Darunter kannst du optional bis zu fünf genauere Begriffe wählen.</li><li><strong>Figuren, Härte, Freiheit, Regeln, Welt:</strong> Figurenstufen ankreuzen, den Rest mit Reglern einstellen. Alles steht auf „Egal“, bis du es anfasst – was dir nicht wichtig ist, lässt du einfach stehen.</li><li><strong>Prioritäten (optional):</strong> bis zu drei Punkte, die anderthalbmal so viel zählen.</li></ol><p>Danach bekommt jedes Spiel bis zu 100 Punkte, je nachdem, wie gut seine Katalogdaten zu deinen Antworten passen. „Was ist gemeint?“ unter jeder Frage erklärt die Begriffe. Als Gruppe: Gruppe erstellen und den Link verschicken – alle füllen für sich aus, und wer neu dazukommt, sieht das Gruppenergebnis erst nach dem eigenen Ausfüllen. Dein Zwischenstand wird in diesem Browser gespeichert; abgeschlossene Antworten werden mit deinem Namen auch auf dem Server abgelegt, damit sie einer Gruppe zugeordnet werden können.</p></details>
   </section>`);
   root.appendChild(head);
 
@@ -1192,15 +1192,17 @@ export async function renderWahlomat(root, params, groupId = null) {
   // Optional: alle Antworten mit dem Profil eines bekannten Spiels vorbelegen.
   function baseGameField() {
     const sorted = [...games].sort((a, b) => a.title.localeCompare(b.title, 'de'));
-    const wrap = el(`<div class="wahlomat-base">
-      <label for="wBase"><strong>Mit einem Spiel als Blaupause starten</strong></label>
-      <p class="muted">Wähle ein Spiel, das dir gefallen hat – alle Fragen werden mit seiner Einordnung vorausgefüllt. Ändere dann nur, was anders sein soll.</p>
+    // Bewusst zugeklappt: Ohne Hinweis hielten viele die Vorlage für Pflicht
+    // und haben ihre Antworten nur noch von einem Spiel übernommen.
+    const wrap = el(`<details class="wahlomat-base" ${state.baseGame ? 'open' : ''}>
+      <summary>Optional: Fragebogen mit einem Lieblingsspiel vorausfüllen</summary>
+      <p class="muted">Nur als Abkürzung gedacht – normalerweise einfach auf „Weiter“ gehen und die Fragen selbst beantworten. Wer ein Spiel wählt, bekommt alle Fragen mit dessen Einordnung vorausgefüllt und ändert dann nur, was anders sein soll.</p>
       <div class="wahlomat-base-row">
-        <select id="wBase"><option value="">– Spiel wählen –</option>${sorted.map((g) => `<option value="${esc(g.id)}">${esc(g.title)}</option>`).join('')}</select>
-        <button type="button" class="btn btn-primary">Übernehmen</button>
+        <select id="wBase" aria-label="Spiel als Vorlage"><option value="">– Spiel wählen –</option>${sorted.map((g) => `<option value="${esc(g.id)}">${esc(g.title)}</option>`).join('')}</select>
+        <button type="button" class="btn">Vorausfüllen</button>
       </div>
       ${state.baseGame ? `<p class="wahlomat-base-note">✓ Vorausgefüllt mit „${esc(gamesById.get(state.baseGame)?.title || '')}“ – geh die Fragen durch und pass an, was anders sein soll.</p>` : ''}
-    </div>`);
+    </details>`);
     const select = wrap.querySelector('select');
     select.value = state.baseGame || '';
     wrap.querySelector('button').addEventListener('click', () => {
@@ -1288,7 +1290,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     quizWrap.innerHTML = '';
     const section = el(`<section class="panel wahlomat-step">
       <h2><span class="step-num">${s.n}</span> ${esc(s.title)}</h2>
-      <p class="muted">${esc(s.setup ? (group ? 'Dein Name ist Pflicht, die Blaupause optional.' : 'Alles optional – du kannst direkt auf „Weiter“ gehen.') : s.lede)}</p>
+      <p class="muted">${esc(s.setup ? (group ? 'Trag deinen Namen ein und geh dann auf „Weiter“.' : 'Alles optional – du kannst direkt auf „Weiter“ gehen.') : s.lede)}</p>
     </section>`);
     if (s.setup) section.appendChild(setupPanel());
 
