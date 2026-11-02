@@ -45,6 +45,7 @@ export async function listGroups() {
   const r = await pool.query(`
     SELECT g.id, g.name, g.created_at, g.updated_at,
       coalesce(array_agg(m.name ORDER BY m.created_at, m.id) FILTER (WHERE m.id IS NOT NULL), '{}') AS members,
+      coalesce(array_agg(m.id ORDER BY m.created_at, m.id) FILTER (WHERE m.id IS NOT NULL), '{}') AS member_ids,
       (g.updated_at + make_interval(days => $1)) AS expires_at
     FROM katalog.wahlomat_groups g LEFT JOIN katalog.wahlomat_group_members m ON m.group_id = g.id
     GROUP BY g.id ORDER BY g.updated_at DESC`, [EXPIRE_DAYS]);
@@ -59,6 +60,36 @@ export async function deleteGroup(id) {
   if (!r.rowCount) throw httpError(404, 'Diese Gruppe gibt es nicht.');
   await logAudit(pool, { action: 'delete', entity: 'wahlomat_groups', entityId: id, diff: { name: r.rows[0].name, eintraege: r.rows[0].members } });
   return { ok: true };
+}
+
+// Adminbereich: einen Eintrag in eine andere Gruppe verschieben (z. B. wenn
+// jemand versehentlich eine neue Gruppe angelegt hat). Das Token des Eintrags
+// bleibt gültig.
+export async function moveMember(memberId, targetGroupId) {
+  checkGroupId(targetGroupId);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const m = await client.query('SELECT id, name, group_id FROM katalog.wahlomat_group_members WHERE id = $1 FOR UPDATE', [Number(memberId) || 0]);
+    if (!m.rowCount) throw httpError(404, 'Diesen Eintrag gibt es nicht (mehr).');
+    const { name, group_id: from } = m.rows[0];
+    if (from === targetGroupId) throw httpError(422, 'Der Eintrag ist schon in dieser Gruppe.');
+    const g = await client.query('SELECT name FROM katalog.wahlomat_groups WHERE id = $1 FOR UPDATE', [targetGroupId]);
+    if (!g.rowCount) throw httpError(404, 'Die Zielgruppe gibt es nicht (mehr).');
+    const others = (await client.query('SELECT name FROM katalog.wahlomat_group_members WHERE group_id = $1', [targetGroupId])).rows;
+    if (others.some((x) => x.name.toLowerCase() === name.toLowerCase())) throw httpError(409, `„${name}“ gibt es in der Zielgruppe schon.`);
+    if (others.length >= MAX_MEMBERS) throw httpError(409, `Mehr als ${MAX_MEMBERS} Personen passen nicht in eine Gruppe.`);
+    await client.query('UPDATE katalog.wahlomat_group_members SET group_id = $1 WHERE id = $2', [targetGroupId, m.rows[0].id]);
+    await client.query('UPDATE katalog.wahlomat_groups SET updated_at = now() WHERE id = ANY($1)', [[from, targetGroupId]]);
+    await logAudit(client, { action: 'update', entity: 'wahlomat_groups', entityId: targetGroupId, diff: { verschoben: { person: name, von: from, nach: targetGroupId } } });
+    await client.query('COMMIT');
+    return { ok: true };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function createGroup(body) {
