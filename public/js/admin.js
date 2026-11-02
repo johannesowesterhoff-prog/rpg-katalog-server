@@ -101,7 +101,7 @@ function tabs(active) {
     ['#/admin/liste', 'Einträge', 'liste'], ['#/admin/editor', 'Neuer Eintrag', 'editor'],
     ['#/admin/spielabende', 'Spielabende', 'spielabende'],
     ['#/admin/import', 'Import & Export', 'import'], ['#/admin/stammdaten', 'Stammdaten', 'stammdaten'],
-    ['#/admin/protokoll', 'Protokoll', 'protokoll']];
+    ['#/admin/gruppen', 'Wahlomat-Gruppen', 'gruppen'], ['#/admin/protokoll', 'Protokoll', 'protokoll']];
   return el(`<nav class="admin-tabs" aria-label="Adminbereich">${items.map(([href, label, key]) =>
     `<a href="${href}" ${key === active ? 'aria-current="page"' : ''}>${label}</a>`).join('')}</nav>`);
 }
@@ -856,6 +856,35 @@ function showPreview(container, r) {
   });
   if (r.rowsOk === 0) actions.querySelector('#commit').disabled = true;
   container.appendChild(actions);
+}
+
+// ------------------------------------------------------- Wahlomat-Gruppen
+export async function renderWahlomatGroups(root) {
+  const body = mount(root, 'gruppen', 'Wahlomat-Gruppen', 'Alle Gruppen aus dem Wahlomat – auch ohne Gruppenlink. „Ansehen“ öffnet das Gruppenergebnis, ohne dass du dich eintragen musst.');
+  body.innerHTML = '<div class="skeleton" style="height:160px"></div>';
+  const { groups } = await api('/api/admin/wahlomat-groups');
+  body.innerHTML = '';
+  const fmtDay = (v) => new Date(v).toLocaleDateString('de-DE');
+  if (!groups.length) { body.appendChild(el('<p class="muted">Noch keine Gruppen angelegt.</p>')); return; }
+  const sec = el(`<section class="section"><div class="panel scroll-x" style="padding:0"><table>
+    <thead><tr><th>Gruppe</th><th>Dabei</th><th>Erstellt</th><th>Zuletzt aktiv</th><th></th></tr></thead>
+    <tbody>${groups.map((g) => {
+      const path = `#/wahlomat/gruppe/${encodeURIComponent(g.id)}`;
+      return `<tr>
+        <td><strong>${esc(g.name)}</strong></td>
+        <td>${g.members.length ? `${g.members.length}: ${esc(g.members.join(', '))}` : '<span class="faint">noch niemand</span>'}</td>
+        <td class="muted" style="white-space:nowrap">${fmtDay(g.created_at)}</td>
+        <td class="muted" style="white-space:nowrap" title="Ohne Aktivität wird die Gruppe am ${fmtDay(g.expires_at)} gelöscht.">${fmtDay(g.updated_at)}</td>
+        <td style="white-space:nowrap"><a class="btn btn-sm btn-primary" href="${path}?ansehen=1">Ansehen</a>
+          <button type="button" class="btn btn-sm" data-copy="${esc(location.origin + '/' + path.slice(2))}" title="Einladungslink kopieren (öffnet den Fragebogen)">Link kopieren</button></td>
+      </tr>`;
+    }).join('')}</tbody></table></div>
+    <p class="faint" style="font-size:var(--text-xs);margin-top:var(--space-2)">Gruppen ohne Aktivität werden nach einem Jahr gelöscht. Der kopierte Link ist der normale Einladungslink: Wer ihn öffnet, landet im Fragebogen.</p>
+  </section>`);
+  sec.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); toast('Link kopiert.'); } catch { window.prompt('Link kopieren:', b.dataset.copy); }
+  }));
+  body.appendChild(sec);
 }
 
 // ------------------------------------------------------------ Stammdaten

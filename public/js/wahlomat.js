@@ -812,7 +812,8 @@ export async function renderWahlomat(root, params, groupId = null) {
     members.forEach((m, i) => { if (!m.name) m.name = `Person ${i + 1}`; });
   }
   const isMine = (m) => !!(group && m.id != null && store.members[m.id]);
-  let peekResults = false;
+  // „?ansehen=1“ (z. B. aus dem Adminbereich): Ergebnis zeigen statt Fragebogen.
+  let peekResults = params?.get('ansehen') === '1';
 
   root.innerHTML = '';
   const head = el(`<section class="catalog-head">
@@ -1434,7 +1435,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     const qs = members.map((m) => `p=${encodeMember(m)}`).join('&');
     return `#/wahlomat${qs ? `?${qs}` : ''}`;
   }
-  function resultsHash() { return group ? basePath : (members.length ? shareHash() : basePath); }
+  function resultsHash() { return group ? basePath + (peekResults && !members.some(isMine) ? '?ansehen=1' : '') : (members.length ? shareHash() : basePath); }
 
   async function share() {
     // Pfad statt #-Link, damit Messenger eine Vorschau zeigen; app.js macht daraus wieder die Hash-Route.
@@ -1693,7 +1694,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   // Wer über den Gruppenlink kommt und an diesem Gerät noch nicht eingetragen
   // ist, landet direkt im Fragebogen (Name in Schritt 1) – das Ergebnis der
   // anderen sieht er erst danach und bleibt so unbeeinflusst.
-  if (group && !members.some(isMine)) {
+  if (group && !members.some(isMine) && !peekResults) {
     if (draft && !draft.done && hasAnswers(draft)) { restoreDraft(draft); setStep(state.step, { push: false }); } else startQuiz(null, null, { push: false });
     return;
   }

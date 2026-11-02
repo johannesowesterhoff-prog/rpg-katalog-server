@@ -39,6 +39,17 @@ function checkGroupId(id) {
   return id;
 }
 
+// Für den Adminbereich: alle Gruppen mit Teilnehmenden (ohne Antworten und Tokens).
+export async function listGroups() {
+  const r = await pool.query(`
+    SELECT g.id, g.name, g.created_at, g.updated_at,
+      coalesce(array_agg(m.name ORDER BY m.created_at, m.id) FILTER (WHERE m.id IS NOT NULL), '{}') AS members,
+      (g.updated_at + make_interval(days => $1)) AS expires_at
+    FROM katalog.wahlomat_groups g LEFT JOIN katalog.wahlomat_group_members m ON m.group_id = g.id
+    GROUP BY g.id ORDER BY g.updated_at DESC`, [EXPIRE_DAYS]);
+  return r.rows;
+}
+
 export async function createGroup(body) {
   const name = cleanText(body?.name, 60, 'einen Gruppennamen');
   const id = crypto.randomBytes(9).toString('base64url');
