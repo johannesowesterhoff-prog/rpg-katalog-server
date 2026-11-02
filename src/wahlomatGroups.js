@@ -5,6 +5,7 @@
 // alle Einträge). In der Datenbank steht nur der SHA-256 der Tokens.
 import crypto from 'node:crypto';
 import { pool } from './db.js';
+import { logAudit } from './catalog.js';
 
 const MAX_MEMBERS = 20;
 // Gruppen, in denen sich so lange nichts getan hat, räumt das Anlegen neuer Gruppen weg.
@@ -48,6 +49,16 @@ export async function listGroups() {
     FROM katalog.wahlomat_groups g LEFT JOIN katalog.wahlomat_group_members m ON m.group_id = g.id
     GROUP BY g.id ORDER BY g.updated_at DESC`, [EXPIRE_DAYS]);
   return r.rows;
+}
+
+// Adminbereich: Gruppe samt aller Einträge löschen (Mitglieder per ON DELETE CASCADE).
+export async function deleteGroup(id) {
+  checkGroupId(id);
+  const r = await pool.query(`DELETE FROM katalog.wahlomat_groups g WHERE id = $1
+    RETURNING name, (SELECT count(*)::int FROM katalog.wahlomat_group_members m WHERE m.group_id = g.id) AS members`, [id]);
+  if (!r.rowCount) throw httpError(404, 'Diese Gruppe gibt es nicht.');
+  await logAudit(pool, { action: 'delete', entity: 'wahlomat_groups', entityId: id, diff: { name: r.rows[0].name, eintraege: r.rows[0].members } });
+  return { ok: true };
 }
 
 export async function createGroup(body) {
