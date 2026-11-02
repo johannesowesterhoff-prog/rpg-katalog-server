@@ -882,6 +882,33 @@ export async function renderWahlomatGroups(root) {
     }).join('')}</tbody></table></div>
     <p class="faint" style="font-size:var(--text-xs);margin-top:var(--space-2)">Gruppen ohne Aktivität werden nach einem Jahr gelöscht. Der kopierte Link ist der normale Einladungslink: Wer ihn öffnet, landet im Fragebogen.</p>
   </section>`);
+  // Eintrag in eine andere Gruppe verschieben (z. B. bei versehentlich doppelt angelegter Gruppe).
+  const entries = groups.flatMap((g) => g.members.map((name, i) => ({ id: g.member_ids[i], name, group: g })));
+  if (entries.length && groups.length > 1) {
+    const dupNames = new Set(groups.map((g) => g.name).filter((n, i, a) => a.indexOf(n) !== i));
+    const label = (g) => `${g.name}${dupNames.has(g.name) ? ` (erstellt ${fmtDay(g.created_at)}, ${g.members.length === 1 ? '1 Person' : `${g.members.length} Personen`})` : ''}`;
+    const move = el(`<section class="section"><h2>Eintrag verschieben</h2>
+      <p class="muted" style="font-size:var(--text-sm)">Hat jemand versehentlich eine eigene Gruppe angelegt, lässt sich der Eintrag hier in die richtige Gruppe verschieben. Die leere Gruppe danach einfach löschen.</p>
+      <div class="panel" style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:end">
+        <div class="field" style="margin:0"><label for="mv-member">Person</label><select id="mv-member">${entries.map((e) => `<option value="${e.id}" data-group="${esc(e.group.id)}">${esc(e.name)} – aus „${esc(label(e.group))}“</option>`).join('')}</select></div>
+        <div class="field" style="margin:0"><label for="mv-target">in Gruppe</label><select id="mv-target">${groups.map((g) => `<option value="${esc(g.id)}">${esc(label(g))}</option>`).join('')}</select></div>
+        <button type="button" class="btn btn-sm btn-primary" id="mv-go">Verschieben</button>
+      </div></section>`);
+    const memberSel = move.querySelector('#mv-member');
+    const targetSel = move.querySelector('#mv-target');
+    // Zielgruppe: standardmäßig eine andere als die eigene.
+    const syncTarget = () => { const from = memberSel.selectedOptions[0]?.dataset.group; if (targetSel.value === from) targetSel.value = [...targetSel.options].find((o) => o.value !== from)?.value || targetSel.value; };
+    memberSel.addEventListener('change', syncTarget); syncTarget();
+    move.querySelector('#mv-go').addEventListener('click', async (ev) => {
+      ev.target.disabled = true;
+      try {
+        await api(`/api/admin/wahlomat-members/${memberSel.value}/move`, { method: 'POST', body: { groupId: targetSel.value } });
+        toast('Eintrag verschoben.');
+        renderWahlomatGroups(root);
+      } catch (e) { toast(e.message, 'err'); ev.target.disabled = false; }
+    });
+    body.appendChild(move);
+  }
   sec.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(b.dataset.copy); toast('Link kopiert.'); } catch { window.prompt('Link kopieren:', b.dataset.copy); }
   }));

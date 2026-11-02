@@ -1156,7 +1156,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     if (!group && !members.length) {
       const box = el(`<div class="wahlomat-start-group">
         <strong>Als Gruppe spielen?</strong>
-        <p class="muted">Gruppe erstellen, Link verschicken – jede:r trägt sich mit Namen ein und füllt aus.</p>
+        <p class="muted">Neue Gruppe erstellen, Link verschicken – jede:r trägt sich mit Namen ein und füllt aus. Hast du schon einen Gruppenlink bekommen? Dann öffne einfach den.</p>
       </div>`);
       const mine = myGroups();
       if (mine.length) {
@@ -1571,7 +1571,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       add.addEventListener('click', () => startQuiz());
       list.appendChild(add);
     } else if (!group && members.length === 1) {
-      panel.appendChild(el('<p class="faint wahlomat-join-hint">Deine Antworten werden in die neue Gruppe übernommen.</p>'));
+      panel.appendChild(el('<p class="faint wahlomat-join-hint">Erstellt eine <strong>neue</strong> Gruppe, deine Antworten werden übernommen. Gibt es deine Gruppe schon, öffne stattdessen den Gruppenlink – dort kannst du deine Antworten übernehmen.</p>'));
       panel.appendChild(createGroupForm({ withMe: members[0] }));
     }
     return panel;
@@ -1695,7 +1695,20 @@ export async function renderWahlomat(root, params, groupId = null) {
   // ist, landet direkt im Fragebogen (Name in Schritt 1) – das Ergebnis der
   // anderen sieht er erst danach und bleibt so unbeeinflusst.
   if (group && !members.some(isMine) && !peekResults) {
-    if (draft && !draft.done && hasAnswers(draft)) { restoreDraft(draft); setStep(state.step, { push: false }); } else startQuiz(null, null, { push: false });
+    if (draft && !draft.done && hasAnswers(draft)) { restoreDraft(draft); setStep(state.step, { push: false }); return; }
+    startQuiz(null, null, { push: false });
+    // Schon einmal ohne Gruppe ausgefüllt? Diese Antworten anbieten.
+    let earlier = null;
+    try { earlier = decodeMember(localStorage.getItem(STORAGE_KEY)); } catch { /* privat/gesperrt */ }
+    if (earlier) {
+      const who = earlier.name && !/^Person \d+$/.test(earlier.name) ? earlier.name : '';
+      const box = el(`<div class="help-box wahlomat-resume">
+        <span>Du hast den Wahlomat auf diesem Gerät schon einmal ausgefüllt${who ? ` (als ${esc(who)})` : ''}. Willst du diese Antworten für die Gruppe übernehmen?</span>
+        <span class="row-actions"><button type="button" class="btn btn-sm btn-primary">Antworten übernehmen</button></span>
+      </div>`);
+      box.querySelector('button').addEventListener('click', () => { startQuiz({ name: who, profile: earlier.profile }, null); toast('Antworten übernommen – prüf sie kurz und speichere am Ende.'); });
+      resumeWrap.appendChild(box);
+    }
     return;
   }
   // Sonst die Gruppenansicht mit dem Ergebnis.
