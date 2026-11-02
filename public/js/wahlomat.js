@@ -375,6 +375,10 @@ function makeChips(game, profile) {
 // werden nur vergebene Punkte und bewegte Regler.
 const SCALAR_KEYS = Object.keys(SCALAR_TO_PRIORITY).filter((k) => k !== 'figurenkompetenz');
 const STORAGE_KEY = 'rpg-wahlomat:last';
+// Zufällige ID des eigenen Ergebnisses auf dem Server (Bearbeiten aktualisiert es).
+const RESULT_ID_KEY = 'rpg-wahlomat:resultId';
+const newResultId = () => Array.from(crypto.getRandomValues(new Uint8Array(18)), (b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'[b & 63]).join('');
+function storedResultId() { try { return localStorage.getItem(RESULT_ID_KEY); } catch { return null; } }
 const MAX_MEMBERS = 12;
 
 function toB64url(text) {
@@ -819,7 +823,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   const head = el(`<section class="catalog-head">
     <h1>RPG-Wahlomat${group ? ` <span class="wahlomat-group-title">· ${esc(group.name)}</span>` : ''}</h1>
     <p class="lede">Welches Spiel aus der Sammlung (${games.length} Spiele) passt zu dir oder eurer Gruppe? Sieben kurze Schritte.</p>
-    <details class="wahlomat-howto"><summary>So funktioniert’s</summary><ol><li><strong>Vor dem Start:</strong> Name eintragen (optional, außer in einer Gruppe). Wer mag, wählt ein Spiel, das gefallen hat, als Blaupause – dann sind alle Fragen damit vorausgefüllt und du änderst nur, was anders sein soll.</li><li><strong>Genre, Ton, Spielstil:</strong> Tippe an, was dich reizt („Sehr gern“ zählt doppelt so viel wie „Gern“) oder was du lieber nicht willst („Eher nicht“). Was du nicht antippst, bleibt „Egal“. Darunter kannst du optional bis zu fünf genauere Begriffe wählen.</li><li><strong>Figuren, Härte, Freiheit, Regeln, Welt:</strong> Figurenstufen ankreuzen, den Rest mit Reglern einstellen. Alles steht auf „Egal“, bis du es anfasst – was dir nicht wichtig ist, lässt du einfach stehen.</li><li><strong>Prioritäten (optional):</strong> bis zu drei Punkte, die anderthalbmal so viel zählen.</li></ol><p>Danach bekommt jedes Spiel bis zu 100 Punkte, je nachdem, wie gut seine Katalogdaten zu deinen Antworten passen. „Was ist gemeint?“ unter jeder Frage erklärt die Begriffe. Als Gruppe: Gruppe erstellen und den Link verschicken – alle füllen für sich aus, und wer neu dazukommt, sieht das Gruppenergebnis erst nach dem eigenen Ausfüllen. Dein Zwischenstand wird in diesem Browser gespeichert.</p></details>
+    <details class="wahlomat-howto"><summary>So funktioniert’s</summary><ol><li><strong>Vor dem Start:</strong> Name eintragen (optional, außer in einer Gruppe). Wer mag, wählt ein Spiel, das gefallen hat, als Blaupause – dann sind alle Fragen damit vorausgefüllt und du änderst nur, was anders sein soll.</li><li><strong>Genre, Ton, Spielstil:</strong> Tippe an, was dich reizt („Sehr gern“ zählt doppelt so viel wie „Gern“) oder was du lieber nicht willst („Eher nicht“). Was du nicht antippst, bleibt „Egal“. Darunter kannst du optional bis zu fünf genauere Begriffe wählen.</li><li><strong>Figuren, Härte, Freiheit, Regeln, Welt:</strong> Figurenstufen ankreuzen, den Rest mit Reglern einstellen. Alles steht auf „Egal“, bis du es anfasst – was dir nicht wichtig ist, lässt du einfach stehen.</li><li><strong>Prioritäten (optional):</strong> bis zu drei Punkte, die anderthalbmal so viel zählen.</li></ol><p>Danach bekommt jedes Spiel bis zu 100 Punkte, je nachdem, wie gut seine Katalogdaten zu deinen Antworten passen. „Was ist gemeint?“ unter jeder Frage erklärt die Begriffe. Als Gruppe: Gruppe erstellen und den Link verschicken – alle füllen für sich aus, und wer neu dazukommt, sieht das Gruppenergebnis erst nach dem eigenen Ausfüllen. Dein Zwischenstand wird in diesem Browser gespeichert; abgeschlossene Antworten werden mit deinem Namen auch auf dem Server abgelegt, damit sie einer Gruppe zugeordnet werden können.</p></details>
   </section>`);
   root.appendChild(head);
 
@@ -1237,6 +1241,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     const wrap = el(`<label class="wahlomat-name">
       <span>${group ? 'Dein Name <span class="faint">(Pflicht – so sehen die anderen, wer ausgefüllt hat)</span>' : 'Wer füllt aus?'}</span>
       <input type="text" maxlength="40" placeholder="Name" value="${esc(state.name)}" ${group ? 'required' : ''}>
+      ${group ? '' : '<small class="faint">Name und Antworten werden gespeichert, damit sie später einer Gruppe zugeordnet werden können.</small>'}
     </label>`);
     wrap.querySelector('input').addEventListener('input', (e) => { state.name = e.target.value; updateError(); });
     return wrap;
@@ -1378,7 +1383,13 @@ export async function renderWahlomat(root, params, groupId = null) {
     const member = { name: personLabel(), profile: currentProfile() };
     // Für „Letzte Antworten“ beim nächsten Besuch – nur in diesem Browser.
     try { localStorage.setItem(STORAGE_KEY, encodeMember(member)); } catch { /* privat/gesperrt */ }
-    if (!group) { members[idx] = member; markDraftDone(); renderResults({ push: true }); return; }
+    if (!group) {
+      member.rid = members[idx]?.rid || (idx === 0 ? storedResultId() : null) || newResultId();
+      if (idx === 0) { try { localStorage.setItem(RESULT_ID_KEY, member.rid); } catch { /* privat/gesperrt */ } }
+      // Auf dem Server ablegen, damit es später einer Gruppe zugewiesen werden kann.
+      api('/api/wahlomat/results', { method: 'POST', body: { id: member.rid, name: member.name, answers: encodeMember(member) } }).catch(() => {});
+      members[idx] = member; markDraftDone(); renderResults({ push: true }); return;
+    }
     const existing = state.editIndex != null ? members[state.editIndex] : null;
     const body = { name: member.name, answers: encodeMember(member) };
     if (existing?.id != null) Object.assign(body, { memberId: existing.id, token: store.members[existing.id] });

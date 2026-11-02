@@ -860,13 +860,58 @@ function showPreview(container, r) {
 
 // ------------------------------------------------------- Wahlomat-Gruppen
 export async function renderWahlomatGroups(root) {
-  const body = mount(root, 'gruppen', 'Wahlomat-Gruppen', 'Alle Gruppen aus dem Wahlomat – auch ohne Gruppenlink. „Ansehen“ öffnet das Gruppenergebnis, ohne dass du dich eintragen musst.');
+  const body = mount(root, 'gruppen', 'Wahlomat-Gruppen', 'Alle Gruppen und Einzelergebnisse aus dem Wahlomat – auch ohne Gruppenlink. „Ansehen“ öffnet das Ergebnis, ohne dass du dich eintragen musst.');
   body.innerHTML = '<div class="skeleton" style="height:160px"></div>';
-  const { groups } = await api('/api/admin/wahlomat-groups');
+  const [{ groups }, { results }] = await Promise.all([api('/api/admin/wahlomat-groups'), api('/api/admin/wahlomat-results')]);
   body.innerHTML = '';
   const fmtDay = (v) => new Date(v).toLocaleDateString('de-DE');
-  if (!groups.length) { body.appendChild(el('<p class="muted">Noch keine Gruppen angelegt.</p>')); return; }
-  const sec = el(`<section class="section"><div class="panel scroll-x" style="padding:0"><table>
+  const dupNames = new Set(groups.map((g) => g.name).filter((n, i, a) => a.indexOf(n) !== i));
+  const groupLabel = (g) => `${g.name}${dupNames.has(g.name) ? ` (erstellt ${fmtDay(g.created_at)}, ${g.members.length === 1 ? '1 Person' : `${g.members.length} Personen`})` : ''}`;
+
+  // Ergebnisse ohne Gruppe: ansehen, einer Gruppe zuweisen oder löschen.
+  const resSec = el(`<section class="section"><h2>Ergebnisse ohne Gruppe (${results.length})</h2>
+    ${results.length ? `<p class="muted" style="font-size:var(--text-sm)">Wer den Wahlomat allein ausfüllt, landet hier. „Zuweisen“ übernimmt die Antworten als neuen Eintrag in die gewählte Gruppe und nimmt sie aus dieser Liste.</p>
+    <div class="panel scroll-x" style="padding:0"><table>
+      <thead><tr><th>Name</th><th>Ausgefüllt</th><th>Gruppe zuweisen</th><th></th></tr></thead>
+      <tbody>${results.map((r) => `<tr data-id="${esc(r.id)}">
+        <td><strong>${esc(r.name)}</strong></td>
+        <td class="muted" style="white-space:nowrap">${fmtDay(r.updated_at)}</td>
+        <td>${groups.length ? `<div style="display:flex;gap:var(--space-2);align-items:center"><select class="res-group" style="width:auto;max-width:18rem" aria-label="Gruppe für ${esc(r.name)}">${groups.map((g) => `<option value="${esc(g.id)}">${esc(groupLabel(g))}</option>`).join('')}</select>
+          <button type="button" class="btn btn-sm btn-primary" data-act="assign">Zuweisen</button></div>` : '<span class="faint">noch keine Gruppe</span>'}</td>
+        <td style="white-space:nowrap"><a class="btn btn-sm" href="#/wahlomat?p=${encodeURIComponent(r.answers)}">Ansehen</a>
+          <button type="button" class="btn btn-sm btn-danger" data-act="del">Löschen</button></td>
+      </tr>`).join('')}</tbody></table></div>` : '<p class="muted">Keine – alle Ergebnisse sind in Gruppen oder es hat noch niemand allein ausgefüllt.</p>'}
+  </section>`);
+  resSec.querySelectorAll('tr[data-id]').forEach((tr) => {
+    const id = tr.dataset.id;
+    const name = tr.querySelector('strong').textContent;
+    tr.querySelector('[data-act=assign]')?.addEventListener('click', async (ev) => {
+      ev.target.disabled = true;
+      const groupId = tr.querySelector('.res-group').value;
+      try {
+        await api(`/api/admin/wahlomat-results/${encodeURIComponent(id)}/assign`, { method: 'POST', body: { groupId } });
+        toast(`${name} zugewiesen.`); renderWahlomatGroups(root);
+      } catch (e) {
+        // Name schon vergeben: anderen Namen erfragen.
+        if (e.status === 409 && /gibt es in dieser Gruppe schon/.test(e.message)) {
+          const other = window.prompt(`${e.message} Unter welchem Namen soll der Eintrag in die Gruppe?`, `${name} 2`);
+          if (other && other.trim()) {
+            try { await api(`/api/admin/wahlomat-results/${encodeURIComponent(id)}/assign`, { method: 'POST', body: { groupId, name: other.trim() } }); toast(`${other.trim()} zugewiesen.`); renderWahlomatGroups(root); return; } catch (e2) { toast(e2.message, 'err'); }
+          }
+        } else toast(e.message, 'err');
+        ev.target.disabled = false;
+      }
+    });
+    tr.querySelector('[data-act=del]').addEventListener('click', async (ev) => {
+      if (!window.confirm(`Ergebnis von „${name}“ endgültig löschen?`)) return;
+      ev.target.disabled = true;
+      try { await api(`/api/admin/wahlomat-results/${encodeURIComponent(id)}`, { method: 'DELETE' }); toast('Ergebnis gelöscht.'); renderWahlomatGroups(root); } catch (e) { toast(e.message, 'err'); ev.target.disabled = false; }
+    });
+  });
+  body.appendChild(resSec);
+
+  if (!groups.length) { body.appendChild(el('<section class="section"><h2>Gruppen</h2><p class="muted">Noch keine Gruppen angelegt.</p></section>')); return; }
+  const sec = el(`<section class="section"><h2>Gruppen (${groups.length})</h2><div class="panel scroll-x" style="padding:0"><table>
     <thead><tr><th>Gruppe</th><th>Dabei</th><th>Erstellt</th><th>Zuletzt aktiv</th><th></th></tr></thead>
     <tbody>${groups.map((g) => {
       const path = `#/wahlomat/gruppe/${encodeURIComponent(g.id)}`;
@@ -885,8 +930,7 @@ export async function renderWahlomatGroups(root) {
   // Eintrag in eine andere Gruppe verschieben (z. B. bei versehentlich doppelt angelegter Gruppe).
   const entries = groups.flatMap((g) => g.members.map((name, i) => ({ id: g.member_ids[i], name, group: g })));
   if (entries.length && groups.length > 1) {
-    const dupNames = new Set(groups.map((g) => g.name).filter((n, i, a) => a.indexOf(n) !== i));
-    const label = (g) => `${g.name}${dupNames.has(g.name) ? ` (erstellt ${fmtDay(g.created_at)}, ${g.members.length === 1 ? '1 Person' : `${g.members.length} Personen`})` : ''}`;
+    const label = groupLabel;
     const move = el(`<section class="section"><h2>Eintrag verschieben</h2>
       <p class="muted" style="font-size:var(--text-sm)">Hat jemand versehentlich eine eigene Gruppe angelegt, lässt sich der Eintrag hier in die richtige Gruppe verschieben. Die leere Gruppe danach einfach löschen.</p>
       <div class="panel" style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:end">

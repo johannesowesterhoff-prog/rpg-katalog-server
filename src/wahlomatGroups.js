@@ -62,6 +62,64 @@ export async function deleteGroup(id) {
   return { ok: true };
 }
 
+// ------------------------------------------------ Ergebnisse ohne Gruppe
+const RESULT_ID_RE = /^[A-Za-z0-9_-]{16,40}$/;
+
+// Öffentlich: Ergebnis speichern bzw. aktualisieren (gleiche ID vom selben Browser).
+export async function saveResult(body) {
+  const id = String(body?.id || '');
+  if (!RESULT_ID_RE.test(id)) throw httpError(422, 'Ungültige Ergebnis-ID.');
+  const name = String(body?.name ?? '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Ohne Namen';
+  const answers = String(body?.answers || '');
+  if (!ANSWERS_RE.test(answers)) throw httpError(422, 'Die Antworten sind unvollständig oder beschädigt.');
+  await pool.query(`DELETE FROM katalog.wahlomat_results WHERE updated_at < now() - make_interval(days => $1)`, [EXPIRE_DAYS]);
+  await pool.query(`INSERT INTO katalog.wahlomat_results (id, name, answers) VALUES ($1, $2, $3)
+    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, answers = EXCLUDED.answers, updated_at = now()`, [id, name, answers]);
+  return { ok: true };
+}
+
+export async function listResults() {
+  const r = await pool.query('SELECT id, name, answers, created_at, updated_at FROM katalog.wahlomat_results ORDER BY updated_at DESC');
+  return r.rows;
+}
+
+export async function deleteResult(id) {
+  const r = await pool.query('DELETE FROM katalog.wahlomat_results WHERE id = $1 RETURNING name', [String(id)]);
+  if (!r.rowCount) throw httpError(404, 'Dieses Ergebnis gibt es nicht (mehr).');
+  await logAudit(pool, { action: 'delete', entity: 'wahlomat_results', entityId: id, diff: { name: r.rows[0].name } });
+  return { ok: true };
+}
+
+// Ergebnis als neuen Eintrag in eine Gruppe übernehmen und aus der Liste nehmen.
+export async function assignResult(id, groupId, nameOverride) {
+  checkGroupId(groupId);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const r = await client.query('SELECT id, name, answers FROM katalog.wahlomat_results WHERE id = $1 FOR UPDATE', [String(id)]);
+    if (!r.rowCount) throw httpError(404, 'Dieses Ergebnis gibt es nicht (mehr).');
+    const name = nameOverride ? cleanText(nameOverride, 40, 'einen Namen') : r.rows[0].name;
+    const g = await client.query('SELECT name FROM katalog.wahlomat_groups WHERE id = $1 FOR UPDATE', [groupId]);
+    if (!g.rowCount) throw httpError(404, 'Die Gruppe gibt es nicht (mehr).');
+    const others = (await client.query('SELECT name FROM katalog.wahlomat_group_members WHERE group_id = $1', [groupId])).rows;
+    if (others.some((x) => x.name.toLowerCase() === name.toLowerCase())) throw httpError(409, `„${name}“ gibt es in dieser Gruppe schon.`);
+    if (others.length >= MAX_MEMBERS) throw httpError(409, `Mehr als ${MAX_MEMBERS} Personen passen nicht in eine Gruppe.`);
+    await client.query('INSERT INTO katalog.wahlomat_group_members (group_id, name, answers, token_hash) VALUES ($1, $2, $3, $4)',
+      [groupId, name, r.rows[0].answers, hash(newToken())]);
+    await client.query('DELETE FROM katalog.wahlomat_results WHERE id = $1', [r.rows[0].id]);
+    await client.query('UPDATE katalog.wahlomat_groups SET updated_at = now() WHERE id = $1', [groupId]);
+    await logAudit(client, { action: 'update', entity: 'wahlomat_groups', entityId: groupId, diff: { zugewiesen: { person: name, gruppe: g.rows[0].name } } });
+    await client.query('COMMIT');
+    return { ok: true };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    if (err.code === '23505') throw httpError(409, 'Diesen Namen gibt es in der Gruppe schon.');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // Adminbereich: einen Eintrag in eine andere Gruppe verschieben (z. B. wenn
 // jemand versehentlich eine neue Gruppe angelegt hat). Das Token des Eintrags
 // bleibt gültig.
