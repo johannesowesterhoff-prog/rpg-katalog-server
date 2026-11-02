@@ -6,7 +6,7 @@
 // Array- bzw. Skalarspalten ausdrücken, ohne JOIN-Explosion durch die
 // Zuordnungstabellen.
 
-export const PAGE_SIZE = 25;
+export const PAGE_SIZE = 24; // teilbar durch 2, 3 und 4 – volle Reihen im Raster
 // Spielabende mit Datum nach heute (deutsche Zeit) sind geplant und zählen
 // nirgends als gespielt. Am Tag selbst gilt ein Abend bereits als gespielt.
 export const PLAYED = "ps.played_on <= (now() AT TIME ZONE 'Europe/Berlin')::date";
