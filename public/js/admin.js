@@ -876,13 +876,20 @@ export async function renderWahlomatGroups(root) {
         <td class="muted" style="white-space:nowrap">${fmtDay(g.created_at)}</td>
         <td class="muted" style="white-space:nowrap" title="Ohne Aktivität wird die Gruppe am ${fmtDay(g.expires_at)} gelöscht.">${fmtDay(g.updated_at)}</td>
         <td style="white-space:nowrap"><a class="btn btn-sm btn-primary" href="${path}?ansehen=1">Ansehen</a>
-          <button type="button" class="btn btn-sm" data-copy="${esc(location.origin + '/' + path.slice(2))}" title="Einladungslink kopieren (öffnet den Fragebogen)">Link kopieren</button></td>
+          <button type="button" class="btn btn-sm" data-copy="${esc(location.origin + '/' + path.slice(2))}" title="Einladungslink kopieren (öffnet den Fragebogen)">Link kopieren</button>
+          <button type="button" class="btn btn-sm btn-danger" data-del="${esc(g.id)}" data-name="${esc(g.name)}" data-count="${g.members.length}" title="Gruppe mit allen Antworten löschen">Löschen</button></td>
       </tr>`;
     }).join('')}</tbody></table></div>
     <p class="faint" style="font-size:var(--text-xs);margin-top:var(--space-2)">Gruppen ohne Aktivität werden nach einem Jahr gelöscht. Der kopierte Link ist der normale Einladungslink: Wer ihn öffnet, landet im Fragebogen.</p>
   </section>`);
   sec.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(b.dataset.copy); toast('Link kopiert.'); } catch { window.prompt('Link kopieren:', b.dataset.copy); }
+  }));
+  sec.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
+    const n = Number(b.dataset.count);
+    if (!window.confirm(`Gruppe „${b.dataset.name}“ ${n ? `mit ${n === 1 ? '1 Eintrag' : `${n} Einträgen`} ` : ''}endgültig löschen? Der Gruppenlink funktioniert danach nicht mehr.`)) return;
+    b.disabled = true;
+    try { await api(`/api/admin/wahlomat-groups/${encodeURIComponent(b.dataset.del)}`, { method: 'DELETE' }); toast('Gruppe gelöscht.'); renderWahlomatGroups(root); } catch (e) { toast(e.message, 'err'); b.disabled = false; }
   }));
   body.appendChild(sec);
 }
