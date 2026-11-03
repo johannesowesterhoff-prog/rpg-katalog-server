@@ -190,7 +190,7 @@ export async function getWahlomatData() {
   const cte = gameDetailCte(false);
   const sql = `WITH ${cte}
     SELECT slug, title, language_code AS language, system_family,
-      genre_setting_top, genre_setting, play_focus, tone_theme_top, tone_theme,
+      genre_setting_top, genre_setting, play_focus, play_style, tone_theme_top, tone_theme,
       crunch, narrative, fluff,
       (SELECT g.wahlomat_profile FROM katalog.games g WHERE g.id = gd.id) AS wahlomat_profile
     FROM gd WHERE status = 'published' ORDER BY title`;
@@ -361,6 +361,7 @@ export async function getFacets(query, isAdmin) {
     ['genresTop', 'genre_setting_top', true],
     ['genres', 'genre_setting', true],
     ['focus', 'play_focus', true],
+    ['styles', 'play_style', true],
     ['campaigns', 'campaign_type', true, 'campaign_type'],
     ['toneThemesTop', 'tone_theme_top', true],
     ['toneThemes', 'tone_theme', true],
@@ -377,6 +378,7 @@ export async function getFacets(query, isAdmin) {
     if (column === 'genre_setting_top') fCopy.genreTop = [];
     if (column === 'genre_setting') fCopy.genre = [];
     if (column === 'play_focus') fCopy.focus = [];
+    if (column === 'play_style') fCopy.style = [];
     if (column === 'campaign_type') fCopy.campaign = [];
     if (column === 'tone_theme_top') fCopy.toneTop = [];
     if (column === 'tone_theme') fCopy.tone = [];
@@ -627,6 +629,7 @@ async function upsertRelations(client, gameId, payload) {
     ['genre_setting_top', payload.genre_setting_top],
     ['genre_setting', payload.genre_setting],
     ['play_focus', payload.play_focus],
+    ['play_style', payload.play_style],
     ['campaign_type', payload.campaign_type],
     ['tone_theme_top', payload.tone_theme_top],
     ['tone_theme', payload.tone_theme],

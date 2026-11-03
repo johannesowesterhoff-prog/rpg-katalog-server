@@ -68,12 +68,11 @@ const TAG_GROUPS = {
     ['Spielweise', ['Einsteigerfreundlich', 'Genreoffen', 'Baukasten', 'Simulationistisch', 'Glaubwürdig', 'Nüchtern', 'Improvisiert', 'Freie Weltgestaltung', 'Entscheidungsgetrieben', 'Wendungsreich', 'Dramatisch']],
   ],
   fokus: [
-    ['Kampf & Action', ['Kampf / Taktik', 'Action', 'Pulp-Action', 'Superheldenabenteuer', 'Sword & Sorcery-Abenteuer', 'John-Wick-Style', 'Assassinen-Kampagnen', 'Zerstörung', 'Konflikte aller Art', 'Stadt- und Bandenkrieg', 'Bändigen der Elemente', 'Geschicklichkeitswürfe']],
-    ['Erkunden & Reisen', ['Erkundung', 'Abenteuer', 'Dungeon-Crawls', 'Hex-Crawl / Erkundung', 'Reise', 'Sandbox', 'Schatzjagden', 'Indiana-Jones-Style', 'Raumfahrt', 'Galaktische Kampagnen', 'Episodische Insel-Abenteuer', 'Missionen / Aufträge', 'Klassische Fantasy', 'Mythische Heldenreisen', 'Magie & Relikte']],
-    ['Ermitteln & Rätseln', ['Ermittlungen', 'Mystery', 'Rätsel', 'kreative Problemlösung', 'Heist', 'Spionage', 'Kultbekämpfung', 'Weird-Horror-Abenteuer', 'Horror mit Humor']],
-    ['Beziehungen & Intrigen', ['Charakterspiel', 'Charakterentwicklung', 'Soziale Interaktionen', 'Soziale Konflikte', 'Intrigen', 'Diplomatie', 'Konzernintrigen', 'Konflikte zwischen Kulturen', 'Ruhm und Rivalität', 'Satire / Gesellschaftskritik', 'Transformation', 'Dorfleben']],
-    ['Überleben & Aufbau', ['Überleben', 'Ressourcenmanagement', 'Fraktionen', 'Aufbau einer Festung', 'Dungeonbau', 'Gangspiel', 'Kampagnen im Alien-Universum']],
-    ['Spielweise', ['Erzählorientiert', 'Kinderfreundlich / Familienrunden', 'Old-School-Spiel', 'Improvisation', 'Gemeinsamer Weltenbau', 'Adaptiv / Baukastensystem', 'Kreativität', 'Schnelle Charaktererstellung', 'Simulation', 'Brettspielig', 'Serienartige Geschichten', 'Zero-Prep-Abenteuer']],
+    ['Kampf & Action', ['Kampf / Taktik', 'Action', 'Missionen / Aufträge']],
+    ['Erkunden & Reisen', ['Erkundung', 'Dungeon-Crawls', 'Reise']],
+    ['Ermitteln & Rätseln', ['Ermittlungen', 'Mystery', 'Rätsel', 'kreative Problemlösung']],
+    ['Beziehungen & Intrigen', ['Charakterspiel', 'Charakterentwicklung', 'Soziale Konflikte', 'Intrigen']],
+    ['Überleben & Aufbau', ['Überleben', 'Ressourcenmanagement', 'Fraktionen', 'Aufbau einer Festung']],
   ],
 };
 
@@ -196,12 +195,14 @@ function scaleFromTags(tags, highSet, lowSet, step = 0.45) {
 const FANTASTICAL_TOP_GENRES = new Set(['Fantasy', 'Science-Fiction', 'Horror', 'Cyberpunk', 'Superhelden', '(Post-)Apokalypse', 'Universal']);
 
 function automaticProfile(game) {
-  const allTags = [...game.genre_setting_top, ...game.genre_setting, ...game.play_focus, ...game.tone_theme_top, ...game.tone_theme];
+  // Spielweise-Tags (play_style) zählen für die Schätzungen mit – früher standen sie im Spielfokus.
+  const focusAndStyle = [...game.play_focus, ...(game.play_style || [])];
+  const allTags = [...game.genre_setting_top, ...game.genre_setting, ...focusAndStyle, ...game.tone_theme_top, ...game.tone_theme];
   const modernButFantastical = game.genre_setting_top.includes('Gegenwart / Modern')
     && game.genre_setting_top.some((t) => FANTASTICAL_TOP_GENRES.has(t));
   const weltTags = modernButFantastical ? allTags.filter((t) => t !== 'Gegenwart / Modern') : allTags;
   const aktivitaeten = {};
-  Object.entries(AKTIVITAETEN_TAGS).forEach(([key, set]) => { aktivitaeten[key] = anyCount(game.play_focus, set) ? 4 : 1.5; });
+  Object.entries(AKTIVITAETEN_TAGS).forEach(([key, set]) => { aktivitaeten[key] = anyCount(focusAndStyle, set) ? 4 : 1.5; });
 
   return {
     welt_fremdheit: scaleFromTags(weltTags, SIGNALS.weltHigh, SIGNALS.weltLow),
@@ -222,7 +223,7 @@ function buildGames(catalog) {
   return catalog.games.map((game) => {
     const g = {
       genre_setting_top: game.genre_setting_top || [], genre_setting: game.genre_setting || [],
-      play_focus: game.play_focus || [], tone_theme_top: game.tone_theme_top || [], tone_theme: game.tone_theme || [],
+      play_focus: game.play_focus || [], play_style: game.play_style || [], tone_theme_top: game.tone_theme_top || [], tone_theme: game.tone_theme || [],
     };
     return {
       id: game.slug,
@@ -779,6 +780,8 @@ export async function renderWahlomat(root, params, groupId = null) {
     fill('subGenre', (g) => g.genre_setting);
     fill('subTon', (g) => g.tone_theme);
     fill('fokus', (g) => g.play_focus);
+    // Im Spielfokus nur Begriffe, die mindestens drei Spiele tragen – Einzelbegriffe helfen bei der Suche nicht.
+    TAG_OPTIONS.fokus = new Map([...TAG_OPTIONS.fokus].filter(([, n]) => n >= 3));
     games = buildGames(data);
     played = playHistory(log?.sessions || []);
   } catch (e) {

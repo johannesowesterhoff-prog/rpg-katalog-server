@@ -5,10 +5,10 @@ import { el, esc, gameCard, skeletonGrid, emptyState, toast, SCALE_HELP } from '
 // Array-Facetten, bei denen ein Spiel mehrere Werte gleichzeitig tragen kann --
 // dort ist ein ODER/UND-Umschalter sinnvoll (im Gegensatz zu Sprache/Verlag/
 // Systemfamilie, die pro Spiel einwertig sind).
-const MODE_DIMS = ['genreTop', 'genre', 'toneTop', 'tone', 'focus', 'campaign'];
+const MODE_DIMS = ['genreTop', 'genre', 'toneTop', 'tone', 'focus', 'style', 'campaign'];
 const VIEW_KEY = 'rpg-katalog:ansicht';
-const DEFAULTS = { q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [], focus: [], campaign: [], toneTop: [], tone: [], crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5, sort: 'title', page: 1, ...Object.fromEntries(MODE_DIMS.map((k) => [k + 'Mode', 'OR'])) };
-const MULTI = ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'campaign', 'toneTop', 'tone'];
+const DEFAULTS = { q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [], focus: [], style: [], campaign: [], toneTop: [], tone: [], crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5, sort: 'title', page: 1, ...Object.fromEntries(MODE_DIMS.map((k) => [k + 'Mode', 'OR'])) };
+const MULTI = ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'style', 'campaign', 'toneTop', 'tone'];
 const SCALES = [['crunch', 'Crunch'], ['narrative', 'Narrativ'], ['fluff', 'Fluff']];
 
 export function stateFromQuery(params) {
@@ -45,7 +45,7 @@ export function queryFromState(s) {
 function activeChips(s) {
   const chips = [];
   if (s.q) chips.push({ label: `Suche: „${s.q}“`, clear: (st) => { st.q = ''; } });
-  const names = { language: 'Sprache', publisher: 'Verlag', systemFamily: 'System', genreTop: 'Top Genre', genre: 'Sub Genre', focus: 'Fokus', campaign: 'Kampagne', toneTop: 'Top Tone', tone: 'Sub Tone' };
+  const names = { language: 'Sprache', publisher: 'Verlag', systemFamily: 'System', genreTop: 'Top Genre', genre: 'Sub Genre', focus: 'Fokus', style: 'Spielweise', campaign: 'Kampagne', toneTop: 'Top Tone', tone: 'Sub Tone' };
   for (const k of MULTI) s[k].forEach((v) => chips.push({ label: `${names[k]}: ${v}`, clear: (st) => { st[k] = st[k].filter((x) => x !== v); } }));
   for (const [key, label] of SCALES) {
     if (s[key + 'Min'] > 1 || s[key + 'Max'] < 5) {
@@ -403,6 +403,7 @@ function renderFilters(container, s, facets, push) {
   container.appendChild(scaleGroup);
 
   container.appendChild(facetGroup('Spielfokus', 'focus', facets.focus, s, push));
+  container.appendChild(facetGroup('Spielweise', 'style', facets.styles, s, push));
   container.appendChild(facetGroup('Systemfamilie', 'systemFamily', facets.systemFamilies, s, push));
   container.appendChild(facetGroup('Kampagnenart', 'campaign', facets.campaigns, s, push));
   container.appendChild(facetGroup('Sub Genre / Setting', 'genre', facets.genres, s, push));
