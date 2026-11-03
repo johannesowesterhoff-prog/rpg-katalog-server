@@ -3,7 +3,12 @@
     "allow": [
       "Bash(npm run deploy:gcp)",
       "mcp__Neon__run_sql",
-      "mcp__Neon__run_sql_transaction"
+      "mcp__Neon__run_sql_transaction",
+      "WebSearch",
+      "WebFetch",
+      "mcp__github",
+      "mcp__claude-code-remote__subscribe_pr_activity",
+      "mcp__claude-code-remote__unsubscribe_pr_activity"
     ]
   }
 }
