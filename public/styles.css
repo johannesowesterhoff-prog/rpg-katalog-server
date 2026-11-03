@@ -738,3 +738,5 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .view-covers .game-card .gc-title { padding: .45rem .6rem .55rem; }
 .view-covers .game-card .gc-title h3 { font-size: var(--text-sm); line-height: 1.25; }
 .view-covers .game-card .badge-lang { display: none; }
+
+.wo-note { margin-top: var(--space-1); font-size: var(--text-xs); min-height: 2.4rem; resize: vertical; }

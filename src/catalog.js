@@ -33,6 +33,16 @@ function toWahlomatProfile(raw) {
   }
   return Object.keys(out).length ? out : null;
 }
+// Kurzbegründungen je Wahlomat-Wert: nur bekannte Schlüssel, Text bis 500 Zeichen.
+function toWahlomatNotes(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  for (const key of WAHLOMAT_KEYS) {
+    const v = String(raw[key] ?? '').trim().slice(0, 500);
+    if (v) out[key] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
 
 async function uniqueSlug(client, baseSlug, excludeId = null) {
   let slug = baseSlug || 'eintrag';
@@ -681,17 +691,17 @@ export async function createGame(payload, actor) {
       `INSERT INTO katalog.games (
         slug, title, original_title, sort_title, language_id, system_family_id, edition, release_year,
         short_description, long_description, crunch, narrative, fluff, status, editorial_note,
-        published_at, wahlomat_profile
+        published_at, wahlomat_profile, wahlomat_notes
       ) VALUES (
         $1,$2,$3,$2,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-        CASE WHEN $15 = 'published' THEN now() ELSE NULL END, $16
+        CASE WHEN $15 = 'published' THEN now() ELSE NULL END, $16, $17
       ) RETURNING id, slug`,
       [
         slug, payload.title.trim(), payload.original_title || null, languageId, systemFamilyId,
         payload.edition || null, payload.release_year || null, payload.short_description.trim(),
         payload.long_description || null, toScale(payload.crunch), toScale(payload.narrative), toScale(payload.fluff),
         payload.status || 'draft', payload.editorial_note || null, payload.status || 'draft',
-        toWahlomatProfile(payload.wahlomat_profile),
+        toWahlomatProfile(payload.wahlomat_profile), toWahlomatNotes(payload.wahlomat_notes),
       ],
     );
     const gameId = ins.rows[0].id;
@@ -735,7 +745,8 @@ export async function updateGame(id, payload, actor) {
         edition=$6, release_year=$7, short_description=$8, long_description=$9,
         crunch=$10, narrative=$11, fluff=$12, status=$13, editorial_note=$14,
         published_at = CASE WHEN $16 = 'published' AND published_at IS NULL THEN now() ELSE published_at END,
-        wahlomat_profile = CASE WHEN $17 THEN $18::jsonb ELSE wahlomat_profile END
+        wahlomat_profile = CASE WHEN $17 THEN $18::jsonb ELSE wahlomat_profile END,
+        wahlomat_notes = CASE WHEN $19 THEN $20::jsonb ELSE wahlomat_notes END
       WHERE id = $15`,
       [
         slug, payload.title.trim(), payload.original_title || null, languageId, systemFamilyId,
@@ -745,6 +756,7 @@ export async function updateGame(id, payload, actor) {
         // Nur überschreiben, wenn das Feld mitgeschickt wird -- ältere
         // Formulare/Skripte ohne Wahlomat-Werte löschen sie so nicht.
         Object.prototype.hasOwnProperty.call(payload, 'wahlomat_profile'), toWahlomatProfile(payload.wahlomat_profile),
+        Object.prototype.hasOwnProperty.call(payload, 'wahlomat_notes'), toWahlomatNotes(payload.wahlomat_notes),
       ],
     );
     await upsertRelations(client, id, payload);
