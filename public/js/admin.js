@@ -455,11 +455,12 @@ export async function renderEditor(root, id) {
     <details class="wahlomat-internal" style="margin-top:var(--space-3)">
       <summary class="muted" style="font-size:var(--text-sm);cursor:pointer">Wahlomat-Werte (intern)</summary>
       <div class="help-box" style="margin-top:var(--space-2)">Nur für den RPG-Wahlomat, nirgends im Katalog sichtbar.
-        Leer lassen ist in Ordnung – dann schätzt der Wahlomat den Wert aus den Tags.</div>
+        Die Werte sollen auf Recherche beruhen (Verlagsseite, Rezensionen, Foren) – unter jedem Wert kurz Begründung und Quelle notieren. Leer gelassene Werte schätzt der Wahlomat nur notdürftig aus den Tags.</div>
       <div class="grid-2">${WAHLOMAT_FIELDS.map(([key, label, hint]) => `<div class="field"><label for="f-wo-${key}">${esc(label)}</label>
         <select id="f-wo-${key}"><option value="">– aus Tags schätzen –</option>
           ${SCALE_STEPS.map((v) => `<option value="${v}" ${Number((state.wahlomat_profile || {})[key]) === v ? 'selected' : ''}>${String(v).replace('.', ',')}</option>`).join('')}
-        </select><div class="hint">${esc(hint)}</div></div>`).join('')}</div>
+        </select><div class="hint">${esc(hint)}</div>
+        <textarea id="f-won-${key}" rows="2" class="wo-note" placeholder="Begründung mit Quelle, z. B. „Rezension: …“ (nur intern)" aria-label="Begründung ${esc(label)}">${esc((state.wahlomat_notes || {})[key] || '')}</textarea></div>`).join('')}</div>
     </details>`);
   form.appendChild(s3.wrap);
 
@@ -593,6 +594,7 @@ export async function renderEditor(root, id) {
       fluff: val('#f-fluff') || null,
       // Werte ohne Formularfeld (z. B. die nicht mehr abgefragte Welt-Fremdheit) bleiben erhalten.
       wahlomat_profile: { ...(state.wahlomat_profile || {}), ...Object.fromEntries(WAHLOMAT_FIELDS.map(([key]) => [key, val(`#f-wo-${key}`) || null])) },
+      wahlomat_notes: { ...(state.wahlomat_notes || {}), ...Object.fromEntries(WAHLOMAT_FIELDS.map(([key]) => [key, (form.querySelector(`#f-won-${key}`)?.value || '').trim()])) },
       status: val('#f-status') || state.status || 'draft',
       editorial_note: val('#f-note').trim() || null,
       products: productRows.map((r) => ({
