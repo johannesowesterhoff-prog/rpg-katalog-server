@@ -24,11 +24,11 @@ export const SORTS = {
 // Array-Facetten, bei denen ein Spiel mehrere Werte gleichzeitig tragen kann --
 // dort ist ODER/UND-Verknüpfung sinnvoll (im Gegensatz zu Sprache/Verlag/
 // Systemfamilie, die pro Spiel einwertig sind).
-export const MODE_DIMS = ['genreTop', 'genre', 'toneTop', 'tone', 'focus', 'campaign'];
+export const MODE_DIMS = ['genreTop', 'genre', 'toneTop', 'tone', 'focus', 'style', 'campaign'];
 
 const DEFAULTS = {
   q: '', language: [], publisher: [], systemFamily: [], genreTop: [], genre: [],
-  focus: [], campaign: [], toneTop: [], tone: [],
+  focus: [], style: [], campaign: [], toneTop: [], tone: [],
   crunchMin: 1, crunchMax: 5, narrativeMin: 1, narrativeMax: 5, fluffMin: 1, fluffMax: 5,
   sort: 'title', page: 1, status: null,
   ...Object.fromEntries(MODE_DIMS.map((k) => [k + 'Mode', 'OR'])),
@@ -48,7 +48,7 @@ export function parseFilters(query, isAdmin) {
   // (sonst "bigint out of range"), pageSize 1-100 (Admin-Liste fragt 96).
   const clean = (v) => String(v ?? '').replace(/\u0000/g, '');
   f.q = clean(query.q).trim();
-  for (const key of ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'campaign', 'toneTop', 'tone']) {
+  for (const key of ['language', 'publisher', 'systemFamily', 'genreTop', 'genre', 'focus', 'style', 'campaign', 'toneTop', 'tone']) {
     f[key] = splitCsv(clean(query[key]));
   }
   for (const key of MODE_DIMS) {
@@ -116,7 +116,7 @@ export function buildWhere(f, isAdmin, opts = {}) {
   const arrayCol = {
     genreTop: 'genre_setting_top', genre: 'genre_setting',
     toneTop: 'tone_theme_top', tone: 'tone_theme',
-    focus: 'play_focus', campaign: 'campaign_type',
+    focus: 'play_focus', style: 'play_style', campaign: 'campaign_type',
   };
   for (const [dim, col] of Object.entries(arrayCol)) {
     if (!f[dim].length) continue;
@@ -181,6 +181,11 @@ export function gameDetailCte(isAdmin) {
         (
           SELECT array_agg(t.name ORDER BY t.sort_order, t.name)
           FROM katalog.game_tags gt JOIN katalog.tags t ON t.id = gt.tag_id
+          WHERE gt.game_id = g.id AND t.kind = 'play_style'::katalog.tag_kind
+        ) AS play_style,
+        (
+          SELECT array_agg(t.name ORDER BY t.sort_order, t.name)
+          FROM katalog.game_tags gt JOIN katalog.tags t ON t.id = gt.tag_id
           WHERE gt.game_id = g.id AND t.kind = 'campaign_type'::katalog.tag_kind
         ) AS campaign_type,
         (
@@ -209,5 +214,5 @@ export function gameDetailCte(isAdmin) {
 
 export const CARD_COLUMNS = `
   id, slug, title, language_code, system_family, short_description,
-  genre_setting_top, genre_setting, play_focus, campaign_type, tone_theme_top, tone_theme, crunch, narrative, fluff,
+  genre_setting_top, genre_setting, play_focus, play_style, campaign_type, tone_theme_top, tone_theme, crunch, narrative, fluff,
   primary_publisher, product_count, session_count, cover, status`;

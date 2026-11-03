@@ -304,7 +304,7 @@ export async function renderEditor(root, id) {
   let game = {
     title: '', original_title: '', language: 'de', system_family: '', edition: '', release_year: '',
     short_description: '', long_description: '', crunch: null, narrative: null, fluff: null,
-    status: 'draft', editorial_note: '', publishers: [], genre_setting_top: [], genre_setting: [], play_focus: [], campaign_type: [], tone_theme_top: [], tone_theme: [], products: [], play_sessions: [],
+    status: 'draft', editorial_note: '', publishers: [], genre_setting_top: [], genre_setting: [], play_focus: [], play_style: [], campaign_type: [], tone_theme_top: [], tone_theme: [], products: [], play_sessions: [],
   };
   if (id) {
     const r = await api('/api/admin/games/' + id);
@@ -434,6 +434,8 @@ export async function renderEditor(root, id) {
   slot2.appendChild(fieldWrap('Sub Tone / Themen', toneMs.wrap));
   const focusMs = multiSelect({ values: state.play_focus, options: tagsOf('play_focus'), placeholder: 'Spielfokus' });
   slot2.appendChild(fieldWrap('Spielfokus', focusMs.wrap));
+  const styleMs = multiSelect({ values: state.play_style || [], options: tagsOf('play_style'), placeholder: 'Spielweise' });
+  slot2.appendChild(fieldWrap('Spielweise', styleMs.wrap, 'Wie das Spiel funktioniert oder für wen es gedacht ist (z. B. Erzählorientiert, Old-School-Spiel, Kinderfreundlich) – nur Katalogfilter, nicht im Wahlomat.'));
   const campMs = multiSelect({ values: state.campaign_type, options: tagsOf('campaign_type'), placeholder: 'Kampagnenart' });
   slot2.appendChild(fieldWrap('Kampagnenart', campMs.wrap));
 
@@ -588,7 +590,7 @@ export async function renderEditor(root, id) {
       long_description: val('#f-long').trim() || null,
       system_family: sysAc.value,
       publishers: pubMs.values,
-      genre_setting_top: genreTopMs.values, genre_setting: genreMs.values, play_focus: focusMs.values, campaign_type: campMs.values, tone_theme_top: toneTopMs.values, tone_theme: toneMs.values,
+      genre_setting_top: genreTopMs.values, genre_setting: genreMs.values, play_focus: focusMs.values, play_style: styleMs.values, campaign_type: campMs.values, tone_theme_top: toneTopMs.values, tone_theme: toneMs.values,
       crunch: val('#f-crunch') || null,
       narrative: val('#f-narrative') || null,
       fluff: val('#f-fluff') || null,
@@ -983,6 +985,7 @@ export async function renderMasterData(root) {
     ['tags', 'Top Tone / Themen', md.tags.filter((t) => t.kind === 'tone_theme_top'), 'tone_theme_top'],
     ['tags', 'Sub Tone / Themen', md.tags.filter((t) => t.kind === 'tone_theme'), 'tone_theme'],
     ['tags', 'Spielfokus', md.tags.filter((t) => t.kind === 'play_focus'), 'play_focus'],
+    ['tags', 'Spielweise', md.tags.filter((t) => t.kind === 'play_style'), 'play_style'],
     ['tags', 'Kampagnenart', md.tags.filter((t) => t.kind === 'campaign_type'), 'campaign_type'],
   ];
   for (const [kind, label, items, tagKind] of groups) {
