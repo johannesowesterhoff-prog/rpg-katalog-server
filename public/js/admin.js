@@ -921,11 +921,12 @@ export async function renderWahlomatGroups(root) {
         <td class="muted" style="white-space:nowrap">${fmtDay(g.created_at)}</td>
         <td class="muted" style="white-space:nowrap" title="Ohne Aktivität wird die Gruppe am ${fmtDay(g.expires_at)} gelöscht.">${fmtDay(g.updated_at)}</td>
         <td style="white-space:nowrap"><a class="btn btn-sm btn-primary" href="${path}?ansehen=1">Ansehen</a>
-          <button type="button" class="btn btn-sm" data-copy="${esc(location.origin + '/' + path.slice(2))}" title="Einladungslink kopieren (öffnet den Fragebogen)">Link kopieren</button>
+          <button type="button" class="btn btn-sm" data-copy="${esc(location.origin + '/' + path.slice(2))}" title="Zum Mitmachen: öffnet den Fragebogen">Einladung kopieren</button>
+          <button type="button" class="btn btn-sm" data-copy="${esc(location.origin + '/' + path.slice(2) + '?ansehen=1')}" title="Zum Anschauen: öffnet direkt das Gruppenergebnis">Ergebnislink kopieren</button>
           <button type="button" class="btn btn-sm btn-danger" data-del="${esc(g.id)}" data-name="${esc(g.name)}" data-count="${g.members.length}" title="Gruppe mit allen Antworten löschen">Löschen</button></td>
       </tr>`;
     }).join('')}</tbody></table></div>
-    <p class="faint" style="font-size:var(--text-xs);margin-top:var(--space-2)">Gruppen ohne Aktivität werden nach einem Jahr gelöscht. Der kopierte Link ist der normale Einladungslink: Wer ihn öffnet, landet im Fragebogen.</p>
+    <p class="faint" style="font-size:var(--text-xs);margin-top:var(--space-2)">Gruppen ohne Aktivität werden nach einem Jahr gelöscht. „Einladung kopieren“ führt in den Fragebogen (zum Mitmachen), „Ergebnislink kopieren“ direkt zum Gruppenergebnis (zum Anschauen, ohne sich einzutragen).</p>
   </section>`);
   // Eintrag in eine andere Gruppe verschieben (z. B. bei versehentlich doppelt angelegter Gruppe).
   const entries = groups.flatMap((g) => g.members.map((name, i) => ({ id: g.member_ids[i], name, group: g })));
