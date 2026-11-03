@@ -60,12 +60,11 @@ const TAG_GROUPS = {
     ['Besondere Themen', ['Akademie', 'Coming-of-Age', 'Satire', 'Generisch']],
   ],
   subTon: [
-    ['Leicht & humorvoll', ['Verspielt', 'Warmherzig', 'Gemütlich', 'Unbeschwert', 'Niedlich', 'Zauberhaft', 'Albern', 'Skurril', 'Slapstick', 'Chaotisch', 'Parodistisch', 'Schwarzer Humor', 'Bissig', 'Alltagsnah', 'Naturverbunden']],
-    ['Action & Abenteuer', ['Pulp', 'Actionreich', 'Entdeckergeist', 'Episch', 'Klassisch', 'Legendenbildung', 'Mythisch', 'Söldnertum']],
-    ['Düster & unheimlich', ['Unheimlich', 'Kosmisches Grauen', 'Existenzielle Angst', 'Klaustrophobisch', 'Paranoid', 'Verstörend', 'Brutal', 'Grimdark', 'Ausweglos', 'Konsequenzenreich', 'Überlebenskampf', 'Verfall', 'Verbotene Magie', 'Korrumpierung', 'Realitätsbruch', 'Rätselhaft', 'Geheimnisse', 'Folkloristisch', 'Feenhaft']],
-    ['Macht, Intrige & Gesellschaft', ['Machtstreben', 'Höfische Intrige', 'Fraktionskonflikt', 'Kulturkonflikt', 'Konzernmacht', 'Korrupt', 'Verrat', 'Geheimbund', 'Kultverschwörung', 'Straßenleben', 'Gesellschaftliche Ausgrenzung', 'Bandenehre', 'Sozial eingebettet']],
-    ['Figuren & Gefühle', ['Persönliches Wachstum', 'Freundschaft', 'Teamgeist', 'Verantwortung', 'Opferbereitschaft', 'Schuld', 'Verlust', 'Rache', 'Rivalität', 'Moralische Grauzonen', 'Bösartig', 'Tabubrechend']],
-    ['Spielweise', ['Einsteigerfreundlich', 'Genreoffen', 'Baukasten', 'Simulationistisch', 'Glaubwürdig', 'Nüchtern', 'Improvisiert', 'Freie Weltgestaltung', 'Entscheidungsgetrieben', 'Wendungsreich', 'Dramatisch']],
+    ['Leicht & humorvoll', ['Verspielt', 'Warmherzig', 'Gemütlich', 'Skurril', 'Schwarzer Humor']],
+    ['Action & Abenteuer', ['Pulp', 'Actionreich', 'Entdeckergeist', 'Episch', 'Folkloristisch']],
+    ['Düster & unheimlich', ['Unheimlich', 'Existenzielle Angst', 'Klaustrophobisch', 'Brutal', 'Grimdark', 'Konsequenzenreich', 'Überlebenskampf', 'Verfall', 'Verbotene Magie', 'Geheimnisse']],
+    ['Macht, Intrige & Gesellschaft', ['Machtstreben', 'Höfische Intrige', 'Fraktionskonflikt', 'Kulturkonflikt', 'Konzernmacht', 'Korrupt', 'Verrat', 'Geheimbund', 'Straßenleben', 'Gesellschaftliche Ausgrenzung']],
+    ['Figuren & Gefühle', ['Persönliches Wachstum', 'Teamgeist', 'Verantwortung', 'Opferbereitschaft', 'Verlust', 'Rivalität', 'Moralische Grauzonen']],
   ],
   fokus: [
     ['Kampf & Action', ['Kampf / Taktik', 'Action', 'Missionen / Aufträge']],
@@ -780,8 +779,9 @@ export async function renderWahlomat(root, params, groupId = null) {
     fill('subGenre', (g) => g.genre_setting);
     fill('subTon', (g) => g.tone_theme);
     fill('fokus', (g) => g.play_focus);
-    // Im Spielfokus nur Begriffe, die mindestens drei Spiele tragen – Einzelbegriffe helfen bei der Suche nicht.
+    // In Spielfokus und Untertönen nur Begriffe, die mindestens drei Spiele tragen – Einzelbegriffe helfen bei der Suche nicht.
     TAG_OPTIONS.fokus = new Map([...TAG_OPTIONS.fokus].filter(([, n]) => n >= 3));
+    TAG_OPTIONS.subTon = new Map([...TAG_OPTIONS.subTon].filter(([, n]) => n >= 3));
     games = buildGames(data);
     played = playHistory(log?.sessions || []);
   } catch (e) {
