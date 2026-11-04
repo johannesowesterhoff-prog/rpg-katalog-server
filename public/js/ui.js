@@ -170,11 +170,18 @@ document.addEventListener('error', (e) => {
 }, true);
 
 // „Das macht <Spiel> aus“: bis zu drei Alleinstellungsmerkmale (Stichwort + Satz).
+// Kurzer Name für die Überschrift: Untertitel wie „– Epic Folk Horror Roleplaying“ oder
+// „: Deutsche Ausgabe“ fallen weg, inhaltliche wie „– Realms of Terrinoth“ bleiben.
+export function shortTitle(title) {
+  const m = String(title || '').match(/^(.+?)(?: [–—-] |: )(.*)$/);
+  return m && /roleplaying|rollenspiel|\bRPG\b|edition|ausgabe|\bgame\b/i.test(m[2]) ? m[1] : String(title || '');
+}
+
 export function uspList(g, { limit = 3, heading = true } = {}) {
   const items = (Array.isArray(g.usp) ? g.usp : []).filter((u) => u && (u.k || u.t)).slice(0, limit);
   if (!items.length) return '';
   const li = items.map((u) => `<li>${u.k ? `<strong>${esc(u.k)}${u.t ? ':' : ''}</strong> ` : ''}${esc(u.t || '')}</li>`).join('');
-  return `<div class="usp">${heading ? `<p class="usp-head">Das macht ${esc(g.title)} aus:</p>` : ''}<ul>${li}</ul></div>`;
+  return `<div class="usp">${heading ? `<p class="usp-head">Das macht ${esc(shortTitle(g.title))} aus:</p>` : ''}<ul>${li}</ul></div>`;
 }
 
 export function gameCard(g, { onTag, onToneTag, showStatus = false } = {}) {
