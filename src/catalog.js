@@ -44,6 +44,18 @@ function toWahlomatNotes(raw) {
   return Object.keys(out).length ? out : null;
 }
 
+// „Das macht … aus“: höchstens drei Punkte aus Stichwort (k) und Satz (t).
+export const USP_MAX = 3;
+function toUsp(raw) {
+  if (!Array.isArray(raw)) return null;
+  const out = raw
+    .map((u) => ({ k: String(u?.k ?? '').trim().slice(0, 80), t: String(u?.t ?? '').trim().slice(0, 400) }))
+    .filter((u) => u.k || u.t)
+    .slice(0, USP_MAX);
+  return out.length ? JSON.stringify(out) : null;
+}
+const toUspSource = (raw) => String(raw ?? '').trim().slice(0, 2000) || null;
+
 async function uniqueSlug(client, baseSlug, excludeId = null) {
   let slug = baseSlug || 'eintrag';
   let n = 2;
@@ -191,7 +203,7 @@ export async function getWahlomatData() {
   const sql = `WITH ${cte}
     SELECT slug, title, language_code AS language, system_family,
       genre_setting_top, genre_setting, play_focus, play_style, tone_theme_top, tone_theme,
-      crunch, narrative, fluff,
+      crunch, narrative, fluff, usp,
       (SELECT g.wahlomat_profile FROM katalog.games g WHERE g.id = gd.id) AS wahlomat_profile
     FROM gd WHERE status = 'published' ORDER BY title`;
   const r = await pool.query(sql);
@@ -694,10 +706,10 @@ export async function createGame(payload, actor) {
       `INSERT INTO katalog.games (
         slug, title, original_title, sort_title, language_id, system_family_id, edition, release_year,
         short_description, long_description, crunch, narrative, fluff, status, editorial_note,
-        published_at, wahlomat_profile, wahlomat_notes
+        published_at, wahlomat_profile, wahlomat_notes, usp, usp_source
       ) VALUES (
         $1,$2,$3,$2,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-        CASE WHEN $15 = 'published' THEN now() ELSE NULL END, $16, $17
+        CASE WHEN $15 = 'published' THEN now() ELSE NULL END, $16, $17, $18::jsonb, $19
       ) RETURNING id, slug`,
       [
         slug, payload.title.trim(), payload.original_title || null, languageId, systemFamilyId,
@@ -705,6 +717,7 @@ export async function createGame(payload, actor) {
         payload.long_description || null, toScale(payload.crunch), toScale(payload.narrative), toScale(payload.fluff),
         payload.status || 'draft', payload.editorial_note || null, payload.status || 'draft',
         toWahlomatProfile(payload.wahlomat_profile), toWahlomatNotes(payload.wahlomat_notes),
+        toUsp(payload.usp), toUspSource(payload.usp_source),
       ],
     );
     const gameId = ins.rows[0].id;
@@ -749,7 +762,9 @@ export async function updateGame(id, payload, actor) {
         crunch=$10, narrative=$11, fluff=$12, status=$13, editorial_note=$14,
         published_at = CASE WHEN $16 = 'published' AND published_at IS NULL THEN now() ELSE published_at END,
         wahlomat_profile = CASE WHEN $17 THEN $18::jsonb ELSE wahlomat_profile END,
-        wahlomat_notes = CASE WHEN $19 THEN $20::jsonb ELSE wahlomat_notes END
+        wahlomat_notes = CASE WHEN $19 THEN $20::jsonb ELSE wahlomat_notes END,
+        usp = CASE WHEN $21 THEN $22::jsonb ELSE usp END,
+        usp_source = CASE WHEN $23 THEN $24 ELSE usp_source END
       WHERE id = $15`,
       [
         slug, payload.title.trim(), payload.original_title || null, languageId, systemFamilyId,
@@ -760,6 +775,8 @@ export async function updateGame(id, payload, actor) {
         // Formulare/Skripte ohne Wahlomat-Werte löschen sie so nicht.
         Object.prototype.hasOwnProperty.call(payload, 'wahlomat_profile'), toWahlomatProfile(payload.wahlomat_profile),
         Object.prototype.hasOwnProperty.call(payload, 'wahlomat_notes'), toWahlomatNotes(payload.wahlomat_notes),
+        Object.prototype.hasOwnProperty.call(payload, 'usp'), toUsp(payload.usp),
+        Object.prototype.hasOwnProperty.call(payload, 'usp_source'), toUspSource(payload.usp_source),
       ],
     );
     await upsertRelations(client, id, payload);

@@ -340,6 +340,13 @@ export async function renderEditor(root, id) {
     <div class="field"><label for="f-desc">Kurzbeschreibung * <span class="faint">(10–400 Zeichen)</span></label>
       <textarea id="f-desc">${esc(state.short_description)}</textarea></div>
     <div class="field"><label for="f-long">Ausführliche Beschreibung</label><textarea id="f-long">${esc(state.long_description || '')}</textarea></div>
+    <fieldset class="field usp-edit"><legend>Das macht das Spiel aus <span class="faint">(bis zu 3 Punkte, der stärkste zuerst)</span></legend>
+      <div class="hint">Was hebt das Spiel von allen anderen ab? Je Punkt ein kurzes Stichwort und ein Satz. Lieber zwei echte Besonderheiten als ein dritter Füllpunkt. Der erste Punkt erscheint auch auf der Katalogkarte und im Wahlomat.</div>
+      ${[0, 1, 2].map((i) => `<div class="usp-row">
+        <input type="text" id="f-usp-k${i}" maxlength="80" placeholder="Stichwort, z. B. „Die Welt geht wirklich unter“" aria-label="Stichwort ${i + 1}" value="${esc((state.usp || [])[i]?.k || '')}">
+        <textarea id="f-usp-t${i}" rows="2" maxlength="400" placeholder="Ein Satz dazu" aria-label="Erklärung ${i + 1}">${esc((state.usp || [])[i]?.t || '')}</textarea></div>`).join('')}
+      <textarea id="f-usp-src" rows="2" class="wo-note" placeholder="Quellen der Recherche (nur intern), z. B. „rpgbot.net, Verlagsseite“" aria-label="Quellen">${esc(state.usp_source || '')}</textarea>
+    </fieldset>
     <div class="field"><label>Coverbild</label><div id="cover-slot"></div></div>`);
   form.appendChild(s1.wrap);
 
@@ -588,6 +595,8 @@ export async function renderEditor(root, id) {
       release_year: val('#f-year') || null,
       short_description: val('#f-desc').trim(),
       long_description: val('#f-long').trim() || null,
+      usp: [0, 1, 2].map((i) => ({ k: val(`#f-usp-k${i}`).trim(), t: val(`#f-usp-t${i}`).trim() })).filter((u) => u.k || u.t),
+      usp_source: val('#f-usp-src').trim() || null,
       system_family: sysAc.value,
       publishers: pubMs.values,
       genre_setting_top: genreTopMs.values, genre_setting: genreMs.values, play_focus: focusMs.values, play_style: styleMs.values, campaign_type: campMs.values, tone_theme_top: toneTopMs.values, tone_theme: toneMs.values,

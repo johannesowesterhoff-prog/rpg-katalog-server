@@ -149,11 +149,11 @@ export function gameDetailCte(isAdmin) {
         l.code AS language_code, l.label_de AS language_label,
         sf.name AS system_family,
         g.edition, g.release_year, g.short_description, g.long_description,
-        g.crunch, g.narrative, g.fluff,
+        g.crunch, g.narrative, g.fluff, g.usp,
         g.status, g.updated_at, g.created_at, g.published_at,
         g.search_vector,
         ${isAdmin ? 'g.editorial_note,' : 'NULL::text AS editorial_note,'}
-        ${isAdmin ? 'g.wahlomat_profile, g.wahlomat_notes,' : ''}
+        ${isAdmin ? 'g.wahlomat_profile, g.wahlomat_notes, g.usp_source,' : ''}
         (
           SELECT p.name FROM katalog.game_publishers gp JOIN katalog.publishers p ON p.id = gp.publisher_id
           WHERE gp.game_id = g.id AND gp.is_primary LIMIT 1
@@ -214,5 +214,5 @@ export function gameDetailCte(isAdmin) {
 
 export const CARD_COLUMNS = `
   id, slug, title, language_code, system_family, short_description,
-  genre_setting_top, genre_setting, play_focus, play_style, campaign_type, tone_theme_top, tone_theme, crunch, narrative, fluff,
+  genre_setting_top, genre_setting, play_focus, play_style, campaign_type, tone_theme_top, tone_theme, crunch, narrative, fluff, usp,
   primary_publisher, product_count, session_count, cover, status`;

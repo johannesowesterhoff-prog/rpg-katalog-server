@@ -21,7 +21,7 @@
 //    grobe Genre-Schublade, bleibt aber eine Näherung, keine recherchierte
 //    Tatsache wie Crunch/Narrativ/Fluff.
 import { api } from './api.js';
-import { el, esc, toast } from './ui.js';
+import { el, esc, toast, uspList } from './ui.js';
 
 const B = {
   genre: { total: 7, max: 4, key: 'genre', labels: {} },
@@ -238,6 +238,7 @@ function buildGames(catalog) {
       narrativ: Number(game.narrative ?? 3),
       fluff: Number(game.fluff ?? 3),
       subGenre: g.genre_setting, subTon: g.tone_theme, fokus: g.play_focus,
+      usp: Array.isArray(game.usp) ? game.usp : [],
       ...automaticProfile(g),
       // Im Admin gepflegte Werte haben Vorrang vor der Tag-Schätzung.
       ...Object.fromEntries(Object.entries(game.wahlomat_profile || {})
@@ -1499,6 +1500,7 @@ export async function renderWahlomat(root, params, groupId = null) {
         <span class="badge badge-lang">${score}/100</span>
       </div>
       <div class="bar"><i style="width:${score}%"></i></div>
+      ${uspList(g).replace('class="usp"', 'class="usp usp-wahlomat"')}
       ${why.good || why.warn ? `<p class="wahlomat-why">${why.good ? `<span class="is-good">✓ ${esc(why.good)}</span>` : ''}${why.warn ? `<span class="is-warn">△ ${esc(why.warn)}</span>` : ''}</p>` : ''}
       ${perPerson}
       <div class="wahlomat-more">

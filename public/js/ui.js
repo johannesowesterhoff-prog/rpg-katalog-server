@@ -169,6 +169,14 @@ document.addEventListener('error', (e) => {
   frame.innerHTML = `<span>${esc(img.dataset.title || '')}</span>`;
 }, true);
 
+// „Das macht <Spiel> aus“: bis zu drei Alleinstellungsmerkmale (Stichwort + Satz).
+export function uspList(g, { limit = 3, heading = true } = {}) {
+  const items = (Array.isArray(g.usp) ? g.usp : []).filter((u) => u && (u.k || u.t)).slice(0, limit);
+  if (!items.length) return '';
+  const li = items.map((u) => `<li>${u.k ? `<strong>${esc(u.k)}${u.t ? ':' : ''}</strong> ` : ''}${esc(u.t || '')}</li>`).join('');
+  return `<div class="usp">${heading ? `<p class="usp-head">Das macht ${esc(g.title)} aus:</p>` : ''}<ul>${li}</ul></div>`;
+}
+
 export function gameCard(g, { onTag, onToneTag, showStatus = false } = {}) {
   const tags = (g.genre_setting_top || []).map((t) => `<button class="tag" data-tag="${esc(t)}" type="button">${esc(t)}</button>`).join('');
   const toneTags = (g.tone_theme_top || []).map((t) => `<button class="tag tag-tone" data-tone="${esc(t)}" type="button">${esc(t)}</button>`).join('');
@@ -183,6 +191,7 @@ export function gameCard(g, { onTag, onToneTag, showStatus = false } = {}) {
       ${showStatus ? `<div style="margin-top:.35rem"><span class="badge badge-status ${g.status}">${STATUS_LABEL[g.status] || g.status}</span></div>` : ''}
     </div>
     <p class="gc-desc">${esc(g.short_description)}</p>
+    ${uspList(g, { limit: 1, heading: false }).replace('class="usp"', 'class="usp usp-card"')}
     <div class="tag-row">${tags}</div>
     ${toneTags ? `<div class="tag-row tag-row-tone">${toneTags}</div>` : ''}
     ${scaleBadges(g)}
