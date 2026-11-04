@@ -49,15 +49,18 @@ const TAG_KINDS = {
   fokus: { label: 'Spielfokus', source: 'play_focus', step: 4, comp: 'Fokus', full: 4 },
 };
 const TAG_OPTIONS = { subGenre: new Map(), subTon: new Map(), fokus: new Map() };
+// Alle vergebenen Begriffe (auch die im Fragebogen ausgeblendeten mit weniger als drei Spielen):
+// gespeicherte Antworten behalten solche Begriffe und werten sie weiter.
+const TAG_KNOWN = { subGenre: new Map(), subTon: new Map(), fokus: new Map() };
 // Thematische Gruppen für die langen Matrizen (von Hand gepflegt). Neue
 // Begriffe, die hier fehlen, landen unter „Weitere“.
 const TAG_GROUPS = {
   subGenre: [
-    ['Fantasy', ['High Fantasy', 'Dark Fantasy', 'Low Fantasy', 'Weird Fantasy', 'Sword & Sorcery', 'Urban Fantasy', 'Märchenfantasy', 'Märchen', 'Mythische Inselwelt', 'Asiatische Martial-Arts-Welt']],
+    ['Fantasy', ['High Fantasy', 'Dark Fantasy', 'Low Fantasy', 'Weird Fantasy', 'Sword & Sorcery', 'Urban Fantasy', 'Märchenfantasy', 'Asiatische Martial-Arts-Welt']],
     ['Historisch & Urzeit', ['Mittelalter', 'Antike', 'Viktorianisch', 'Primal Punk']],
-    ['Krimi, Noir & Action', ['Krimi', 'Noir', 'Neo-Noir', 'Politthriller', 'Auftragskiller', 'Cinematic Action']],
+    ['Krimi, Noir & Action', ['Krimi', 'Noir', 'Cinematic Action']],
     ['Science-Fiction', ['Space Opera', 'Low-Fi Sci-Fi']],
-    ['Besondere Themen', ['Akademie', 'Coming-of-Age', 'Satire', 'Generisch']],
+    ['Universal', ['Generisch']],
   ],
   subTon: [
     ['Leicht & humorvoll', ['Verspielt', 'Warmherzig', 'Gemütlich', 'Skurril', 'Schwarzer Humor']],
@@ -421,7 +424,7 @@ function decodeMember(code) {
         ...Object.fromEntries(SCALAR_KEYS.map((k) => [k, scalar(o.s?.[k])])),
         figurenkompetenz: figures.length ? figures : null,
         priorities: Array.isArray(o.p) ? o.p.filter((p) => PRIORITY_OPTIONS.some(([k]) => k === p)).slice(0, PRIORITY_MAX) : [],
-        ...Object.fromEntries(Object.keys(TAG_KINDS).map((k) => [k, Array.isArray(o[k]) ? [...new Set(o[k])].filter((t) => TAG_OPTIONS[k].has(t)).slice(0, TAG_MAX) : []])),
+        ...Object.fromEntries(Object.keys(TAG_KINDS).map((k) => [k, Array.isArray(o[k]) ? [...new Set(o[k])].filter((t) => TAG_KNOWN[k].has(t)).slice(0, TAG_MAX) : []])),
       },
     };
   } catch { return null; }
@@ -774,14 +777,16 @@ export async function renderWahlomat(root, params, groupId = null) {
     const fill = (kind, tagsOf) => {
       const counts = new Map();
       (data.games || []).forEach((g) => (tagsOf(g) || []).forEach((t) => counts.set(t, (counts.get(t) || 0) + 1)));
+      TAG_KNOWN[kind] = counts;
       TAG_OPTIONS[kind] = counts;
     };
     fill('subGenre', (g) => g.genre_setting);
     fill('subTon', (g) => g.tone_theme);
     fill('fokus', (g) => g.play_focus);
-    // In Spielfokus und Untertönen nur Begriffe, die mindestens drei Spiele tragen – Einzelbegriffe helfen bei der Suche nicht.
+    // In allen drei Matrizen nur Begriffe, die mindestens drei Spiele tragen – Einzelbegriffe helfen bei der Suche nicht.
     TAG_OPTIONS.fokus = new Map([...TAG_OPTIONS.fokus].filter(([, n]) => n >= 3));
     TAG_OPTIONS.subTon = new Map([...TAG_OPTIONS.subTon].filter(([, n]) => n >= 3));
+    TAG_OPTIONS.subGenre = new Map([...TAG_OPTIONS.subGenre].filter(([, n]) => n >= 3));
     games = buildGames(data);
     played = playHistory(log?.sessions || []);
   } catch (e) {
@@ -1238,7 +1243,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       : below != null && above != null ? [below, above]
         : [below ?? above];
     // Bis zu TAG_MAX eigene Tags je Matrix, damit die Blaupause sich selbst trifft.
-    Object.keys(TAG_KINDS).forEach((k) => { state[k] = (g[k] || []).slice(0, TAG_MAX); });
+    Object.keys(TAG_KINDS).forEach((k) => { state[k] = (g[k] || []).filter((t) => TAG_OPTIONS[k].has(t)).slice(0, TAG_MAX); });
     state.baseGame = g.id;
   }
 
