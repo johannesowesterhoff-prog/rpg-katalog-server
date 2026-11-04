@@ -39,6 +39,15 @@ if (games.length < 10) {
   process.exit(1);
 }
 
+// Wie im Fragebogen: In den Tag-Matrizen stehen nur Begriffe, die mindestens drei Spiele tragen.
+const visible = {};
+for (const kind of ['subGenre', 'subTon', 'fokus']) {
+  const counts = new Map();
+  games.forEach((g) => (g[kind] || []).forEach((t) => counts.set(t, (counts.get(t) || 0) + 1)));
+  visible[kind] = new Set([...counts].filter(([, n]) => n >= 3).map(([t]) => t));
+}
+const pick = (g, kind) => (g[kind] || []).filter((t) => visible[kind].has(t)).slice(0, TAG_MAX);
+
 const grid = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 const snap = (v) => grid.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
 const figures = FIGURE_OPTIONS.map(([v]) => v);
@@ -57,9 +66,9 @@ function bestProfile(g) {
       figurenkompetenz: [figures.reduce((a, b) => (Math.abs(b - g.figurenkompetenz) < Math.abs(a - g.figurenkompetenz) ? b : a))],
       crunch: snap(g.crunch), narrativ: snap(g.narrativ), fluff: snap(g.fluff),
       priorities: [],
-      subGenre: (g.subGenre || []).slice(0, TAG_MAX),
-      subTon: (g.subTon || []).slice(0, TAG_MAX),
-      fokus: (g.fokus || []).slice(0, TAG_MAX),
+      subGenre: pick(g, 'subGenre'),
+      subTon: pick(g, 'subTon'),
+      fokus: pick(g, 'fokus'),
     };
     const { score } = scoreGame(g, profile);
     if (!best || score > best.score) best = { score, profile };
