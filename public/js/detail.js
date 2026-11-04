@@ -1,6 +1,6 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
 import { api, setArchiveToken, hasArchiveToken, hasToken } from './api.js';
-import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignHref, coverUrl, plannedSessionsList } from './ui.js';
+import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignHref, coverUrl, plannedSessionsList, uspList } from './ui.js';
 
 // Deep-Link-Ziel im privaten "Schwarzen Regal" (separate PDF-Datenbank,
 // siehe handoff_archive_link.md). Format: #<archive_slug> -- das Regal läuft in
@@ -33,6 +33,7 @@ export async function renderDetail(root, slug, ctx) {
     </div>
     ${g.original_title ? `<p class="muted" style="margin-top:.4rem">Originaltitel: ${esc(g.original_title)}</p>` : ''}
     <p class="lede muted" style="margin-top:.6rem;max-width:70ch">${esc(g.short_description)}</p>
+    ${uspList(g).replace('class="usp"', 'class="usp usp-detail"')}
     <div class="row-actions" style="margin-top:var(--space-4)">
       <button type="button" class="btn btn-sm" id="share">Link kopieren</button>
       <a class="btn btn-sm btn-ghost" href="#/?systemFamily=${encodeURIComponent(g.system_family)}">Mehr aus dieser Systemfamilie</a>

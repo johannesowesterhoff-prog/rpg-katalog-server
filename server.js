@@ -368,6 +368,7 @@ app.get('/api/admin/export.json', requireAdmin, asyncRoute(async (_req, res) => 
       short_description: g.short_description, long_description: g.long_description,
       crunch: g.crunch, narrative: g.narrative, fluff: g.fluff, status: g.status, editorial_note: g.editorial_note,
       wahlomat_profile: g.wahlomat_profile, wahlomat_notes: g.wahlomat_notes,
+      usp: g.usp, usp_source: g.usp_source,
       publishers: publishers.rows,
       genre_setting_top: tags.rows.filter((t) => t.kind === 'genre_setting_top').map((t) => t.name),
       genre_setting: tags.rows.filter((t) => t.kind === 'genre_setting').map((t) => t.name),
