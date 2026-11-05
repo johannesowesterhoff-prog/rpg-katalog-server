@@ -22,6 +22,7 @@
 //    Tatsache wie Crunch/Narrativ/Fluff.
 import { api } from './api.js';
 import { el, esc, toast, uspList } from './ui.js';
+import { tagInfo, tagDescription } from './tags.js';
 
 const B = {
   genre: { total: 7, max: 4, key: 'genre', labels: {} },
@@ -753,15 +754,18 @@ export async function renderWahlomat(root, params, groupId = null) {
   let games;
   let played = new Map();
   let groupData = null;
+  let tagNotes = null; // Kurzerklärungen der Begriffe (Map aus tags.js)
   try {
     // Das Protokoll ist nur Beiwerk: Fehlt es, läuft der Wahlomat ohne
     // „zuletzt gespielt“ weiter.
-    const [data, log, grp] = await Promise.all([
+    const [data, log, grp, info] = await Promise.all([
       api('/api/wahlomat.json'),
       api('/api/play-sessions.json').catch(() => null),
       groupId ? api(`/api/wahlomat/groups/${encodeURIComponent(groupId)}`) : null,
+      tagInfo(),
     ]);
     groupData = grp;
+    tagNotes = info;
     // Auswahllisten für Genre & Ton live aus den tatsächlich vergebenen
     // Top-Tags bauen -- so tauchen alle Top-Genres/-Tones automatisch auf,
     // auch neu hinzugekommene, ohne Codeänderung.
@@ -1048,6 +1052,7 @@ export async function renderWahlomat(root, params, groupId = null) {
   // Gruppen zu den oben gewünschten Optionen stehen zuerst und offen.
   function tagMatrix(kind) {
     const cfg = TAG_KINDS[kind];
+    const note = (t) => tagDescription(tagNotes, cfg.source, t);
     const wrap = el(`<fieldset class="wahlomat-field wahlomat-tagmatrix">
       <legend>Genauer: ${esc(cfg.label)} <span class="tm-count"></span></legend>
       <small>Optional: bis zu ${TAG_MAX} Begriffe, die dich besonders reizen.</small>
@@ -1067,7 +1072,8 @@ export async function renderWahlomat(root, params, groupId = null) {
       });
     };
     const chip = (t, n) => {
-      const b = el(`<button type="button" class="tm-chip" data-tag="${esc(t)}" aria-pressed="false">${esc(t)} <span class="tm-n">${n}</span></button>`);
+      const d = note(t);
+      const b = el(`<button type="button" class="tm-chip" data-tag="${esc(t)}" aria-pressed="false"${d ? ` title="${esc(d)}"` : ''}>${esc(t)} <span class="tm-n">${n}</span></button>`);
       b.addEventListener('click', () => {
         const picked = state[kind];
         state[kind] = picked.includes(t) ? picked.filter((x) => x !== t) : [...picked, t].slice(0, TAG_MAX);
@@ -1092,6 +1098,12 @@ export async function renderWahlomat(root, params, groupId = null) {
         used.forEach((t) => box.querySelector('.tm-chips').appendChild(chip(t, options.get(t))));
         grid.appendChild(box);
       });
+    }
+    // Erklärungen zum Aufklappen (Tooltips gibt es auf dem Handy nicht).
+    const explained = [...options.keys()].filter((t) => note(t)).sort((a, b) => a.localeCompare(b, 'de'));
+    if (explained.length) {
+      wrap.appendChild(el(`<details class="tm-glossary"><summary>Was bedeuten die Begriffe?</summary>
+        <dl>${explained.map((t) => `<dt>${esc(t)}</dt><dd>${esc(note(t))}</dd>`).join('')}</dl></details>`));
     }
     sync();
     return wrap;

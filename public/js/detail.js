@@ -1,4 +1,5 @@
 // Detailseite eines Spiels: Einordnung, Produkte, Skalen, ähnliche Spiele.
+import { tagInfo, tagDescription } from './tags.js';
 import { api, setArchiveToken, hasArchiveToken, hasToken } from './api.js';
 import { el, esc, fmtScale, gameCard, emptyState, toast, SCALE_HELP, SCALE_LABELS, STATUS_LABEL, BINDING_LABEL, PLAY_MODE_LABEL, campaignSessionBadges, campaignHref, coverUrl, plannedSessionsList, uspList } from './ui.js';
 
@@ -11,7 +12,7 @@ export async function renderDetail(root, slug, ctx) {
   root.innerHTML = '<div class="catalog-head"><div class="skeleton" style="height:120px"></div></div>';
   let data;
   try {
-    data = await api('/api/games/' + encodeURIComponent(slug));
+    [data] = await Promise.all([api('/api/games/' + encodeURIComponent(slug)), tagInfo()]);
   } catch (e) {
     root.innerHTML = '';
     root.appendChild(emptyState(e.status === 404 ? 'Eintrag nicht gefunden' : 'Fehler beim Laden',
@@ -20,6 +21,9 @@ export async function renderDetail(root, slug, ctx) {
     return;
   }
   const g = data.game;
+  const info = await tagInfo();
+  // Begriff als Filterlink, mit Kurzerklärung als Tooltip.
+  const tagLink = (kind, param, t) => { const d = tagDescription(info, kind, t); return `<a class="tag" href="#/?${param}=${encodeURIComponent(t)}"${d ? ` title="${esc(d)}"` : ''}>${esc(t)}</a>`; };
   document.title = `${g.title} – RPG-Katalog`;
   root.innerHTML = '';
 
@@ -124,14 +128,15 @@ export async function renderDetail(root, slug, ctx) {
           <dt>Sprache</dt><dd>${esc(g.language_label || g.language_code)}</dd>
           ${g.edition ? `<dt>Edition</dt><dd>${esc(g.edition)}</dd>` : ''}
           ${g.release_year ? `<dt>Jahr</dt><dd>${g.release_year}</dd>` : ''}
-          <dt>Top Genre / Setting</dt><dd class="tag-row">${(g.genre_setting_top || []).map((t) => `<a class="tag" href="#/?genreTop=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
-          <dt>Sub Genre / Setting</dt><dd class="tag-row">${(g.genre_setting || []).map((t) => `<a class="tag" href="#/?genre=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
-          <dt>Top Tone / Themen</dt><dd class="tag-row">${(g.tone_theme_top || []).map((t) => `<a class="tag" href="#/?toneTop=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
-          <dt>Sub Tone / Themen</dt><dd class="tag-row">${(g.tone_theme || []).map((t) => `<a class="tag" href="#/?tone=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
-          <dt>Spielfokus</dt><dd class="tag-row">${(g.play_focus || []).map((t) => `<a class="tag" href="#/?focus=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
-          ${(g.play_style || []).length ? `<dt>Spielweise</dt><dd class="tag-row">${g.play_style.map((t) => `<a class="tag" href="#/?style=${encodeURIComponent(t)}">${esc(t)}</a>`).join('')}</dd>` : ''}
-          <dt>Kampagnenart</dt><dd class="tag-row">${(g.campaign_type || []).map((t) => `<a class="tag" href="#/?campaign=${encodeURIComponent(t)}">${esc(t)}</a>`).join('') || '–'}</dd>
+          <dt>Top Genre / Setting</dt><dd class="tag-row">${(g.genre_setting_top || []).map((t) => tagLink('genre_setting_top', 'genreTop', t)).join('') || '–'}</dd>
+          <dt>Sub Genre / Setting</dt><dd class="tag-row">${(g.genre_setting || []).map((t) => tagLink('genre_setting', 'genre', t)).join('') || '–'}</dd>
+          <dt>Top Tone / Themen</dt><dd class="tag-row">${(g.tone_theme_top || []).map((t) => tagLink('tone_theme_top', 'toneTop', t)).join('') || '–'}</dd>
+          <dt>Sub Tone / Themen</dt><dd class="tag-row">${(g.tone_theme || []).map((t) => tagLink('tone_theme', 'tone', t)).join('') || '–'}</dd>
+          <dt>Spielfokus</dt><dd class="tag-row">${(g.play_focus || []).map((t) => tagLink('play_focus', 'focus', t)).join('') || '–'}</dd>
+          ${(g.play_style || []).length ? `<dt>Spielweise</dt><dd class="tag-row">${g.play_style.map((t) => tagLink('play_style', 'style', t)).join('')}</dd>` : ''}
+          <dt>Kampagnenart</dt><dd class="tag-row">${(g.campaign_type || []).map((t) => tagLink('campaign_type', 'campaign', t)).join('') || '–'}</dd>
         </dl>
+        <p class="glossary-link"><a href="#/begriffe">Was bedeuten die Begriffe? →</a></p>
       </div>
 
       <div class="panel section">

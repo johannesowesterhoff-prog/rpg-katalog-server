@@ -3,6 +3,7 @@ import { api, hasToken } from './api.js';
 import { renderCatalog } from './catalog.js';
 import { renderDetail } from './detail.js';
 import { renderWahlomat } from './wahlomat.js';
+import { renderGlossary } from './tags.js';
 import { renderStats } from './stats.js';
 import { renderLogin, renderDashboard, renderList, renderEditor, renderImport, renderMasterData, renderAudit, renderPlaySessions, renderWahlomatGroups } from './admin.js';
 import { toast, emptyState } from './ui.js';
@@ -56,6 +57,7 @@ async function route() {
   try {
     if (parts[0] === 'spiele' && parts[1]) { markNav('katalog'); await renderDetail(root, decodeURIComponent(parts[1]), ctx); return; }
     if (parts[0] === 'wahlomat') { markNav('wahlomat'); await renderWahlomat(root, params, parts[1] === 'gruppe' && parts[2] ? decodeURIComponent(parts[2]) : null); return; }
+    if (parts[0] === 'begriffe') { markNav('katalog'); await renderGlossary(root); return; }
     if (parts[0] === 'statistik') { markNav('statistik'); await renderStats(root, parts[1], params, parts[2]); return; }
     if (parts[0] === 'admin') {
       markNav('admin');

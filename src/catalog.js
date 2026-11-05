@@ -510,7 +510,7 @@ export async function getMasterData() {
     pool.query(`SELECT pt.id, pt.name, count(pr.id)::int AS usage_count
       FROM katalog.product_types pt LEFT JOIN katalog.products pr ON pr.product_type_id = pt.id
       GROUP BY pt.id ORDER BY pt.sort_order, pt.name`),
-    pool.query(`SELECT t.id, t.kind, t.name, count(gt.game_id)::int AS usage_count
+    pool.query(`SELECT t.id, t.kind, t.name, t.description, count(gt.game_id)::int AS usage_count
       FROM katalog.tags t LEFT JOIN katalog.game_tags gt ON gt.tag_id = t.id
       GROUP BY t.id ORDER BY t.kind, t.sort_order, t.name`),
   ]);
@@ -853,6 +853,21 @@ export async function renameMasterEntry(kind, id, name, actor) {
 }
 
 // Webseite eines Verlags (leer = entfernen). Ohne Schema wird https:// ergänzt.
+// Kurzerklärung eines Begriffs (ein Satz, öffentlich sichtbar). Leer = keine Erklärung.
+export async function setTagDescription(id, description, actor) {
+  const text = String(description ?? '').trim().replace(/\s+/g, ' ');
+  if (text.length > 300) throw httpError(400, 'Die Erklärung darf höchstens 300 Zeichen haben.');
+  const r = await pool.query(
+    `UPDATE katalog.tags t SET description = $1
+     FROM (SELECT id, description FROM katalog.tags WHERE id = $2) old
+     WHERE t.id = old.id RETURNING t.id, t.name, old.description AS old_description`,
+    [text || null, id],
+  );
+  if (!r.rowCount) throw httpError(404, 'Nicht gefunden.');
+  await logAudit(pool, { actor, action: 'update', entity: 'tags', entityId: id, diff: { name: r.rows[0].name, description: { from: r.rows[0].old_description, to: text || null } } });
+  return { id: r.rows[0].id, description: text || null };
+}
+
 export async function setPublisherWebsite(id, website, actor) {
   let url = String(website ?? '').trim();
   if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) url = `https://${url}`;
