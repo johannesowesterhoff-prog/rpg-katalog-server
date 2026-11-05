@@ -986,11 +986,14 @@ export async function renderWahlomat(root, params, groupId = null) {
   // arbeitet relativ zu den vergebenen Werten, eine feste Punktsumme braucht
   // es nicht. Ältere Antworten mit 1–4 Punkten werden als Gern/Sehr gern gezeigt.
   const TAP_LEVELS = [[4, 'Sehr gern'], [2, 'Gern'], [0, 'Egal'], [MEH, 'Eher nicht']];
+  // Genre und Ton sind Hauptkategorien – ihre Kurzerklärung steht direkt unter dem Begriff.
+  const BUDGET_TAG_KIND = { genre: 'genre_setting_top', ton: 'tone_theme_top' };
   function renderBudget(config) {
     const wrap = el('<div class="wahlomat-taps"></div>');
     Object.entries(config.labels).forEach(([key, label]) => {
+      const d = BUDGET_TAG_KIND[config.key] ? tagDescription(tagNotes, BUDGET_TAG_KIND[config.key], key) : '';
       const row = el(`<div class="wahlomat-tap-row">
-        <span>${esc(label)}</span>
+        <span>${esc(label)}${d ? `<small class="tap-desc">${esc(d)}</small>` : ''}</span>
         <div class="wahlomat-seg" role="group" aria-label="${esc(label)}">${TAP_LEVELS.map(([v, t]) => `<button type="button" data-v="${v}" aria-pressed="false">${t}</button>`).join('')}</div>
       </div>`);
       const btns = row.querySelectorAll('button');
