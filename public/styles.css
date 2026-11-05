@@ -784,3 +784,10 @@ td.tag-desc { font-size: var(--text-sm); color: var(--text-muted); max-width: 32
 .wo-row-usp { grid-column: 2 / -1; font-size: var(--text-sm); color: var(--text-muted); }
 .wo-row-body { padding: 0 0 var(--space-3) 2.2rem; display: grid; gap: var(--space-2); justify-items: start; }
 @media (max-width: 760px) { .wo-podium { grid-template-columns: minmax(0, 1fr); } }
+.wo-hint { font-size: var(--text-sm); margin: 0 0 var(--space-3); }
+.wo-usp { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.wo-usp li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: start; font-size: var(--text-sm); }
+.wo-like { border: 1px solid var(--border); background: transparent; color: var(--text-muted); border-radius: var(--radius-full); padding: 2px 9px; font-size: var(--text-xs); line-height: 1.6; cursor: pointer; white-space: nowrap; }
+.wo-like[aria-pressed="true"] { color: #c2415d; border-color: #c2415d; background: rgba(194, 65, 93, .08); }
+.wo-like.is-static { cursor: default; color: #c2415d; }
+.wo-like-total { font-size: var(--text-xs); color: #c2415d; margin-right: var(--space-1); }

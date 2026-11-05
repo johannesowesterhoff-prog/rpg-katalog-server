@@ -405,8 +405,14 @@ function encodeMember({ name, profile }) {
     f: profile.figurenkompetenz,
     p: profile.priorities,
     ...Object.fromEntries(Object.keys(TAG_KINDS).filter((k) => hasPicks(profile, k)).map((k) => [k, profile[k]])),
+    ...(profile.likes?.length ? { r: profile.likes } : {}),
   }));
 }
+
+// „Das reizt mich“: markierte Besonderheiten als "spiel-slug#Index" (0–2).
+const LIKE_MAX = 30;
+const LIKE_RE = /^[a-z0-9-]{1,120}#[0-2]$/;
+const cleanLikes = (list) => (Array.isArray(list) ? [...new Set(list.filter((x) => typeof x === 'string' && LIKE_RE.test(x)))].slice(0, LIKE_MAX) : []);
 
 // Unbekannte Schlüssel (etwa ein inzwischen umbenanntes Genre) und Werte
 // außerhalb der Skalen fallen still heraus; ein kaputter Link ergibt null.
@@ -427,6 +433,7 @@ function decodeMember(code) {
         figurenkompetenz: figures.length ? figures : null,
         priorities: Array.isArray(o.p) ? o.p.filter((p) => PRIORITY_OPTIONS.some(([k]) => k === p)).slice(0, PRIORITY_MAX) : [],
         ...Object.fromEntries(Object.keys(TAG_KINDS).map((k) => [k, Array.isArray(o[k]) ? [...new Set(o[k])].filter((t) => TAG_KNOWN[k].has(t)).slice(0, TAG_MAX) : []])),
+        likes: cleanLikes(o.r),
       },
     };
   } catch { return null; }
@@ -452,14 +459,16 @@ function wishFit(game, profile) {
 }
 // Sortierung: angezeigte Punktzahl, dann Treffer, dann Zielgenauigkeit, dann exakter Wert.
 function compareResults(a, b) {
-  return Math.round(b.score) - Math.round(a.score) || b.matches - a.matches || b.focus - a.focus || b.score - a.score;
+  return Math.round(b.score) - Math.round(a.score) || (b.likes || 0) - (a.likes || 0) || b.matches - a.matches || b.focus - a.focus || b.score - a.score;
 }
 
 function scoreForGroup(game, members) {
   const fits = members.map((m) => wishFit(game, m.profile));
   const matches = fits.reduce((n, f) => n + f.matches, 0);
   const focus = fits.reduce((n, f) => n + f.focus, 0) / (fits.length || 1);
-  return { ...scoreForGroupRaw(game, members), matches, focus };
+  // Herzen („Das reizt mich“) entscheiden bei gleicher angezeigter Punktzahl.
+  const likes = members.reduce((n, m) => n + (m.profile.likes || []).filter((x) => x.startsWith(`${game.id}#`)).length, 0);
+  return { ...scoreForGroupRaw(game, members), matches, focus, likes };
 }
 function scoreForGroupRaw(game, members) {
   const single = members.map((m) => scoreGame(game, m.profile));
@@ -1407,6 +1416,9 @@ export async function renderWahlomat(root, params, groupId = null) {
   async function finishQuiz() {
     const idx = state.editIndex ?? members.length;
     const member = { name: personLabel(), profile: currentProfile() };
+    // Herzen aus dem Ergebnis bleiben beim Ändern der Antworten erhalten.
+    const prev = state.editIndex != null ? members[state.editIndex] : null;
+    member.profile.likes = prev?.profile.likes || [];
     // Für „Letzte Antworten“ beim nächsten Besuch – nur in diesem Browser.
     try { localStorage.setItem(STORAGE_KEY, encodeMember(member)); } catch { /* privat/gesperrt */ }
     if (!group) {
@@ -1500,22 +1512,65 @@ export async function renderWahlomat(root, params, groupId = null) {
   // Besonderheiten, Plätze 4–10 als kompakte Zeilen zum Aufklappen.
   function overview(top) {
     if (!top.length) return '';
+    const me = editTarget()?.member || null;
     const score = (g) => `<span class="badge badge-lang">${Math.round(g.score)}/100</span>`;
     const title = (g) => `<a href="#/spiele/${esc(g.id)}">${esc(g.title)}</a>`;
-    const first = (g) => (g.usp || []).find((u) => u && (u.k || u.t));
+    const points = (g) => (g.usp || []).map((u, i) => [u, i]).filter(([u]) => u && (u.k || u.t));
+    // Wer hat diese Besonderheit markiert?
+    const fans = (key) => members.filter((m) => (m.profile.likes || []).includes(key));
+    const heart = (g, i) => {
+      const key = `${g.id}#${i}`;
+      const who = fans(key);
+      const mine = !!me && (me.profile.likes || []).includes(key);
+      const tip = who.length ? `Reizt: ${who.map((m) => m.name).join(', ')}` : 'Reizt mich';
+      return me
+        ? `<button type="button" class="wo-like" data-like="${esc(key)}" aria-pressed="${mine}" title="${esc(tip)}">♥${who.length ? ` ${who.length}` : ''}</button>`
+        : (who.length ? `<span class="wo-like is-static" title="${esc(tip)}">♥ ${who.length}</span>` : '');
+    };
+    const list = (g) => {
+      const items = points(g);
+      return items.length
+        ? `<ul class="wo-usp">${items.map(([u, i]) => `<li><span>${u.k ? `<strong>${esc(u.k)}${u.t ? ':' : ''}</strong> ` : ''}${esc(u.t || '')}</span>${heart(g, i)}</li>`).join('')}</ul>`
+        : '<p class="faint">Noch keine Besonderheiten eingetragen.</p>';
+    };
+    const total = (g) => (g.likes ? `<span class="wo-like-total" title="Herzen insgesamt">♥ ${g.likes}</span>` : '');
     const podium = top.slice(0, 3).map((g, i) => `<article class="wo-top">
-        <div class="wo-top-head"><span class="faint">#${i + 1}</span>${score(g)}</div>
+        <div class="wo-top-head"><span class="faint">#${i + 1}</span><span>${total(g)} ${score(g)}</span></div>
         <h3>${title(g)}</h3>
-        ${uspList(g, { heading: false }) || '<p class="faint">Noch keine Besonderheiten eingetragen.</p>'}
+        ${list(g)}
       </article>`).join('');
     const rows = top.slice(3).map((g, i) => {
-      const u = first(g);
-      return `<details class="wo-row"><summary><span class="faint">#${i + 4}</span><span class="wo-row-title">${esc(g.title)}</span>${score(g)}${u ? `<span class="wo-row-usp">★ ${esc(u.k || u.t)}</span>` : ''}</summary>
-        <div class="wo-row-body">${uspList(g, { heading: false })}<a class="btn btn-sm btn-ghost" href="#/spiele/${esc(g.id)}">Zum Spiel</a></div></details>`;
+      const u = points(g)[0]?.[0];
+      return `<details class="wo-row"><summary><span class="faint">#${i + 4}</span><span class="wo-row-title">${esc(g.title)}</span><span>${total(g)} ${score(g)}</span>${u ? `<span class="wo-row-usp">★ ${esc(u.k || u.t)}</span>` : ''}</summary>
+        <div class="wo-row-body">${list(g)}<a class="btn btn-sm btn-ghost" href="#/spiele/${esc(g.id)}">Zum Spiel</a></div></details>`;
     }).join('');
-    return `<h3 class="wo-heading">Die besten ${top.length} auf einen Blick</h3>
+    const hint = me
+      ? `<p class="muted wo-hint">Tippe ♥ bei Besonderheiten, die dich reizen. Bei gleicher Punktzahl entscheidet die Zahl der Herzen.</p>`
+      : (members.some((m) => (m.profile.likes || []).length) ? '<p class="muted wo-hint">♥ zeigt, wen eine Besonderheit reizt. Bei gleicher Punktzahl entscheidet die Zahl der Herzen.</p>' : '');
+    return `<h3 class="wo-heading">Die besten ${top.length} auf einen Blick</h3>${hint}
       <div class="wo-podium">${podium}</div>${rows ? `<div class="wo-rows">${rows}</div>` : ''}
       <h3 class="wo-heading">Alle Details</h3>`;
+  }
+
+  // Herz setzen oder entfernen und mit den Antworten speichern.
+  async function toggleLike(key) {
+    const t = editTarget();
+    if (!t) return;
+    const m = t.member;
+    const likes = new Set(m.profile.likes || []);
+    if (likes.has(key)) likes.delete(key); else if (likes.size < LIKE_MAX) likes.add(key); else { toast(`Mehr als ${LIKE_MAX} Herzen gehen nicht.`, 'err'); return; }
+    m.profile.likes = [...likes];
+    const y = window.scrollY;
+    try {
+      if (group) {
+        await api(`/api/wahlomat/groups/${encodeURIComponent(group.id)}/members`, { method: 'POST', body: { name: m.name, answers: encodeMember(m), memberId: m.id, token: store.members[m.id] } });
+      } else {
+        try { localStorage.setItem(STORAGE_KEY, encodeMember(m)); } catch { /* privat/gesperrt */ }
+        if (m.rid) api('/api/wahlomat/results', { method: 'POST', body: { id: m.rid, name: m.name, answers: encodeMember(m) } }).catch(() => {});
+      }
+    } catch (e) { toast(e.message, 'err'); }
+    renderResults({ keepScroll: true });
+    window.scrollTo({ top: y });
   }
 
   function resultCard(g, rank, group) {
@@ -1532,7 +1587,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     const breakdown = group ? '' : `<details><summary>Punkteaufschlüsselung</summary><div class="tag-row" style="margin-top:var(--space-2)">${Object.entries(g.breakdown).map(([n, v]) => `<span class="badge">${esc(n)}: <strong>${v.toFixed(1)}</strong></span>`).join(' ')}</div></details>`;
     return `<article class="card wahlomat-result">
       <div class="wahlomat-result-top">
-        <span class="faint">#${rank}${g.tied ? `<span class="wahlomat-tied" title="Gleiche Punktzahl wie andere Spiele. Die Reihenfolge richtet sich danach, wie viele der Wünsche (Genre, Ton, Spielstil) das Spiel insgesamt trifft – und danach, wie gezielt es passt, also ohne viel Ungewünschtes drumherum.">gleichauf</span>` : ''}</span>
+        <span class="faint">#${rank}${g.tied ? `<span class="wahlomat-tied" title="Gleiche Punktzahl wie andere Spiele. Zuerst entscheiden die Herzen (♥) bei den Besonderheiten, dann, wie viele der Wünsche (Genre, Ton, Spielstil) das Spiel insgesamt trifft – und danach, wie gezielt es passt, also ohne viel Ungewünschtes drumherum.">gleichauf</span>` : ''}</span>
         <div><h3><a href="#/spiele/${esc(g.id)}">${esc(g.title)}</a></h3><div class="muted" style="font-size:var(--text-xs)">${esc(g.system_family || '–')} · ${esc(langLabel(g.language))} · ${playedHtml}</div></div>
         <span class="badge badge-lang">${score}/100</span>
       </div>
@@ -1644,7 +1699,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     return members.length === 1 ? { member: members[0], index: 0 } : null;
   }
 
-  function renderResults({ push = false } = {}) {
+  function renderResults({ push = false, keepScroll = false } = {}) {
     setUrl(resultsHash(), push);
     resumeWrap.innerHTML = '';
     const multi = members.length > 1;
@@ -1730,6 +1785,10 @@ export async function renderWahlomat(root, params, groupId = null) {
       // Die ersten drei Treffer zeigen ihr Netzdiagramm gleich aufgeklappt.
       [...listWrap.querySelectorAll('details.wahlomat-radar')].slice(0, 3).forEach((d) => { d.open = true; });
     };
+    overviewWrap?.addEventListener('click', (ev) => {
+      const b = ev.target.closest('button[data-like]');
+      if (b) { ev.preventDefault(); toggleLike(b.dataset.like); }
+    });
     if (listWrap) { unplayed?.addEventListener('change', renderList); renderList(); }
 
     section.querySelector('#wShare').addEventListener('click', share);
@@ -1741,7 +1800,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       try { await reloadGroup(); renderResults(); toast('Auf dem neuesten Stand.'); } catch (e) { toast(e.message, 'err'); ev.target.disabled = false; }
     });
     resultsWrap.appendChild(section);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // Rücksprung im Verlauf (…?schritt=N) oder Neuladen mitten im Fragebogen:
