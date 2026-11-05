@@ -768,3 +768,4 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .tm-glossary dt { font-weight: 600; margin-top: var(--space-2); }
 .tm-glossary dd { margin: 0; color: var(--text-muted); }
 td.tag-desc { font-size: var(--text-sm); color: var(--text-muted); max-width: 32rem; }
+.wahlomat-tap-row .tap-desc { display: block; font-size: var(--text-xs); color: var(--text-muted); font-weight: normal; margin-top: 2px; }
