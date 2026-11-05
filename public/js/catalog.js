@@ -1,5 +1,6 @@
 // Öffentliche Katalogseite: Suche, Filter-Sidebar, Kartenraster, URL-Zustand.
 import { api } from './api.js';
+import { tagInfo, tagDescription } from './tags.js';
 import { el, esc, gameCard, skeletonGrid, emptyState, toast, SCALE_HELP } from './ui.js';
 
 // Array-Facetten, bei denen ein Spiel mehrere Werte gleichzeitig tragen kann --
@@ -185,9 +186,9 @@ export function renderCatalog(root, ctx) {
 
   // ---- Daten laden
   const qs = queryFromState(s).toString();
-  Promise.all([api('/api/games?' + qs), api('/api/facets?' + qs)])
-    .then(([data, facets]) => {
-      renderFilters(filters, s, facets, push);
+  Promise.all([api('/api/games?' + qs), api('/api/facets?' + qs), tagInfo()])
+    .then(([data, facets, info]) => {
+      renderFilters(filters, s, facets, push, info);
       countBox.innerHTML = data.total === 0
         ? 'Keine Treffer'
         : `<strong>${data.total}</strong> ${data.total === 1 ? 'Eintrag' : 'Einträge'}`;
@@ -337,7 +338,8 @@ function facetGroup(title, dim, items, s, push) {
   const rest = all.slice(8);
   const addRow = (i) => {
     const on = selected.includes(i.value);
-    const row = el(`<label class="check ${i.count === 0 && !on ? 'is-zero' : ''}">
+    const tip = DIM_KIND[dim] ? tagDescription(filterInfo, DIM_KIND[dim], i.value) : '';
+    const row = el(`<label class="check ${i.count === 0 && !on ? 'is-zero' : ''}"${tip ? ` title="${esc(tip)}"` : ''}>
       <input type="checkbox" ${on ? 'checked' : ''}>
       <span>${esc(i.label)}</span><span class="count">${i.count}</span>
     </label>`);
@@ -390,7 +392,12 @@ function rangeGroup(key, label, s, push) {
   return box;
 }
 
-function renderFilters(container, s, facets, push) {
+// Filter-Dimension → Begriffsart (für die Kurzerklärungen als Tooltip).
+const DIM_KIND = { genreTop: 'genre_setting_top', toneTop: 'tone_theme_top', focus: 'play_focus', style: 'play_style', campaign: 'campaign_type', genre: 'genre_setting', tone: 'tone_theme' };
+let filterInfo = null;
+
+function renderFilters(container, s, facets, push, info) {
+  filterInfo = info;
   container.innerHTML = '';
 
   container.appendChild(facetGroup('Top Genre / Setting', 'genreTop', facets.genresTop, s, push));
@@ -410,4 +417,5 @@ function renderFilters(container, s, facets, push) {
   container.appendChild(facetGroup('Sub Tone / Themen', 'tone', facets.toneThemes, s, push));
   container.appendChild(facetGroup('Verlag', 'publisher', facets.publishers, s, push));
   container.appendChild(facetGroup('Sprache', 'language', facets.languages, s, push));
+  container.appendChild(el('<p class="glossary-link"><a href="#/begriffe">Was bedeuten die Begriffe? →</a></p>'));
 }

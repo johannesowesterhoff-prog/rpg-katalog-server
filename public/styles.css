@@ -755,3 +755,16 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .usp-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-2); margin-top: var(--space-2); }
 .usp-row textarea { min-height: 2.4rem; resize: vertical; }
 @media (max-width: 640px) { .usp-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* Kurzerklärungen der Begriffe */
+.glossary-link { margin: var(--space-3) 0 0; font-size: var(--text-sm); }
+.glossary-list { display: grid; grid-template-columns: minmax(9rem, max-content) minmax(0, 1fr); gap: var(--space-2) var(--space-4); margin: var(--space-3) 0 0; }
+.glossary-list dt { font-weight: 600; }
+.glossary-list dd { margin: 0; color: var(--text-muted); }
+@media (max-width: 640px) { .glossary-list { grid-template-columns: minmax(0, 1fr); gap: 0; } .glossary-list dd { margin-bottom: var(--space-3); } }
+.tm-glossary { margin-top: var(--space-3); font-size: var(--text-sm); }
+.tm-glossary summary { cursor: pointer; color: var(--text-muted); }
+.tm-glossary dl { margin: var(--space-2) 0 0; display: grid; gap: var(--space-1); }
+.tm-glossary dt { font-weight: 600; margin-top: var(--space-2); }
+.tm-glossary dd { margin: 0; color: var(--text-muted); }
+td.tag-desc { font-size: var(--text-sm); color: var(--text-muted); max-width: 32rem; }

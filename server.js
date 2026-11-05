@@ -19,7 +19,7 @@ import {
   listGames, getFacets, getGameBySlug, getGameById, getArchiveSlug, getMasterData, getWahlomatData, getStats, getPlaySessionLog, getFullBackup,
   getDashboard, createGame, updateGame, setGameStatus,
   deleteGame, findDuplicates, masterConfig, createMasterEntry, renameMasterEntry,
-  deleteMasterEntry, setPublisherWebsite, getAuditLog,
+  deleteMasterEntry, setPublisherWebsite, setTagDescription, getAuditLog,
   listPlaySessions, getGameLookup, createPlaySession, updatePlaySession, deletePlaySession,
 } from './src/catalog.js';
 import { stagingPreview, getImportRun, commitImport } from './src/importer.js';
@@ -324,6 +324,9 @@ app.post('/api/admin/master-data/:kind', requireAdmin, asyncRoute(async (req, re
 app.patch('/api/admin/master-data/:kind/:id', requireAdmin, asyncRoute(async (req, res) => {
   if (req.params.kind === 'publishers' && req.body && 'website' in req.body) {
     return res.json(await setPublisherWebsite(req.params.id, req.body.website, 'admin'));
+  }
+  if (req.params.kind === 'tags' && req.body && 'description' in req.body) {
+    return res.json(await setTagDescription(req.params.id, req.body.description, 'admin'));
   }
   res.json(await renameMasterEntry(req.params.kind, req.params.id, req.body?.name, 'admin'));
 }));

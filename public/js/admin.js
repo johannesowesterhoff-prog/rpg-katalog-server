@@ -1004,21 +1004,30 @@ export async function renderMasterData(root) {
           <input type="text" placeholder="Neuen Wert anlegen …" style="max-width:280px">
           <button type="button" class="btn btn-sm">Anlegen</button>
         </div>
-        <div class="scroll-x"><table><thead><tr><th>Name</th>${kind === 'publishers' ? '<th>Webseite</th>' : ''}<th>Verwendet</th><th></th></tr></thead><tbody></tbody></table></div>
+        <div class="scroll-x"><table><thead><tr><th>Name</th>${kind === 'publishers' ? '<th>Webseite</th>' : ''}${kind === 'tags' ? '<th>Erklärung</th>' : ''}<th>Verwendet</th><th></th></tr></thead><tbody></tbody></table></div>
       </div></section>`);
     const tb = sec.querySelector('tbody');
     items.forEach((it) => {
       const site = kind === 'publishers'
         ? `<td>${/^https?:\/\//.test(it.website || '') ? `<a href="${esc(it.website)}" target="_blank" rel="noopener">${esc(it.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))}</a>` : '<span class="faint">–</span>'}</td>`
         : '';
-      const tr = el(`<tr><td>${esc(it.name)}</td>${site}<td class="muted">${it.usage_count}×</td>
-        <td class="row-actions">${kind === 'publishers' ? '<button type="button" class="btn btn-sm" data-act="website">Webseite</button> ' : ''}<button type="button" class="btn btn-sm" data-act="rename">Umbenennen</button>
+      const desc = kind === 'tags' ? `<td class="tag-desc">${it.description ? esc(it.description) : '<span class="faint">–</span>'}</td>` : '';
+      const tr = el(`<tr><td>${esc(it.name)}</td>${site}${desc}<td class="muted">${it.usage_count}×</td>
+        <td class="row-actions">${kind === 'publishers' ? '<button type="button" class="btn btn-sm" data-act="website">Webseite</button> ' : ''}${kind === 'tags' ? '<button type="button" class="btn btn-sm" data-act="describe">Erklärung</button> ' : ''}<button type="button" class="btn btn-sm" data-act="rename">Umbenennen</button>
         <button type="button" class="btn btn-sm btn-danger" data-act="del" ${it.usage_count > 0 ? 'disabled title="Wird noch verwendet"' : ''}>Löschen</button></td></tr>`);
       tr.querySelector('[data-act=rename]').addEventListener('click', async () => {
         const name = window.prompt(`Neuen Namen für „${it.name}“ eingeben:`, it.name);
         if (!name || name === it.name) return;
         try { await api(`/api/admin/master-data/${kind}/${it.id}`, { method: 'PATCH', body: { name } }); toast('Umbenannt.'); renderMasterData(root); }
         catch (e) { toast(e.message, 'err'); }
+      });
+      tr.querySelector('[data-act=describe]')?.addEventListener('click', async () => {
+        const text = window.prompt(`Kurzerklärung für „${it.name}“ (ein Satz, öffentlich sichtbar; leer lassen zum Entfernen):`, it.description || '');
+        if (text === null || text.trim() === (it.description || '')) return;
+        try {
+          await api(`/api/admin/master-data/${kind}/${it.id}`, { method: 'PATCH', body: { description: text } });
+          toast(text.trim() ? 'Erklärung gespeichert.' : 'Erklärung entfernt.'); renderMasterData(root);
+        } catch (e) { toast(e.message, 'err'); }
       });
       tr.querySelector('[data-act=website]')?.addEventListener('click', async () => {
         const website = window.prompt(`Webseite von „${it.name}“ (leer lassen zum Entfernen):`, it.website || 'https://');
