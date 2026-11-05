@@ -1496,6 +1496,28 @@ export async function renderWahlomat(root, params, groupId = null) {
     startQuiz();
   }
 
+  // Überblick über die besten zehn: Plätze 1–3 nebeneinander mit allen
+  // Besonderheiten, Plätze 4–10 als kompakte Zeilen zum Aufklappen.
+  function overview(top) {
+    if (!top.length) return '';
+    const score = (g) => `<span class="badge badge-lang">${Math.round(g.score)}/100</span>`;
+    const title = (g) => `<a href="#/spiele/${esc(g.id)}">${esc(g.title)}</a>`;
+    const first = (g) => (g.usp || []).find((u) => u && (u.k || u.t));
+    const podium = top.slice(0, 3).map((g, i) => `<article class="wo-top">
+        <div class="wo-top-head"><span class="faint">#${i + 1}</span>${score(g)}</div>
+        <h3>${title(g)}</h3>
+        ${uspList(g, { heading: false }) || '<p class="faint">Noch keine Besonderheiten eingetragen.</p>'}
+      </article>`).join('');
+    const rows = top.slice(3).map((g, i) => {
+      const u = first(g);
+      return `<details class="wo-row"><summary><span class="faint">#${i + 4}</span><span class="wo-row-title">${esc(g.title)}</span>${score(g)}${u ? `<span class="wo-row-usp">★ ${esc(u.k || u.t)}</span>` : ''}</summary>
+        <div class="wo-row-body">${uspList(g, { heading: false })}<a class="btn btn-sm btn-ghost" href="#/spiele/${esc(g.id)}">Zum Spiel</a></div></details>`;
+    }).join('');
+    return `<h3 class="wo-heading">Die besten ${top.length} auf einen Blick</h3>
+      <div class="wo-podium">${podium}</div>${rows ? `<div class="wo-rows">${rows}</div>` : ''}
+      <h3 class="wo-heading">Alle Details</h3>`;
+  }
+
   function resultCard(g, rank, group) {
     const score = Math.round(g.score);
     const why = explain(g, members);
@@ -1515,7 +1537,7 @@ export async function renderWahlomat(root, params, groupId = null) {
         <span class="badge badge-lang">${score}/100</span>
       </div>
       <div class="bar"><i style="width:${score}%"></i></div>
-      ${uspList(g).replace('class="usp"', 'class="usp usp-wahlomat"')}
+      ${uspList(g, { limit: 1, heading: false }).replace('class="usp"', 'class="usp usp-card usp-wahlomat"')}
       ${why.good || why.warn ? `<p class="wahlomat-why">${why.good ? `<span class="is-good">✓ ${esc(why.good)}</span>` : ''}${why.warn ? `<span class="is-warn">△ ${esc(why.warn)}</span>` : ''}</p>` : ''}
       ${perPerson}
       <div class="wahlomat-more">
@@ -1662,6 +1684,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       ${multi && !hidden ? groupPicture(members) : ''}
       ${members.length && !hidden ? `<p class="wahlomat-meta">Bewertet: alle ${results.length} Spiele der Sammlung.${skippedNote}</p>
       ${played.size ? '<label class="wahlomat-skip wahlomat-filter"><input type="checkbox" id="wUnplayed"> Nur Spiele, die noch nie am Tisch lagen</label>' : ''}
+      <div class="wahlomat-overview"></div>
       <div class="wahlomat-results"></div>
       <div class="wahlomat-more-results"></div>` : ''}
       ${group || multi ? '' : '<div id="wMembersSlot"></div>'}
@@ -1679,6 +1702,7 @@ export async function renderWahlomat(root, params, groupId = null) {
     } else section.querySelector('#wDraftSlot').remove();
 
     const listWrap = section.querySelector('.wahlomat-results');
+    const overviewWrap = section.querySelector('.wahlomat-overview');
     const unplayed = section.querySelector('#wUnplayed');
     const moreWrap = section.querySelector('.wahlomat-more-results');
     let showAll = false;
@@ -1686,6 +1710,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       const all = unplayed?.checked ? results.filter((g) => !played.has(g.id)) : results;
       // Erst die besten 10, der Rest auf Wunsch.
       const shown = showAll ? all : all.slice(0, 10);
+      overviewWrap.innerHTML = overview(all.slice(0, 10));
       listWrap.innerHTML = shown.map((g, i) => resultCard(g, i + 1, multi)).join('') || '<p class="muted">Alle passenden Spiele lagen schon am Tisch.</p>';
       moreWrap.innerHTML = '';
       if (all.length > shown.length) {
