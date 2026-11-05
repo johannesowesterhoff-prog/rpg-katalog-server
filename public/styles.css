@@ -769,3 +769,18 @@ span.tag:hover { color: var(--text-muted); border-color: transparent; background
 .tm-glossary dd { margin: 0; color: var(--text-muted); }
 td.tag-desc { font-size: var(--text-sm); color: var(--text-muted); max-width: 32rem; }
 .wahlomat-tap-row .tap-desc { display: block; font-size: var(--text-xs); color: var(--text-muted); font-weight: normal; margin-top: 2px; }
+
+/* Wahlomat: die besten zehn auf einen Blick */
+.wo-heading { margin: var(--space-5) 0 var(--space-3); font-size: var(--text-base); }
+.wo-podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+.wo-top { border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--surface); min-width: 0; }
+.wo-top-head { display: flex; justify-content: space-between; align-items: center; }
+.wo-top h3 { margin: var(--space-2) 0; font-size: var(--text-base); }
+.wo-rows { margin-top: var(--space-3); border-top: 1px solid var(--border); }
+.wo-row { border-bottom: 1px solid var(--border); }
+.wo-row summary { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) auto; gap: 2px var(--space-2); align-items: center; padding: var(--space-2) 0; cursor: pointer; list-style: none; }
+.wo-row summary::-webkit-details-marker { display: none; }
+.wo-row-title { font-weight: 600; min-width: 0; }
+.wo-row-usp { grid-column: 2 / -1; font-size: var(--text-sm); color: var(--text-muted); }
+.wo-row-body { padding: 0 0 var(--space-3) 2.2rem; display: grid; gap: var(--space-2); justify-items: start; }
+@media (max-width: 760px) { .wo-podium { grid-template-columns: minmax(0, 1fr); } }
