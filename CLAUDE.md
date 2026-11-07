@@ -35,5 +35,6 @@ danach den Deploy-Lauf in GitHub Actions abwarten und die Live-Seite prüfen.
 
 ## Bewusst nicht gewollt
 
-- Wahlomat: keine No-Gos, kein Sprachfilter, keine Spielfokus-Tag-Zuordnung,
-  kein automatisches Neuladen der Gruppenansicht.
+- Wahlomat: keine No-Gos, kein Sprachfilter, kein automatisches Neuladen der
+  Gruppenansicht. (Die Abbildung von Spielfokus-/Spielweise-Tags auf die
+  Aktivitäten und die Tag-Matrizen sind gewollt.)
