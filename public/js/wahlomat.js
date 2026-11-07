@@ -271,6 +271,19 @@ function tagScore(tags, wishes) {
   const values = tags.map((t) => wishes[t] || 0);
   return (Math.max(0, ...values) + Math.min(0, ...values)) / top;
 }
+// Universalsysteme haben kein festes Genre: Sie passen zu jedem Wunschgenre
+// halb (wie „Gern“ gegenüber „Sehr gern“). Wer „Universal“ selbst bewertet,
+// bekommt genau diese Bewertung.
+const UNIVERSAL = 'Universal';
+function universalJoker(tags, wishes) {
+  const top = Math.max(0, ...Object.values(wishes));
+  return tags.includes(UNIVERSAL) && !wishes[UNIVERSAL] && top > 0;
+}
+function genreScore(tags, wishes) {
+  if (!universalJoker(tags, wishes)) return tagScore(tags, wishes);
+  const top = Math.max(0, ...Object.values(wishes));
+  return tagScore(tags, { ...wishes, [UNIVERSAL]: top / 2 });
+}
 function activityScore(activities, wishes) {
   return tagScore(Object.keys(activities).filter((key) => (activities[key] || 0) >= 3), wishes);
 }
@@ -292,17 +305,19 @@ function hardnessScore(game, desired) {
 }
 
 // Tag-Matrix: Anteil der gewählten Begriffe, die das Spiel trägt. Volle
-// Punkte gibt es schon ab `full` Treffern (so viele Begriffe hat ein Spiel
-// mindestens), damit Spiele mit wenigen Tags bei vielen Picks nicht verlieren.
+// Punkte gibt es schon ab `full` Treffern – oder ab so vielen Treffern, wie
+// das Spiel Begriffe dieser Art hat, falls es weniger trägt. Sonst könnte ein
+// Spiel mit nur 3 Fokus-Begriffen bei 4 gewählten nie die volle Punktzahl holen.
 function pickScore(tags, picks, full = picks?.length) {
   if (!picks || !picks.length) return 0;
-  return Math.min(1, picks.filter((t) => tags.includes(t)).length / Math.min(picks.length, full));
+  const need = Math.min(picks.length, full, tags.length || full);
+  return Math.min(1, picks.filter((t) => tags.includes(t)).length / need);
 }
 const hasPicks = (profile, kind) => Array.isArray(profile[kind]) && profile[kind].length > 0;
 
 function scoreGame(game, profile) {
   const components = [
-    ['Genre', W.genre, true, tagScore(game.genre, profile.genre)],
+    ['Genre', W.genre, true, genreScore(game.genre, profile.genre)],
     ['Ton', W.tone, true, tagScore(game.ton, profile.ton)],
     ['Bedrohung', W.threat, profile.gefahr != null, profile.gefahr != null ? hardnessScore(game, profile.gefahr) : 0],
     ['Spielstil', W.activities, true, activityScore(game.aktivitaeten, profile.aktivitaeten)],
@@ -354,6 +369,7 @@ function makeChips(game, profile) {
   const tonHit = hasWish(game.ton, profile.ton);
   [...disliked(game.genre, profile.genre), ...disliked(game.ton, profile.ton)].forEach((t) => warnings.push(`„${t}“ eher nicht gewünscht`));
   if (genreHit) good.push(`Genre „${genre && game.genre.includes(genre) ? genre : game.genre[0]}“`);
+  else if (universalJoker(game.genre, profile.genre)) good.push('Universalsystem, für jedes Genre nutzbar');
   else warnings.push('Kein Wunschgenre getroffen');
   if (tonHit) good.push(`Ton „${tone && game.ton.includes(tone) ? tone : game.ton[0]}“`);
   else warnings.push('Kein Wunschton getroffen');
@@ -490,7 +506,7 @@ const AXIS_WEIGHT = { crunch: W.crunch, narrativ: W.narrativ, fluff: W.fluff, ge
 // Genre/Ton oder der Regler mit dem größten gewichteten Abstand.
 function mainWarning(game, profile) {
   const candidates = [];
-  if (!hasWish(game.genre, profile.genre)) candidates.push([W.genre, 'kein Wunschgenre']);
+  if (!hasWish(game.genre, profile.genre) && !universalJoker(game.genre, profile.genre)) candidates.push([W.genre, 'kein Wunschgenre']);
   if (!hasWish(game.ton, profile.ton)) candidates.push([W.tone, 'kein Wunschton']);
   disliked(game.genre, profile.genre).forEach((t) => candidates.push([W.genre * 0.5, `„${t}“ eher nicht`]));
   disliked(game.ton, profile.ton).forEach((t) => candidates.push([W.tone * 0.5, `„${t}“ eher nicht`]));
