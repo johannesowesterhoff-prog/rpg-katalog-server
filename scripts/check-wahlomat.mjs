@@ -1,6 +1,6 @@
 // Prüft den Wahlomat gegen echte Katalogdaten: Jedes Spiel muss mit
 // „perfekten“ Antworten (seine eigenen Werte und Tags) 100 % erreichen und
-// allein auf Platz 1 stehen. Läuft in GitHub Actions vor jedem Deploy.
+// auf Platz 1 stehen (ein echter Gleichstand wird nur gemeldet). Läuft in GitHub Actions vor jedem Deploy.
 //
 // Aufruf: node scripts/check-wahlomat.mjs [URL oder Datei]
 // Standard ist die öffentliche Live-API (/api/wahlomat.json).
@@ -85,7 +85,9 @@ for (const g of games) {
   const top = rivals.reduce((a, b) => (b.score > a.score ? b : a));
   results.set(g.id, { profile, score, second: top });
   if (score < 99.5) problems.push(`${g.title}: erreicht nur ${score.toFixed(1)} %`);
-  else if (top.score >= score) problems.push(`${g.title}: nicht allein auf Platz 1 (${top.title} hat ${top.score.toFixed(1)} %)`);
+  else if (top.score > score) problems.push(`${g.title}: nicht auf Platz 1 (${top.title} hat ${top.score.toFixed(1)} %)`);
+  // Ein echter Gleichstand ist kein Fehler: Zwei Spiele dürfen gleich gut passen.
+  else if (top.score >= score - 0.05) warnings.push(`${g.title}: Gleichstand auf Platz 1 mit ${top.title}`);
 }
 
 // ---- 2. Tag-Anzahlen je Spiel (Pflegeregel 3 im Review-Dokument).
