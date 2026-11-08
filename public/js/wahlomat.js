@@ -310,8 +310,11 @@ function hardnessScore(game, desired) {
 // Punkte gibt es schon ab `full` Treffern – oder ab so vielen Treffern, wie
 // das Spiel Begriffe dieser Art hat, falls es weniger trägt. Sonst könnte ein
 // Spiel mit nur 3 Fokus-Begriffen bei 4 gewählten nie die volle Punktzahl holen.
-function pickScore(tags, picks, full = picks?.length) {
+// Universal-Joker wie beim Genre: Ein Universalsystem ohne Begriffe dieser
+// Art (etwa Genesys ohne Untertöne) bekommt halbe Punkte statt 0.
+function pickScore(tags, picks, full = picks?.length, universal = false) {
   if (!picks || !picks.length) return 0;
+  if (!tags.length && universal) return 0.5;
   const need = Math.min(picks.length, full, tags.length || full);
   return Math.min(1, picks.filter((t) => tags.includes(t)).length / need);
 }
@@ -329,7 +332,7 @@ function scoreGame(game, profile) {
     ['Crunch', W.crunch, profile.crunch != null, profile.crunch != null ? proximity(game.crunch, profile.crunch) : 0],
     ['Narrativ', W.narrativ, profile.narrativ != null, profile.narrativ != null ? proximity(game.narrativ, profile.narrativ) : 0],
     ['Fluff', W.fluff, profile.fluff != null, profile.fluff != null ? proximity(game.fluff, profile.fluff) : 0],
-    ...Object.entries(TAG_KINDS).map(([kind, cfg]) => [cfg.comp, W[kind], hasPicks(profile, kind), pickScore(game[kind] || [], profile[kind], cfg.full)]),
+    ...Object.entries(TAG_KINDS).map(([kind, cfg]) => [cfg.comp, W[kind], hasPicks(profile, kind), pickScore(game[kind] || [], profile[kind], cfg.full, (game.genre || []).includes(UNIVERSAL))]),
   ];
   // Bis zu drei per "Prioritäten"-Schritt gewählte Dimensionen zählen stärker.
   const priorities = profile.priorities || [];
