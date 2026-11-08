@@ -145,12 +145,12 @@ const HELP = {
   ton: { text: 'Die Grundstimmung am Tisch – unabhängig vom Setting. Eine Fantasywelt kann gemütlich-humorvoll oder bitter-düster sein; hier geht es um das Gefühl, nicht um die Welt.' },
   aktivitaeten: { text: 'Womit möchtest du die meiste Spielzeit verbringen? Kämpfen = Gefechte und Taktik stehen im Mittelpunkt. Erkunden = unbekannte Orte, Dungeons, Reisen. Ermitteln = Rätsel, Spuren, Intrigen. Beziehungen = Gespräche, Gefühle, Figurenspiel. Überleben = knappe Vorräte, harte Umgebung. Welt & Fraktionen = eigene Basis, Gruppen, Einfluss aufbauen.' },
   gefahr: { text: 'Wie viel Druck spüren die Figuren – und was passiert, wenn etwas schiefgeht? Niedrig: gemütlich, Rückschläge bleiben ohne große Folgen. Hoch: ständige Bedrohung, Figuren können sterben oder dauerhaft verlieren. Das ist unabhängig vom Genre – auch ein Fantasyspiel kann sehr behaglich sein.' },
-  handlungsfreiheit: { text: 'Gibt das Spiel eher Aufträge und Szenarien vor, die die Gruppe abarbeitet? Oder entscheidet die Gruppe selbst, wohin es geht und was sie erreichen will (Sandbox)?' },
+  handlungsfreiheit: { text: 'Wer setzt die Ziele? Gibt das Spiel eher Aufträge und Szenarien vor, die die Gruppe abarbeitet, oder entscheidet die Gruppe selbst, wohin es geht und was sie erreichen will (Sandbox)? Gemeint ist die Wahl der Ziele, nicht der Lösungsweg: Auch bei einem klaren Auftrag kann die Gruppe frei entscheiden, wie sie ihn löst.' },
   figurenkompetenz: { text: 'Wie fähig sind die Figuren zu Beginn im Vergleich zur Welt? Kleine Leute, die über sich hinauswachsen – oder Profis und Held:innen, die von Anfang an glänzen?' },
   crunch: { text: 'Wie detailliert sind die Regeln – was wird alles mechanisch simuliert? Niedrig: wenige Werte, die meisten Situationen entscheidet ein einfacher Wurf. Hoch: eigene Regeln für Kampf, Verletzungen, Ausrüstung, Reisen und mehr.' },
   narrativ: { text: 'Steuern die Regeln nur, ob eine Aktion gelingt – oder auch, wie sich die Geschichte entwickelt? Niedrig: Würfel entscheiden über Treffer und Erfolg, die Handlung erzählt die Spielleitung frei drumherum. Hoch: Regeln für Szenen, Dramatik und Wendungen; Spieler:innen dürfen oft selbst Fakten über die Welt festlegen, nicht nur über ihre Figur.' },
   fluff: { text: 'Wie ausgearbeitet ist die Welt – wie viel Lore gibt es? Gemeint ist alles offiziell Veröffentlichte: Geschichte, Orte, Fraktionen, Abenteuer. Niedrig: ein loser Rahmen, den die Gruppe selbst füllt. Hoch: viele Bücher voller Hintergrund.' },
-  tags: { text: 'Optional: Wähle bis zu fünf Begriffe, die dich besonders reizen – je mehr davon ein Spiel trägt, desto besser passt es. Mehrere Begriffe sind Alternativen, kein Spiel muss alle haben. Die Zahl dahinter zeigt, wie viele Spiele den Begriff tragen.' },
+  tags: { text: 'Optional: Wähle bis zu fünf Begriffe, die für dich infrage kommen. Du musst nicht alle in einem Spiel wiederfinden: Ein Spiel passt voll, wenn seine eigenen Begriffe dieser Art in deiner Auswahl liegen. Mehrere Begriffe sind Alternativen. Die Zahl dahinter zeigt, wie viele Spiele den Begriff tragen.' },
   priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was du hier ankreuzt, zählt anderthalbmal so viel – etwa „Crunch“, wenn dir die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
 };
 
@@ -272,9 +272,17 @@ function proximity(gameValue, desiredValue) { return Math.max(0, 1 - Math.abs(Nu
 const MEH = -2;
 const hasWish = (tags, wishes) => tags.some((t) => (wishes[t] || 0) > 0);
 const disliked = (tags, wishes) => tags.filter((t) => (wishes[t] || 0) < 0);
+const SEHR_GERN = 4;
 function tagScore(tags, wishes) {
   const top = Math.max(0, ...Object.values(wishes));
-  if (!tags.length || !top) return 0;
+  if (!top) {
+    // Nur Ablehnungen („Horror eher nicht“, sonst nichts): Alles, was nicht
+    // abgelehnt ist, passt voll; ein abgelehnter Begriff kostet so viel, wie
+    // „Gern“ gegenüber „Sehr gern“ bringt (-2 von 4 = halbe Punkte).
+    if (!Object.values(wishes).some((v) => v < 0)) return 0;
+    return 1 + Math.min(0, ...tags.map((t) => wishes[t] || 0)) / SEHR_GERN;
+  }
+  if (!tags.length) return 0;
   const values = tags.map((t) => wishes[t] || 0);
   return (Math.max(0, ...values) + Math.min(0, ...values)) / top;
 }
@@ -325,12 +333,20 @@ function pickScore(tags, picks, full = picks?.length, universal = false) {
 }
 const hasPicks = (profile, kind) => Array.isArray(profile[kind]) && profile[kind].length > 0;
 
+// Genre, Ton und Spielstil zählen nur, wenn dort etwas angetippt wurde –
+// wie bei den Reglern zählt „Egal“ weder im Zähler noch im Nenner.
+const hasWishes = (wishes) => Object.values(wishes || {}).some((v) => v);
+function profileHasAnswers(profile) {
+  return hasWishes(profile.genre) || hasWishes(profile.ton) || hasWishes(profile.aktivitaeten)
+    || ['gefahr', 'letalitaet', 'handlungsfreiheit', 'figurenkompetenz', 'crunch', 'narrativ', 'fluff'].some((k) => profile[k] != null)
+    || Object.keys(TAG_KINDS).some((k) => Array.isArray(profile[k]) && profile[k].length > 0);
+}
 function scoreGame(game, profile) {
   const components = [
-    ['Genre', W.genre, true, genreScore(game.genre, profile.genre)],
-    ['Ton', W.tone, true, tagScore(game.ton, profile.ton)],
+    ['Genre', W.genre, hasWishes(profile.genre), genreScore(game.genre, profile.genre || {})],
+    ['Ton', W.tone, hasWishes(profile.ton), tagScore(game.ton, profile.ton || {})],
     ['Bedrohung', W.threat, profile.gefahr != null, profile.gefahr != null ? hardnessScore(game, profile.gefahr) : 0],
-    ['Spielstil', W.activities, true, activityScore(game.aktivitaeten, profile.aktivitaeten)],
+    ['Spielstil', W.activities, hasWishes(profile.aktivitaeten), activityScore(game.aktivitaeten, profile.aktivitaeten || {})],
     ['Freiheit', W.agency, profile.handlungsfreiheit != null, profile.handlungsfreiheit != null ? proximity(game.handlungsfreiheit, profile.handlungsfreiheit) : 0],
     ['Figurenbild', W.figures, profile.figurenkompetenz != null, figureScore(game.figurenkompetenz, profile.figurenkompetenz)],
     ['Scheitern', W.lethality, profile.letalitaet != null, profile.letalitaet != null ? hardnessScore(game, profile.letalitaet) : 0],
@@ -1096,7 +1112,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       : tagDescription(tagNotes, cfg.source, t));
     const wrap = el(`<fieldset class="wahlomat-field wahlomat-tagmatrix">
       <legend>Genauer: ${esc(cfg.label)} <span class="tm-count"></span></legend>
-      <small>Optional: bis zu ${TAG_MAX} Begriffe, die dich besonders reizen.</small>
+      <small>Optional: bis zu ${TAG_MAX} Begriffe, die für dich infrage kommen. Du musst nicht alle in einem Spiel wiederfinden.</small>
       <div class="tm-body"></div>
     </fieldset>`);
     const help = helpBox('tags');
@@ -1735,7 +1751,9 @@ export async function renderWahlomat(root, params, groupId = null) {
     // Wer über den Gruppenlink kommt und noch nicht ausgefüllt hat, sieht das
     // Ergebnis der anderen erst danach – sonst beeinflusst es die Antworten.
     const hidden = !!group && members.length > 0 && !members.some(isMine) && !peekResults;
-    const results = members.length && !hidden ? games.map((g) => scoreForGroup(g, members)).sort(compareResults) : [];
+    // Ohne eine einzige Antwort gibt es nichts zu vergleichen – keine Scheinrangliste.
+    const empty = members.length > 0 && !hidden && !members.some((m) => profileHasAnswers(m.profile));
+    const results = members.length && !hidden && !empty ? games.map((g) => scoreForGroup(g, members)).sort(compareResults) : [];
     // Spiele mit gleicher angezeigter Punktzahl bekommen den Hinweis „gleichauf“.
     const scoreCount = new Map();
     results.forEach((g) => { const k = Math.round(g.score); scoreCount.set(k, (scoreCount.get(k) || 0) + 1); });
@@ -1766,7 +1784,8 @@ export async function renderWahlomat(root, params, groupId = null) {
       ${hidden ? `<div class="help-box wahlomat-hidden-results"><span>Das Ergebnis der Gruppe bleibt verdeckt, bis du selbst ausgefüllt hast – so beeinflusst es deine Antworten nicht.</span>
         <span class="row-actions"><button type="button" class="btn btn-sm btn-ghost" id="wPeek">Trotzdem ansehen</button></span></div>` : ''}
       ${multi && !hidden ? groupPicture(members) : ''}
-      ${members.length && !hidden ? `<p class="wahlomat-meta">Bewertet: alle ${results.length} Spiele der Sammlung.${skippedNote}</p>
+      ${empty ? '<div class="help-box"><span>Es ist noch keine Frage beantwortet, alles steht auf „Egal“. Beantworte mindestens eine Frage, dann bekommst du passende Spiele.</span></div>' : ''}
+      ${members.length && !hidden && !empty ? `<p class="wahlomat-meta">Bewertet: alle ${results.length} Spiele der Sammlung.${skippedNote}</p>
       ${played.size ? '<label class="wahlomat-skip wahlomat-filter"><input type="checkbox" id="wUnplayed"> Nur Spiele, die noch nie am Tisch lagen</label>' : ''}
       <div class="wahlomat-overview"></div>
       <div class="wahlomat-results"></div>
