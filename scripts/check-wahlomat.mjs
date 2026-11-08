@@ -24,10 +24,10 @@ if (start < 0 || scoreAt < 0 || end < 0) {
   console.error('Wahlomat-Kern nicht gefunden (Marker „const B = {“ / „function scoreGame(“ fehlen in public/js/wahlomat.js).');
   process.exit(1);
 }
-const core = `${source.slice(start, end + 3)}\nexport { buildGames, scoreGame, FIGURE_OPTIONS, TAG_MAX, AKTIVITAETEN_TAGS, SIGNALS, TAG_GROUPS, TAG_KINDS, B, W };\n`;
+const core = `${source.slice(start, end + 3)}\nexport { buildGames, scoreGame, FIGURE_OPTIONS, TAG_MAX, AKTIVITAETEN_TAGS, SIGNALS, TAG_GROUPS, TAG_KINDS, TAG_ALIASES, B, W };\n`;
 const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'wahlomat-')), 'core.mjs');
 fs.writeFileSync(tmp, core);
-const { buildGames, scoreGame, FIGURE_OPTIONS, TAG_MAX, AKTIVITAETEN_TAGS, SIGNALS, TAG_GROUPS, TAG_KINDS, B, W } = await import(pathToFileURL(tmp));
+const { buildGames, scoreGame, FIGURE_OPTIONS, TAG_MAX, AKTIVITAETEN_TAGS, SIGNALS, TAG_GROUPS, TAG_KINDS, TAG_ALIASES, B, W } = await import(pathToFileURL(tmp));
 
 const target = process.argv[2] || LIVE;
 const data = /^https?:\/\//.test(target)
@@ -118,7 +118,9 @@ if (master?.tags) {
   Object.entries(SIGNALS).forEach(([k, set]) => checkSet(`Signal ${k}`, set, all));
   Object.entries(TAG_GROUPS).forEach(([kind, groups]) => {
     const valid = byKind(TAG_KINDS[kind].source);
-    groups.forEach(([gname, tags]) => checkSet(`Gruppe ${kind}/${gname}`, new Set(tags), valid));
+    // Eine gemeinsame Option (z. B. „Weird Fantasy / Weird Fiction“) gilt, wenn alle ihre Begriffe existieren.
+    const expand = (t) => { const m = Object.entries(TAG_ALIASES[kind] || {}).filter(([, a]) => a === t).map(([n]) => n); return m.length ? m : [t]; };
+    groups.forEach(([gname, tags]) => checkSet(`Gruppe ${kind}/${gname}`, new Set(tags.flatMap(expand)), valid));
   });
 }
 
