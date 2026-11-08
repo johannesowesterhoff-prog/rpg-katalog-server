@@ -148,14 +148,15 @@ const HELP = {
   priorities: { text: 'Jede Frage zählt normalerweise mit ihrem festen Gewicht ins Ergebnis. Was du hier ankreuzt, zählt anderthalbmal so viel – etwa „Crunch“, wenn dir die Regelmenge wichtiger ist als alles andere. Nicht Angekreuztes zählt weiter ganz normal mit, es wird nichts ausgeblendet. Wer nichts wählt, bekommt ein ausgewogenes Ergebnis.' },
 };
 
-// ---- Spielstil/Aktivitäten weiterhin aus Spielfokus-Tags abgeleitet.
+// ---- Spielstil/Aktivitäten aus Spielfokus- und Spielweise-Tags abgeleitet. Nur Namen,
+// die es als Tag gibt – das Prüfskript (scripts/check-wahlomat.mjs) achtet darauf.
 const AKTIVITAETEN_TAGS = {
-  kampf_taktik: new Set(['Superheldenabenteuer', 'Assassinen-Kampagnen', 'John-Wick-Style', 'Stadt- und Bandenkrieg', 'Missionen / Aufträge', 'Kampf / Taktik', 'Action', 'Pulp-Action', 'Cinematic Action', 'Duelle', 'Bändigen der Elemente', 'Zerstörung']),
-  erkundung: new Set(['Schatzjagden', 'Indiana-Jones-Style', 'Galaktische Kampagnen', 'Erkundung', 'Dungeon-Crawls', 'Abenteuer', 'Episodische Insel-Abenteuer', 'Sword & Sorcery-Abenteuer', 'Raumfahrt', 'Hex-Crawl / Erkundung', 'Reise']),
-  ermittlung: new Set(['Rätsel', 'Heist', 'Spionage', 'Konzernintrigen', 'Kultbekämpfung', 'Ermittlungen', 'Ermittlungen / Verschwörungen', 'Mystery', 'Intrigen', 'Intrigen / Politik', 'kreative Problemlösung', 'Investigation / Detektivarbeit']),
-  soziale_szenen: new Set(['Konflikte zwischen Kulturen', 'Charakterentwicklung', 'Charakterspiel', 'Soziale Interaktionen', 'Soziale Konflikte', 'Erzählorientiert', 'kooperatives Storytelling', 'Diplomatie']),
-  survival: new Set(['Überleben', 'Survival-Horror', 'Ressourcenmanagement', 'Old-School-Spiel', 'OSR']),
-  weltgestaltung: new Set(['Gangspiel', 'Kreativität', 'Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Sandbox', 'Sandbox-Szenarien', 'Dorfleben', 'Adaptiv / Baukastensystem', 'Dungeonbau']),
+  kampf_taktik: new Set(['Missionen / Aufträge', 'Kampf / Taktik', 'Action']),
+  erkundung: new Set(['Erkundung', 'Dungeon-Crawls', 'Reise']),
+  ermittlung: new Set(['Rätsel', 'Ermittlungen', 'Mystery', 'Intrigen', 'kreative Problemlösung']),
+  soziale_szenen: new Set(['Charakterentwicklung', 'Charakterspiel', 'Soziale Konflikte', 'Erzählorientiert']),
+  survival: new Set(['Überleben', 'Ressourcenmanagement', 'Old-School-Spiel']),
+  weltgestaltung: new Set(['Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Sandbox']),
 };
 
 // ---- Signal-Tagsets für die fünf nicht direkt im Katalog erfassten Achsen.
@@ -163,20 +164,20 @@ const AKTIVITAETEN_TAGS = {
 // damit tatsächlich die recherchierten Sub-Tone-Tags (die genauesten Daten,
 // die wir pro Spiel haben) mit einfließen statt nur grobe Genre-Schubladen.
 const SIGNALS = {
-  weltHigh: new Set(['Space Opera', 'Weird Fantasy', 'Primal Punk', 'Mythische Inselwelt', 'Cyberpunk', '(Post-)Apokalypse', 'Low-Fi Sci-Fi', 'Mysteriös', 'Rätselhaft', 'Realitätsbruch', 'Kosmisches Grauen', 'Urzeitlich', 'Zauberhaft', 'Mythisch', 'Feenhaft', 'Skurril', 'Genreoffen', 'Weite', 'Märchenhaft', 'Märchenfantasy']),
-  weltLow: new Set(['Gegenwart / Modern', 'Krimi', 'Noir', 'Neo-Noir', 'Politthriller', 'Akademie', 'Coming-of-Age', '(Pseudo-)Historisch', 'Auftragskiller', 'Alltagsnah', 'Glaubwürdig', 'Bürokratisch', 'Klassisch', 'Bodenständig'].filter(Boolean)),
+  weltHigh: new Set(['Space Opera', 'Weird Fantasy', 'Primal Punk', 'Cyberpunk', '(Post-)Apokalypse', 'Low-Fi Sci-Fi', 'Skurril', 'Märchenhaft', 'Märchenfantasy']),
+  weltLow: new Set(['Gegenwart / Modern', 'Krimi', 'Noir', '(Pseudo-)Historisch', 'Klassisch', 'Bodenständig']),
 
-  gefahrHigh: new Set(['Existenzielle Angst', 'Existenzieller Horror', 'Ausweglos', 'Kompromisslos', 'Brutal', 'Blutig', 'Körperliche Bedrohung', 'Klaustrophobisch', 'Entbehrungsreich', 'Bösartig', 'Prekär', 'Überlebenskampf', 'Weltuntergangsstimmung', 'Verstörend', 'Kosmisches Grauen', 'Horror', 'Survival-Horror', 'Überleben', 'Konsequenzenreich']),
-  gefahrLow: new Set(['Gemütlich', 'Idyllisch', 'Unbeschwert', 'Herzlich', 'Warmherzig', 'Niedlich', 'Verspielt', 'Fürsorglich', 'Einsteigerfreundlich', 'Jugendfreundlich', 'Kindgerecht', 'Kinderfreundlich / Familienrunden', 'kooperatives Storytelling']),
+  gefahrHigh: new Set(['Existenzielle Angst', 'Brutal', 'Klaustrophobisch', 'Überlebenskampf', 'Horror', 'Überleben', 'Konsequenzenreich']),
+  gefahrLow: new Set(['Gemütlich', 'Warmherzig', 'Verspielt', 'Einsteigerfreundlich', 'Kinderfreundlich / Familienrunden']),
 
-  letalHigh: new Set(['Kompromisslos', 'Ausweglos', 'Verlust', 'Opferbereitschaft', 'Existenzielle Angst', 'Brutal', 'Blutig', 'Körperliche Bedrohung', 'Überlebenskampf', 'Konsequenzenreich', 'Old-School-Spiel', 'OSR', 'Dungeon-Crawls']),
-  letalLow: new Set(['Fürsorglich', 'Gemütlich', 'Kinderfreundlich / Familienrunden', 'Kindgerecht', 'Einsteigerfreundlich', 'Jugendfreundlich', 'Verspielt', 'kooperatives Storytelling', 'Coming-of-Age']),
+  letalHigh: new Set(['Verlust', 'Opferbereitschaft', 'Existenzielle Angst', 'Brutal', 'Überlebenskampf', 'Konsequenzenreich', 'Old-School-Spiel', 'Dungeon-Crawls']),
+  letalLow: new Set(['Gemütlich', 'Kinderfreundlich / Familienrunden', 'Einsteigerfreundlich', 'Verspielt']),
 
-  figHigh: new Set(['Heroisch', 'Superhelden', 'Mythische Heldenreisen', 'Cinematic Action', 'Pulp-Action', 'Ruhm und Rivalität', 'Legendenbildung', 'Episch', 'Tollkühn']),
-  figLow: new Set(['Kindgerecht', 'Kinderfreundlich / Familienrunden', 'Coming-of-Age', 'Akademie', 'Schnelle Charaktererstellung', 'Niedlich', 'Alltagsnah', 'Prekär', 'Tollpatschig']),
+  figHigh: new Set(['Heroisch', 'Superhelden', 'Cinematic Action', 'Episch']),
+  figLow: new Set(['Kinderfreundlich / Familienrunden', 'Schnelle Charaktererstellung']),
 
-  handlHigh: new Set(['Sandbox', 'Sandbox-Szenarien', 'Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Dorfleben', 'Adaptiv / Baukastensystem', 'Improvisation', 'Freie Weltgestaltung', 'Offen gestaltbar', 'Freiheit']),
-  handlLow: new Set(['Missionen / Aufträge', 'Cinematic Action', 'Episodische Insel-Abenteuer', 'Serienartige Geschichten']),
+  handlHigh: new Set(['Sandbox', 'Sandbox-Szenarien', 'Gemeinsamer Weltenbau', 'Fraktionen', 'Aufbau einer Festung', 'Improvisation', 'Freie Weltgestaltung']),
+  handlLow: new Set(['Missionen / Aufträge', 'Cinematic Action']),
 };
 
 function anyCount(tags, set) { return tags.filter((t) => set.has(t)).length; }
