@@ -172,13 +172,12 @@ for (let r = 0; r < RUNS; r++) {
   const total = Object.values(variances).reduce((a, b) => a + b, 0) || 1;
   Object.entries(variances).forEach(([k, v]) => { shares[k] = (shares[k] || 0) + v / total / RUNS; });
 }
-const CORRIDOR = { Genre: [0.08, 0.24], Ton: [0.08, 0.24], Spielstil: [0.08, 0.24] };
+const CORRIDOR = { Genre: [0.10, 0.22], Ton: [0.10, 0.22], Spielstil: [0.10, 0.22] };
 const shareText = Object.entries(shares).map(([k, v]) => `${k} ${(v * 100).toFixed(0)} %`).join(', ');
 for (const [k, v] of Object.entries(shares)) {
-  const [lo, hi] = CORRIDOR[k] || [0.03, 0.16];
-  // Vorerst nur Hinweis: Die Gewichte stammen aus einer Messung vom Oktober 2026
-  // und warten auf eine Neukalibrierung. Danach wird hieraus ein Abbruch.
-  if (v < lo || v > hi) warnings.push(`Gewicht ${k}: Anteil ${(v * 100).toFixed(1)} % außerhalb des Zielkorridors ${Math.round(lo * 100)}–${Math.round(hi * 100)} %`);
+  const [lo, hi] = CORRIDOR[k] || [0.05, 0.14];
+  // Abbruch: Die Gewichte sind auf diese Anteile kalibriert (Nov. 2026).
+  if (v < lo || v > hi) problems.push(`Gewicht ${k}: Anteil ${(v * 100).toFixed(1)} % außerhalb des Zielkorridors ${Math.round(lo * 100)}–${Math.round(hi * 100)} %`);
 }
 
 warnings.forEach((w) => console.log(`Hinweis: ${w}`));
@@ -188,4 +187,4 @@ if (problems.length) {
   problems.forEach((p) => console.error(`  – ${p}`));
   process.exit(1);
 }
-console.log(`Wahlomat-Prüfung bestanden: alle ${games.length} Spiele erreichen 100 % und Platz 1, Tag-Anzahlen und Code-Listen stimmen.`);
+console.log(`Wahlomat-Prüfung bestanden: alle ${games.length} Spiele erreichen 100 % und Platz 1, Tag-Anzahlen, Code-Listen und Gewichtsanteile stimmen.`);
