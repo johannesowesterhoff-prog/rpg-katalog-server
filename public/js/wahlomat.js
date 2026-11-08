@@ -50,6 +50,11 @@ const TAG_KINDS = {
   subTon: { label: 'Untertöne', source: 'tone_theme', step: 3, comp: 'Unterton', full: 3 },
   fokus: { label: 'Spielfokus', source: 'play_focus', step: 4, comp: 'Fokus', full: 4 },
 };
+// Begriffe, die im Fragebogen als eine Option erscheinen und gleich zählen:
+// Wer die Option wählt, trifft jedes Spiel mit einem der beiden Begriffe.
+const WEIRD = 'Weird Fantasy / Weird Fiction';
+const TAG_ALIASES = { subGenre: { 'Weird Fantasy': WEIRD, 'Weird Fiction': WEIRD } };
+const aliasTags = (kind, tags) => [...new Set((tags || []).map((t) => TAG_ALIASES[kind]?.[t] || t))];
 const TAG_OPTIONS = { subGenre: new Map(), subTon: new Map(), fokus: new Map() };
 // Alle vergebenen Begriffe (auch die im Fragebogen ausgeblendeten mit weniger als drei Spielen):
 // gespeicherte Antworten behalten solche Begriffe und werten sie weiter.
@@ -58,7 +63,7 @@ const TAG_KNOWN = { subGenre: new Map(), subTon: new Map(), fokus: new Map() };
 // Begriffe, die hier fehlen, landen unter „Weitere“.
 const TAG_GROUPS = {
   subGenre: [
-    ['Fantasy', ['High Fantasy', 'Dark Fantasy', 'Low Fantasy', 'Weird Fantasy', 'Sword & Sorcery', 'Urban Fantasy', 'Märchenfantasy', 'Asiatische Martial-Arts-Welt']],
+    ['Fantasy', ['High Fantasy', 'Dark Fantasy', 'Low Fantasy', WEIRD, 'Sword & Sorcery', 'Urban Fantasy', 'Märchenfantasy', 'Asiatische Martial-Arts-Welt']],
     ['Historisch & Urzeit', ['Mittelalter', 'Antike', 'Viktorianisch', 'Primal Punk']],
     ['Krimi, Noir & Action', ['Krimi', 'Noir', 'Cinematic Action']],
     ['Science-Fiction', ['Space Opera', 'Low-Fi Sci-Fi']],
@@ -165,7 +170,7 @@ const AKTIVITAETEN_TAGS = {
 // damit tatsächlich die recherchierten Sub-Tone-Tags (die genauesten Daten,
 // die wir pro Spiel haben) mit einfließen statt nur grobe Genre-Schubladen.
 const SIGNALS = {
-  weltHigh: new Set(['Space Opera', 'Weird Fantasy', 'Primal Punk', 'Cyberpunk', '(Post-)Apokalypse', 'Low-Fi Sci-Fi', 'Skurril', 'Märchenhaft', 'Märchenfantasy']),
+  weltHigh: new Set(['Space Opera', 'Weird Fantasy', 'Weird Fiction', 'Primal Punk', 'Cyberpunk', '(Post-)Apokalypse', 'Low-Fi Sci-Fi', 'Skurril', 'Märchenhaft', 'Märchenfantasy']),
   weltLow: new Set(['Gegenwart / Modern', 'Krimi', 'Noir', '(Pseudo-)Historisch', 'Klassisch', 'Bodenständig']),
 
   gefahrHigh: new Set(['Existenzielle Angst', 'Brutal', 'Klaustrophobisch', 'Überlebenskampf', 'Horror', 'Überleben', 'Konsequenzenreich']),
@@ -240,7 +245,7 @@ function buildGames(catalog) {
       crunch: Number(game.crunch ?? 3),
       narrativ: Number(game.narrative ?? 3),
       fluff: Number(game.fluff ?? 3),
-      subGenre: g.genre_setting, subTon: g.tone_theme, fokus: g.play_focus,
+      subGenre: aliasTags('subGenre', g.genre_setting), subTon: g.tone_theme, fokus: g.play_focus,
       usp: Array.isArray(game.usp) ? game.usp : [],
       ...automaticProfile(g),
       // Im Admin gepflegte Werte haben Vorrang vor der Tag-Schätzung.
@@ -453,7 +458,7 @@ function decodeMember(code) {
         ...Object.fromEntries(SCALAR_KEYS.map((k) => [k, scalar(o.s?.[k])])),
         figurenkompetenz: figures.length ? figures : null,
         priorities: Array.isArray(o.p) ? o.p.filter((p) => PRIORITY_OPTIONS.some(([k]) => k === p)).slice(0, PRIORITY_MAX) : [],
-        ...Object.fromEntries(Object.keys(TAG_KINDS).map((k) => [k, Array.isArray(o[k]) ? [...new Set(o[k])].filter((t) => TAG_KNOWN[k].has(t)).slice(0, TAG_MAX) : []])),
+        ...Object.fromEntries(Object.keys(TAG_KINDS).map((k) => [k, Array.isArray(o[k]) ? aliasTags(k, o[k]).filter((t) => TAG_KNOWN[k].has(t)).slice(0, TAG_MAX) : []])),
         likes: cleanLikes(o.r),
       },
     };
@@ -815,7 +820,7 @@ export async function renderWahlomat(root, params, groupId = null) {
       TAG_KNOWN[kind] = counts;
       TAG_OPTIONS[kind] = counts;
     };
-    fill('subGenre', (g) => g.genre_setting);
+    fill('subGenre', (g) => aliasTags('subGenre', g.genre_setting));
     fill('subTon', (g) => g.tone_theme);
     fill('fokus', (g) => g.play_focus);
     // In allen drei Matrizen nur Begriffe, die mindestens drei Spiele tragen – Einzelbegriffe helfen bei der Suche nicht.
@@ -1085,7 +1090,10 @@ export async function renderWahlomat(root, params, groupId = null) {
   // Gruppen zu den oben gewünschten Optionen stehen zuerst und offen.
   function tagMatrix(kind) {
     const cfg = TAG_KINDS[kind];
-    const note = (t) => tagDescription(tagNotes, cfg.source, t);
+    const members = (t) => Object.entries(TAG_ALIASES[kind] || {}).filter(([, a]) => a === t).map(([name]) => name);
+    const note = (t) => (members(t).length
+      ? members(t).map((m) => `${m}: ${tagDescription(tagNotes, cfg.source, m)}`).join(' ')
+      : tagDescription(tagNotes, cfg.source, t));
     const wrap = el(`<fieldset class="wahlomat-field wahlomat-tagmatrix">
       <legend>Genauer: ${esc(cfg.label)} <span class="tm-count"></span></legend>
       <small>Optional: bis zu ${TAG_MAX} Begriffe, die dich besonders reizen.</small>
